@@ -217,12 +217,14 @@ onRow fo mygui myview = do
         let fp   = getFullPath dz
             cmsg = "Really delete directory \"" ++ fp ++ "\"?"
         withConfirmationDialog cmsg
-          $ withErrorDialog $ deleteDir fp
+          $ withErrorDialog (deleteDir fp
+                              >> refreshTreeView mygui myview Nothing)
       dz@(File {}, _) -> do
         let fp   = getFullPath dz
             cmsg = "Really delete file \"" ++ fp ++ "\"?"
         withConfirmationDialog cmsg
-          $ withErrorDialog $ deleteFile fp
+          $ withErrorDialog (deleteFile fp
+                              >> refreshTreeView mygui myview Nothing)
 
 
 -- |Go up one directory and visualize it in the treeView.
