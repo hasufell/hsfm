@@ -44,6 +44,7 @@ import qualified System.Directory as SD
 
 
 -- TODO: modify the DTZipper directly after file operations!?
+-- TODO: file operations should be threaded and not block the UI
 
 
 -- |Data type describing an actual file operation that can be
@@ -71,7 +72,6 @@ runFileOp _                  = return ()
 -- and an exception if the source file does not exist.
 --
 -- If the destination file already exists, it will be replaced.
--- TODO: don't permit copying file A to file A
 copyFile :: DTZipper a b  -- ^ source file
          -> FilePath      -- ^ destination file
          -> IO ()
@@ -114,7 +114,6 @@ easyCopyFile from (Right to) = copyFileToDir from to
 -- or the file does not exist.
 --
 -- It also throws exceptions from `removeFile`.
--- TODO: threaded, shouldn't block the GUI
 deleteFile :: DTZipper a b -> IO ()
 deleteFile dtz@(File {}, _) = do
   let fp = getFullPath dtz
@@ -129,7 +128,6 @@ deleteFile dtz = throw $ NotAFile (getFullPath dtz)
 -- or the directory does not exist.
 --
 -- It also throws exceptions from `removeDirectory`.
--- TODO: threaded, shouldn't block the GUI
 deleteDir :: DTZipper a b -> IO ()
 deleteDir dtz@(Dir {}, _) = do
   let fp = getFullPath dtz
