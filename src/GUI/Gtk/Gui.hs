@@ -135,14 +135,15 @@ data FMSettings = MkFMSettings {
 -- because we might want to have multiple views.
 data MyView = MkMyView {
   -- |raw model with unsorted data
-    rawModel :: TVar (ListStore (DTZipper DirTreeInfo DirTreeInfo))
+    rawModel :: TVar (ListStore DTInfoZipper)
   -- |sorted proxy model
-  , sortedModel :: TVar (TypedTreeModelSort
-                          (DTZipper DirTreeInfo DirTreeInfo))
+  , sortedModel :: TVar (TypedTreeModelSort DTInfoZipper)
   -- |filtered proxy model
-  , filteredModel :: TVar (TypedTreeModelFilter
-                            (DTZipper DirTreeInfo DirTreeInfo))
-  , fsState :: TVar (DTZipper DirTreeInfo DirTreeInfo)
+  , filteredModel :: TVar (TypedTreeModelFilter DTInfoZipper)
+  , fsState :: TVar DTInfoZipper
+  , operationBuffer :: TVar (Either
+                         (DTInfoZipper -> FileOperation DirTreeInfo DirTreeInfo)
+                         (FileOperation DirTreeInfo DirTreeInfo))
 }
 
 
@@ -169,6 +170,14 @@ setCallbacks mygui myview = do
   _ <- treeView mygui `on` rowActivated $ (\_ _ -> withRow mygui myview open)
   _ <- menubarFileQuit mygui `on` menuItemActivated $ mainQuit
   _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
+  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
+    [Control] <- eventModifier
+    "c"       <- fmap glibToString eventKeyName
+    liftIO $ withRow mygui myview copyInit
+  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
+    [Control] <- eventModifier
+    "v"       <- fmap glibToString eventKeyName
+    liftIO $ copyFinal mygui myview
   return ()
 
 
@@ -188,7 +197,7 @@ urlGoTo mygui myview = do
 -- |Gets the currently selected row of the treeView, if any.
 getSelectedRow :: MyGUI
                -> MyView
-               -> IO (Maybe (DTZipper DirTreeInfo DirTreeInfo))
+               -> IO (Maybe DTInfoZipper)
 getSelectedRow mygui myview = do
   (tp, _)        <- treeViewGetCursor $ treeView mygui
   rawModel'      <- readTVarIO $ rawModel myview
@@ -206,7 +215,7 @@ getSelectedRow mygui myview = do
 -- If there is no row selected, does nothing.
 withRow :: MyGUI
         -> MyView
-        -> (   DTZipper DirTreeInfo DirTreeInfo
+        -> (   DTInfoZipper
             -> MyGUI
             -> MyView
             -> IO ()) -- ^ action to carry out
@@ -217,30 +226,63 @@ withRow mygui myview io = do
 
 
 -- |Supposed to be used with `withRow`. Opens a file or directory.
-open :: DTZipper DirTreeInfo DirTreeInfo -> MyGUI -> MyView -> IO ()
+open :: DTInfoZipper -> MyGUI -> MyView -> IO ()
 open row mygui myview = case row of
   (Dir {}, _) ->
     refreshTreeView' mygui myview row
   dz@(File {}, _) ->
-    withErrorDialog $ openFile (getFullPath dz)
+    withErrorDialog $ openFile dz
   _ -> return ()
 
 
 -- |Supposed to be used with `withRow`. Deletes a file or directory.
-del :: DTZipper DirTreeInfo DirTreeInfo -> MyGUI -> MyView -> IO ()
+del :: DTInfoZipper -> MyGUI -> MyView -> IO ()
 del row mygui myview = case row of
   dz@(Dir {}, _)   -> do
     let fp   = getFullPath dz
         cmsg = "Really delete directory \"" ++ fp ++ "\"?"
     withConfirmationDialog cmsg
-      $ withErrorDialog (deleteDir fp
+      $ withErrorDialog (deleteDir dz
                           >> refreshTreeView mygui myview Nothing)
   dz@(File {}, _) -> do
     let fp   = getFullPath dz
         cmsg = "Really delete file \"" ++ fp ++ "\"?"
     withConfirmationDialog cmsg
-      $ withErrorDialog (deleteFile fp
+      $ withErrorDialog (deleteFile dz
                           >> refreshTreeView mygui myview Nothing)
+
+
+-- |Supposed to be used with `withRow`. Initializes a file copy operation.
+copyInit :: DTInfoZipper -> MyGUI -> MyView -> IO ()
+copyInit row mygui myview = case row of
+  dz@(File {}, _) -> do
+    print "blah1"
+    writeTVarIO (operationBuffer myview) (Left $ FCopy dz)
+    return ()
+  _ -> return ()
+
+
+-- |Finalizes a file copy operation.
+copyFinal :: MyGUI -> MyView -> IO ()
+copyFinal mygui myview = do
+  mOp <- readTVarIO (operationBuffer myview)
+  op <- case mOp of
+    Left pOp -> do
+      curDir <- readTVarIO (fsState myview)
+      case pOp curDir of
+        op@(FCopy _ _) -> return op
+        _              -> return None
+    Right op@(FCopy _ _) -> return op
+    _ -> return None
+  doCopy op
+  where
+    doCopy op@(FCopy from to) = do
+      let cmsg = "Really copy file \"" ++ getFullPath from
+                 ++ "\"" ++ " to \"" ++ getFullPath to ++ "\"?"
+      withConfirmationDialog cmsg
+        $ withErrorDialog
+          (runFileOp op >> refreshTreeView mygui myview Nothing)
+    doCopy _ = return ()
 
 
 -- |Go up one directory and visualize it in the treeView.
@@ -257,9 +299,9 @@ upDir mygui myview = do
 -- into the GTK+ data structures.
 --
 -- This also updates the TVar `fsState` inside the given view.
-fileListStore :: DTZipper DirTreeInfo DirTreeInfo  -- ^ current dir
+fileListStore :: DTInfoZipper  -- ^ current dir
               -> MyView
-              -> IO (ListStore (DTZipper DirTreeInfo DirTreeInfo))
+              -> IO (ListStore DTInfoZipper)
 fileListStore dtz myview = do
   writeTVarIO (fsState myview) dtz
   listStoreNew (goAllDown dtz)
@@ -297,7 +339,7 @@ refreshTreeView mygui myview mfp = do
 -- This also updates the TVar `rawModel`.
 refreshTreeView' :: MyGUI
                  -> MyView
-                 -> DTZipper DirTreeInfo DirTreeInfo
+                 -> DTInfoZipper
                  -> IO ()
 refreshTreeView' mygui myview dtz = do
   newRawModel  <- fileListStore dtz myview
@@ -432,6 +474,8 @@ startMainWindow = do
   errorPix  <- getIcon IError 24
 
   fsState <- readPath' "/" >>= newTVarIO
+
+  operationBuffer <- newTVarIO (Right None)
 
   builder <- builderNew
   builderAddFromFile builder "data/Gtk/builder.xml"

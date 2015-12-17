@@ -39,6 +39,8 @@ import qualified Data.List as DL
 -- are the breadcrumbs.
 type DTZipper a b = (DirTree a b, [DirTree a b])
 
+type DTInfoZipper = DTZipper DirTreeInfo DirTreeInfo
+
 
 -- |The base zipper of a tree with empty crumbs element.
 baseZipper :: DirTree a b -> DTZipper a b
