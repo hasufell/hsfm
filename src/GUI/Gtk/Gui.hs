@@ -48,6 +48,7 @@ import Data.Maybe
   (
     fromJust
   , catMaybes
+  , fromMaybe
   )
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Abstract.Box
@@ -156,7 +157,7 @@ setBindings mygui myview = do
     "h"       <- fmap glibToString eventKeyName
     liftIO $ modifyTVarIO (settings mygui)
                           (\x -> x { showHidden = not . showHidden $ x})
-             >> updateTreeView mygui myview
+             >> (refreshTreeView' mygui myview =<< readTVarIO (fsState myview))
   _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
     [Alt] <- eventModifier
     "Up"  <- fmap glibToString eventKeyName
@@ -180,11 +181,7 @@ urlGoTo mygui myview = do
   let abs = isAbsolute fp
   exists <- (||) <$> doesDirectoryExist fp <*> doesFileExist fp
   -- TODO: more explicit error handling?
-  when (abs && exists) $ do
-    newFsState  <- readPath' fp
-    newRawModel <- fileListStore newFsState myview
-    writeTVarIO (rawModel myview) newRawModel
-    updateTreeView mygui myview
+  refreshTreeView mygui myview (Just fp)
 
 
 -- |Callback for file operations on a row, e.g. open, delete, etc.
@@ -210,11 +207,8 @@ onRow fo mygui myview = do
       _      -> return ()
   where
     open row = case row of
-      (Dir {}, _) -> do
-        newRawModel <- fileListStore row myview
-        rm <- readTVarIO (rawModel myview)
-        writeTVarIO (rawModel myview) newRawModel
-        updateTreeView mygui myview
+      (Dir {}, _) ->
+        refreshTreeView' mygui myview row
       dz@(File {}, _) ->
         withErrorDialog $ openFile (getFullPath dz)
       _ -> return ()
@@ -232,16 +226,12 @@ onRow fo mygui myview = do
 
 
 -- |Go up one directory and visualize it in the treeView.
---
--- This will update the TVar `rawModel`.
 upDir :: MyGUI -> MyView -> IO ()
 upDir mygui myview = do
   rawModel'    <- readTVarIO $ rawModel myview
   sortedModel' <- readTVarIO $ sortedModel myview
   fS           <- readTVarIO $ fsState myview
-  newRawModel  <- fileListStore (goUp fS) myview
-  writeTVarIO (rawModel myview) newRawModel
-  updateTreeView mygui myview
+  refreshTreeView' mygui myview (goUp fS)
 
 
 -- |Create the `ListStore` of files/directories from the current directory.
@@ -257,16 +247,56 @@ fileListStore dtz myview = do
   listStoreNew (goAllDown dtz)
 
 
+-- |Re-reads the current directory or the given one and updates the TreeView.
+-- This means that the DTZipper is re-initialized.
+-- If you can operate on the raw DTZipper directly, use `refreshTreeView'`
+-- instead.
+--
+-- This also updates the TVar `rawModel`.
+--
+-- This throws exceptions via `dirSanityThrow` if the given/current
+-- directory path does not exist.
+refreshTreeView :: MyGUI
+                -> MyView
+                -> Maybe FilePath
+                -> IO ()
+refreshTreeView mygui myview mfp = do
+  fsState <- readTVarIO $ fsState myview
+  let cfp = getFullPath fsState
+      fp  = fromMaybe cfp mfp
+
+  -- TODO catch exceptions
+  dirSanityThrow fp
+
+  newFsState  <- readPath' fp
+  newRawModel <- fileListStore newFsState myview
+  writeTVarIO (rawModel myview) newRawModel
+  constructTreeView mygui myview
+
+
+-- |Refreshes the TreeView based on the given Zipper.
+--
+-- This also updates the TVar `rawModel`.
+refreshTreeView' :: MyGUI
+                 -> MyView
+                 -> DTZipper DirTreeInfo DirTreeInfo
+                 -> IO ()
+refreshTreeView' mygui myview dtz = do
+  newRawModel  <- fileListStore dtz myview
+  writeTVarIO (rawModel myview) newRawModel
+  constructTreeView mygui myview
+
+
 -- TODO: make this function more slim so only the most necessary parts are
 -- called
--- |Updates the visible TreeView with the current underlying mutable models,
+-- |Constructs the visible TreeView with the current underlying mutable models,
 -- which are retrieved from `MyGUI`.
 --
 -- This also updates the TVars `filteredModel` and `sortedModel` in the process.
-updateTreeView :: MyGUI
-               -> MyView
-               -> IO ()
-updateTreeView mygui myview = do
+constructTreeView :: MyGUI
+                  -> MyView
+                  -> IO ()
+constructTreeView mygui myview = do
   let treeView' = treeView mygui
       cF' = cF mygui
       cMD' = cMD mygui
@@ -468,7 +498,7 @@ startMainWindow = do
   let myview = MkMyView {..}
 
   -- create the tree model with its contents
-  updateTreeView mygui myview
+  constructTreeView mygui myview
 
   -- set the bindings
   setBindings mygui myview
