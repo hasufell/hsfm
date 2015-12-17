@@ -152,17 +152,17 @@ setBindings mygui myview = do
     [Control] <- eventModifier
     "q"       <- fmap glibToString eventKeyName
     liftIO mainQuit
-  _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
+  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
     "h"       <- fmap glibToString eventKeyName
     liftIO $ modifyTVarIO (settings mygui)
                           (\x -> x { showHidden = not . showHidden $ x})
              >> (refreshTreeView' mygui myview =<< readTVarIO (fsState myview))
-  _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
+  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Alt] <- eventModifier
     "Up"  <- fmap glibToString eventKeyName
     liftIO $ upDir mygui myview
-  _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
+  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     "Delete"  <- fmap glibToString eventKeyName
     liftIO $ onRow Delete mygui myview
   _ <- treeView mygui `on` rowActivated $ (\_ _ -> onRow Open mygui myview)
