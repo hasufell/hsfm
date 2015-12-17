@@ -105,6 +105,7 @@ data MyGUI = MkMyGUI {
   , menubarFileDelete :: ImageMenuItem
   , menubarHelpAbout :: ImageMenuItem
   , urlBar :: Entry
+  , statusBar :: Statusbar
   -- |tree view
   , treeView :: TreeView
   -- |first column
@@ -297,6 +298,14 @@ updateTreeView mygui myview = do
     dirtreePix (Failed {}) = errorPix mygui
 
 
+pushStatusBar :: MyGUI -> String -> IO (ContextId, MessageId)
+pushStatusBar mygui str = do
+  let sb = statusBar mygui
+  cid <- statusbarGetContextId sb "FM Status"
+  mid <- statusbarPush sb cid str
+  return (cid, mid)
+
+
 -- |Pops up an error Dialog with the given String.
 showErrorDialog :: String -> IO ()
 showErrorDialog str = do
@@ -355,7 +364,10 @@ startMainWindow = do
                       "menubarFileDelete"
   menubarHelpAbout  <- builderGetObject builder castToImageMenuItem
                       "menubarHelpAbout"
-  urlBar <- builderGetObject builder castToEntry "urlBar"
+  urlBar            <- builderGetObject builder castToEntry
+                       "urlBar"
+  statusBar         <- builderGetObject builder castToStatusbar
+                       "statusBar"
 
   -- create initial list store model with unsorted data
   rawModel <- newTVarIO =<< listStoreNew . goAllDown =<< readTVarIO fsState
