@@ -161,7 +161,10 @@ setBindings mygui myview = do
     [Alt] <- eventModifier
     "Up"  <- fmap glibToString eventKeyName
     liftIO $ upDir mygui myview
-  _ <- treeView mygui `on` rowActivated $ openRow mygui myview
+  _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
+    "Delete"  <- fmap glibToString eventKeyName
+    liftIO $ onRow Delete mygui myview
+  _ <- treeView mygui `on` rowActivated $ (\_ _ -> onRow Open mygui myview)
   _ <- menubarFileQuit mygui `on` menuItemActivated $ mainQuit
   _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
   return ()
@@ -184,12 +187,15 @@ urlGoTo mygui myview = do
     updateTreeView mygui myview
 
 
--- |Enter a subdirectory and visualize it in the treeView or
--- open a file.
+-- |Callback for file operations on a row, e.g. open, delete, etc.
 --
 -- This might update the TVar `rawModel`.
-openRow :: MyGUI -> MyView -> TreePath -> TreeViewColumn -> IO ()
-openRow mygui myview tp tvc = do
+onRow :: FileOperation
+      -> MyGUI
+      -> MyView
+      -> IO ()
+onRow fo mygui myview = do
+  (tp, _)        <- treeViewGetCursor $ treeView mygui
   rawModel'      <- readTVarIO $ rawModel myview
   sortedModel'   <- readTVarIO $ sortedModel myview
   filteredModel' <- readTVarIO $ filteredModel myview
@@ -198,15 +204,31 @@ openRow mygui myview tp tvc = do
     cIter' <- treeModelSortConvertIterToChildIter sortedModel' iter
     cIter  <- treeModelFilterConvertIterToChildIter filteredModel' cIter'
     row    <- treeModelGetRow rawModel' cIter
-    case row of
-      (Dir _ _ _, _) -> do
+    case fo of
+      Open   -> open row
+      Delete -> del row
+      _      -> return ()
+  where
+    open row = case row of
+      (Dir {}, _) -> do
         newRawModel <- fileListStore row myview
         rm <- readTVarIO (rawModel myview)
         writeTVarIO (rawModel myview) newRawModel
         updateTreeView mygui myview
-      dz@(File _ _, _) ->
+      dz@(File {}, _) ->
         withErrorDialog $ openFile (getFullPath dz)
       _ -> return ()
+    del row = case row of
+      dz@(Dir {}, _)   -> do
+        let fp   = getFullPath dz
+            cmsg = "Really delete directory \"" ++ fp ++ "\"?"
+        withConfirmationDialog cmsg
+          $ withErrorDialog $ deleteDir fp
+      dz@(File {}, _) -> do
+        let fp   = getFullPath dz
+            cmsg = "Really delete file \"" ++ fp ++ "\"?"
+        withConfirmationDialog cmsg
+          $ withErrorDialog $ deleteFile fp
 
 
 -- |Go up one directory and visualize it in the treeView.
@@ -318,6 +340,27 @@ showErrorDialog str = do
   widgetDestroy errorDialog
 
 
+showConfirmationDialog :: String -> IO Bool
+showConfirmationDialog str = do
+  errorDialog <- messageDialogNew Nothing
+                                  [DialogDestroyWithParent]
+                                  MessageQuestion
+                                  ButtonsYesNo
+                                  str
+  rID <- dialogRun errorDialog
+  widgetDestroy errorDialog
+  case rID of
+    ResponseYes -> return True
+    ResponseNo  -> return False
+    _           -> return False
+
+
+withConfirmationDialog :: String -> IO () -> IO ()
+withConfirmationDialog str io = do
+  run <- showConfirmationDialog str
+  when run io
+
+
 -- |Execute the given IO action. If the action throws exceptions,
 -- visualize them via `showErrorDialog`.
 withErrorDialog :: IO a -> IO ()
@@ -340,7 +383,7 @@ startMainWindow = do
   filePix   <- getIcon IFile 24
   errorPix  <- getIcon IError 24
 
-  fsState <- readPath "/" >>= (newTVarIO . baseZipper . dirTree)
+  fsState <- readPath' "/" >>= newTVarIO
 
   builder <- builderNew
   builderAddFromFile builder "data/Gtk/builder.xml"
