@@ -51,9 +51,6 @@ import Data.Maybe
   , fromMaybe
   )
 import Graphics.UI.Gtk
-import Graphics.UI.Gtk.Abstract.Box
-import Graphics.UI.Gtk.Builder
-import Graphics.UI.Gtk.ModelView
 import GUI.Gtk.Icons
 import IO.Error
 import IO.File
