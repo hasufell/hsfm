@@ -146,9 +146,9 @@ data MyView = MkMyView {
 }
 
 
--- |Set hotkeys.
-setBindings :: MyGUI -> MyView -> IO ()
-setBindings mygui myview = do
+-- |Set callbacks, on hotkeys, events and stuff.
+setCallbacks :: MyGUI -> MyView -> IO ()
+setCallbacks mygui myview = do
   _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
     "q"       <- fmap glibToString eventKeyName
@@ -513,7 +513,7 @@ startMainWindow = do
   constructTreeView mygui myview
 
   -- set the bindings
-  setBindings mygui myview
+  setCallbacks mygui myview
 
   -- add the treeview to the scroll container
   containerAdd scroll treeView
