@@ -165,8 +165,8 @@ setCallbacks mygui myview = do
     liftIO $ upDir mygui myview
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     "Delete"  <- fmap glibToString eventKeyName
-    liftIO $ onRow Delete mygui myview
-  _ <- treeView mygui `on` rowActivated $ (\_ _ -> onRow Open mygui myview)
+    liftIO $ withRow mygui myview del
+  _ <- treeView mygui `on` rowActivated $ (\_ _ -> withRow mygui myview open)
   _ <- menubarFileQuit mygui `on` menuItemActivated $ mainQuit
   _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
   return ()
@@ -201,40 +201,46 @@ getSelectedRow mygui myview = do
     treeModelGetRow rawModel' cIter
 
 
--- |Callback for file operations on a row, e.g. open, delete, etc.
+-- |Carry out an action on the currently selected row.
 --
--- This might update the TVar `rawModel`.
-onRow :: FileOperation
-      -> MyGUI
-      -> MyView
-      -> IO ()
-onRow fo mygui myview = do
+-- If there is no row selected, does nothing.
+withRow :: MyGUI
+        -> MyView
+        -> (   DTZipper DirTreeInfo DirTreeInfo
+            -> MyGUI
+            -> MyView
+            -> IO ()) -- ^ action to carry out
+        -> IO ()
+withRow mygui myview io = do
   mrow <- getSelectedRow mygui myview
-  for_ mrow $ \row ->
-    case fo of
-      Open   -> open row
-      Delete -> del row
-      _      -> return ()
-  where
-    open row = case row of
-      (Dir {}, _) ->
-        refreshTreeView' mygui myview row
-      dz@(File {}, _) ->
-        withErrorDialog $ openFile (getFullPath dz)
-      _ -> return ()
-    del row = case row of
-      dz@(Dir {}, _)   -> do
-        let fp   = getFullPath dz
-            cmsg = "Really delete directory \"" ++ fp ++ "\"?"
-        withConfirmationDialog cmsg
-          $ withErrorDialog (deleteDir fp
-                              >> refreshTreeView mygui myview Nothing)
-      dz@(File {}, _) -> do
-        let fp   = getFullPath dz
-            cmsg = "Really delete file \"" ++ fp ++ "\"?"
-        withConfirmationDialog cmsg
-          $ withErrorDialog (deleteFile fp
-                              >> refreshTreeView mygui myview Nothing)
+  for_ mrow $ \row -> io row mygui myview
+
+
+-- |Supposed to be used with `withRow`. Opens a file or directory.
+open :: DTZipper DirTreeInfo DirTreeInfo -> MyGUI -> MyView -> IO ()
+open row mygui myview = case row of
+  (Dir {}, _) ->
+    refreshTreeView' mygui myview row
+  dz@(File {}, _) ->
+    withErrorDialog $ openFile (getFullPath dz)
+  _ -> return ()
+
+
+-- |Supposed to be used with `withRow`. Deletes a file or directory.
+del :: DTZipper DirTreeInfo DirTreeInfo -> MyGUI -> MyView -> IO ()
+del row mygui myview = case row of
+  dz@(Dir {}, _)   -> do
+    let fp   = getFullPath dz
+        cmsg = "Really delete directory \"" ++ fp ++ "\"?"
+    withConfirmationDialog cmsg
+      $ withErrorDialog (deleteDir fp
+                          >> refreshTreeView mygui myview Nothing)
+  dz@(File {}, _) -> do
+    let fp   = getFullPath dz
+        cmsg = "Really delete file \"" ++ fp ++ "\"?"
+    withConfirmationDialog cmsg
+      $ withErrorDialog (deleteFile fp
+                          >> refreshTreeView mygui myview Nothing)
 
 
 -- |Go up one directory and visualize it in the treeView.
