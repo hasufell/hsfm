@@ -50,6 +50,10 @@ import Data.Maybe
   , catMaybes
   , fromMaybe
   )
+import Data.Traversable
+  (
+    forM
+  )
 import Graphics.UI.Gtk
 import GUI.Gtk.Icons
 import IO.Error
@@ -181,6 +185,22 @@ urlGoTo mygui myview = do
   refreshTreeView mygui myview (Just fp)
 
 
+-- |Gets the currently selected row of the treeView, if any.
+getSelectedRow :: MyGUI
+               -> MyView
+               -> IO (Maybe (DTZipper DirTreeInfo DirTreeInfo))
+getSelectedRow mygui myview = do
+  (tp, _)        <- treeViewGetCursor $ treeView mygui
+  rawModel'      <- readTVarIO $ rawModel myview
+  sortedModel'   <- readTVarIO $ sortedModel myview
+  filteredModel' <- readTVarIO $ filteredModel myview
+  miter          <- treeModelGetIter sortedModel' tp
+  forM miter $ \iter -> do
+    cIter' <- treeModelSortConvertIterToChildIter sortedModel' iter
+    cIter  <- treeModelFilterConvertIterToChildIter filteredModel' cIter'
+    treeModelGetRow rawModel' cIter
+
+
 -- |Callback for file operations on a row, e.g. open, delete, etc.
 --
 -- This might update the TVar `rawModel`.
@@ -189,15 +209,8 @@ onRow :: FileOperation
       -> MyView
       -> IO ()
 onRow fo mygui myview = do
-  (tp, _)        <- treeViewGetCursor $ treeView mygui
-  rawModel'      <- readTVarIO $ rawModel myview
-  sortedModel'   <- readTVarIO $ sortedModel myview
-  filteredModel' <- readTVarIO $ filteredModel myview
-  miter          <- treeModelGetIter sortedModel' tp
-  for_ miter $ \iter -> do
-    cIter' <- treeModelSortConvertIterToChildIter sortedModel' iter
-    cIter  <- treeModelFilterConvertIterToChildIter filteredModel' cIter'
-    row    <- treeModelGetRow rawModel' cIter
+  mrow <- getSelectedRow mygui myview
+  for_ mrow $ \row ->
     case fo of
       Open   -> open row
       Delete -> del row
