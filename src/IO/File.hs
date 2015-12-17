@@ -22,7 +22,7 @@ import System.Directory
   , removeDirectory
   , removeFile
   )
-import System.FilePath.Posix
+import System.FilePath
   (
     isAbsolute
   )

@@ -69,7 +69,7 @@ import System.Environment
   (
     getArgs
   )
-import System.FilePath.Posix
+import System.FilePath
   (
     isAbsolute
   )
