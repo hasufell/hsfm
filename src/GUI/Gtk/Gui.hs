@@ -458,8 +458,8 @@ withErrorDialog io = do
 
 
 -- |Set up the GUI.
-startMainWindow :: IO ()
-startMainWindow = do
+startMainWindow :: FilePath -> IO ()
+startMainWindow startdir = do
 
   settings <- newTVarIO (MkFMSettings False True)
 
@@ -469,7 +469,7 @@ startMainWindow = do
   filePix   <- getIcon IFile 24
   errorPix  <- getIcon IError 24
 
-  fsState <- readPath' "/" >>= newTVarIO
+  fsState <- readPath' startdir >>= newTVarIO
 
   operationBuffer <- newTVarIO (Right None)
 
