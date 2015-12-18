@@ -16,6 +16,7 @@ import Control.Concurrent.STM.TVar
 import Control.Monad
   (
     when
+  , unless
   )
 
 
@@ -29,3 +30,7 @@ modifyTVarIO tvar f = atomically $ modifyTVar tvar f
 
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM mb a = mb >>= (`when` a)
+
+
+unlessM :: Monad m => m Bool -> m () -> m ()
+unlessM mb a = mb >>= (`unless` a)

@@ -16,6 +16,7 @@ import Data.List
     isPrefixOf
   )
 import Data.Typeable
+import IO.Utils
 import System.Directory
   (
     doesDirectoryExist
@@ -46,17 +47,13 @@ instance Exception FmIOException
 -- Throws an exception if the filepath is not absolute
 -- or the file does not exist.
 fileSanityThrow :: FilePath -> IO ()
-fileSanityThrow fp = do
-  throwNotAbsolute fp
-  throwFileDoesNotExist fp
+fileSanityThrow fp = throwNotAbsolute fp >> throwFileDoesNotExist fp
 
 
 -- Throws an exception if the filepath is not absolute
 -- or the dir does not exist.
 dirSanityThrow :: FilePath -> IO ()
-dirSanityThrow fp = do
-  throwNotAbsolute fp
-  throwDirDoesNotExist fp
+dirSanityThrow fp = throwNotAbsolute fp >> throwDirDoesNotExist fp
 
 
 throwNotAbsolute :: FilePath -> IO ()
@@ -64,21 +61,18 @@ throwNotAbsolute fp = unless (isAbsolute fp) (throw $ PathNotAbsolute fp)
 
 
 throwDirDoesExist :: FilePath -> IO ()
-throwDirDoesExist fp = do
-  exists <- doesDirectoryExist fp
-  when exists (throw $ DirDoesExist fp)
+throwDirDoesExist fp =
+  whenM (doesDirectoryExist fp) (throw $ DirDoesExist fp)
 
 
 throwDirDoesNotExist :: FilePath -> IO ()
-throwDirDoesNotExist fp = do
-  exists <- doesDirectoryExist fp
-  unless exists (throw $ FileDoesNotExist fp)
+throwDirDoesNotExist fp =
+  unlessM (doesDirectoryExist fp) (throw $ FileDoesNotExist fp)
 
 
 throwFileDoesNotExist :: FilePath -> IO ()
-throwFileDoesNotExist fp = do
-  exists <- doesFileExist fp
-  unless exists (throw $ FileDoesNotExist fp)
+throwFileDoesNotExist fp =
+  unlessM (doesFileExist fp) (throw $ FileDoesNotExist fp)
 
 
 throwSameFile :: FilePath -- ^ should be canonicalized

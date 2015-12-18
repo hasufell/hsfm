@@ -11,7 +11,6 @@ import Control.Monad
   (
     unless
   , void
-  , when
   )
 import Data.DirTree
 import Data.DirTree.Zipper
