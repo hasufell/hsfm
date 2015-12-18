@@ -13,6 +13,10 @@ import Control.Concurrent.STM.TVar
   , modifyTVar
   , TVar
   )
+import Control.Monad
+  (
+    when
+  )
 
 
 writeTVarIO :: TVar a -> a -> IO ()
@@ -21,3 +25,7 @@ writeTVarIO tvar val = atomically $ writeTVar tvar val
 
 modifyTVarIO :: TVar a -> (a -> a) -> IO ()
 modifyTVarIO tvar f = atomically $ modifyTVar tvar f
+
+
+whenM :: Monad m => m Bool -> m () -> m ()
+whenM mb a = mb >>= (`when` a)

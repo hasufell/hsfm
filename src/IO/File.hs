@@ -20,14 +20,17 @@ import Data.Foldable
     for_
   )
 import IO.Error
+import IO.Utils
 import System.Directory
   (
     canonicalizePath
+  , createDirectory
   , createDirectoryIfMissing
   , doesDirectoryExist
   , doesFileExist
   , executable
   , removeDirectory
+  , removeDirectoryRecursive
   , removeFile
   )
 import System.FilePath
@@ -67,23 +70,30 @@ data FileOperation = FCopy DTInfoZipper DTInfoZipper
                    | None
 
 
+data DirCopyMode = Strict
+                 | Merge
+                 | Replace
 
 
 runFileOp :: FileOperation -> IO ()
 runFileOp (FCopy from@(File {}, _) to) = copyFileToDir from to
-runFileOp (FCopy from@(Dir {}, _) to) = copyDir from to
+runFileOp (FCopy from@(Dir {}, _) to) = copyDir Merge from to
 runFileOp (FDelete fp)       = easyDelete fp
 runFileOp (FOpen fp)         = void $ openFile fp
 runFileOp (FExecute fp args) = void $ executeFile fp args
 runFileOp _                  = return ()
 
 
--- TODO: copy modes
+
 -- TODO: allow renaming
-copyDir :: DTInfoZipper  -- ^ source dir
+-- |Copies a directory to the given destination. If the target directory
+-- already exists, performs a semi-defined merge, overwriting already
+-- existing files.
+copyDir :: DirCopyMode
+        -> DTInfoZipper  -- ^ source dir
         -> DTInfoZipper  -- ^ destination dir
         -> IO ()
-copyDir from@(Dir fn _ _, _) to@(Dir {}, _) = do
+copyDir cm from@(Dir fn _ _, _) to@(Dir {}, _) = do
   let fromp = getFullPath from
       top   = getFullPath to
       destdir = getFullPath to </> fn
@@ -92,7 +102,17 @@ copyDir from@(Dir fn _ _, _) to@(Dir {}, _) = do
   dirSanityThrow top
   throwDestinationInSource fromp top
 
-  createDirectoryIfMissing False destdir
+  -- what to do with target directory
+  case cm of
+    Merge   ->
+      createDirectoryIfMissing False destdir
+    Strict  -> do
+      throwDirDoesExist destdir
+      createDirectory destdir
+    Replace -> do
+      whenM (doesDirectoryExist destdir) (removeDirectoryRecursive destdir)
+      createDirectory destdir
+
   newDest <- zipLazy mkDirInfo mkFileInfo destdir
 
   for_ (goAllDown from) $ \f ->
@@ -101,17 +121,23 @@ copyDir from@(Dir fn _ _, _) to@(Dir {}, _) = do
       -- recreate symlink
       sz@(Dir { name = n, dir = (DirInfo { sym = True }) }, _)  -> do
         let sympoint = getFullPath newDest </> n
+
         -- delete old file/dir to be able to create symlink
-        for_ (goDown n newDest) $ \odtz ->
-          easyDelete odtz
+        case cm of
+          Merge ->
+            for_ (goDown n newDest) $ \odtz ->
+              easyDelete odtz
+          _     -> return ()
+
         symname <- readSymbolicLink (getFullPath sz)
         createSymbolicLink symname sympoint
       sz@(Dir {}, _)  ->
-        copyDir sz newDest
+        copyDir cm sz newDest
       sz@(File {}, _) ->
         copyFileToDir sz newDest
-copyDir from@(File _ _, _) _ = throw $ NotADir (getFullPath from)
-copyDir _ to@(File _ _, _)   = throw $ NotADir (getFullPath to)
+
+copyDir _ from@(File _ _, _) _ = throw $ NotADir (getFullPath from)
+copyDir _ _ to@(File _ _, _)   = throw $ NotADir (getFullPath to)
 
 
 -- |Copies the given file.
@@ -187,6 +213,20 @@ deleteDir dtz@(Dir {}, _) = do
   dirSanityThrow fp
   removeDirectory fp
 deleteDir dtz = throw $ NotADir (getFullPath dtz)
+
+
+-- |Deletes the given directory recursively. Does not work on symlinks.
+--
+-- This will throw an exception if the filepath is not absolute
+-- or the directory does not exist.
+--
+-- It also throws exceptions from `removeDirectoryRecursive`.
+deleteDirRecursive :: DTInfoZipper -> IO ()
+deleteDirRecursive dtz@(Dir {}, _) = do
+  let fp = getFullPath dtz
+  dirSanityThrow fp
+  removeDirectoryRecursive fp
+deleteDirRecursive dtz = throw $ NotADir (getFullPath dtz)
 
 
 -- |Deletes a file or directory, whatever it may be.
