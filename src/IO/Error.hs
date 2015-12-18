@@ -36,6 +36,7 @@ data FmIOException = FileDoesNotExist String
                    | NotAFile String
                    | NotADir String
                    | DestinationInSource String String
+                   | DirDoesExist String
   deriving (Show, Typeable)
 
 
@@ -65,7 +66,7 @@ throwNotAbsolute fp = unless (isAbsolute fp) (throw $ PathNotAbsolute fp)
 throwDirDoesExist :: FilePath -> IO ()
 throwDirDoesExist fp = do
   exists <- doesDirectoryExist fp
-  when exists (throw $ FileDoesNotExist fp)
+  when exists (throw $ DirDoesExist fp)
 
 
 throwDirDoesNotExist :: FilePath -> IO ()
