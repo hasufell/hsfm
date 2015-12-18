@@ -236,12 +236,16 @@ open row mygui myview = case row of
 -- |Supposed to be used with `withRow`. Deletes a file or directory.
 del :: DTInfoZipper -> MyGUI -> MyView -> IO ()
 del row mygui myview = case row of
-  dz@(Dir {}, _)   -> do
-    let fp   = getFullPath dz
-        cmsg = "Really delete directory \"" ++ fp ++ "\"?"
-    withConfirmationDialog cmsg
-      $ withErrorDialog (deleteDir dz
-                          >> refreshTreeView mygui myview Nothing)
+  dz@(Dir _ cs _, _)   -> do
+    let fp    = getFullPath dz
+        cmsg  = "Really delete directory \"" ++ fp ++ "\"?"
+        cmsg2 = "Directory \"" ++ fp ++ "\" is not empty! Delete all contents?"
+    withConfirmationDialog cmsg $
+      if null cs
+        then withErrorDialog (deleteDir dz
+                              >> refreshTreeView mygui myview Nothing)
+        else withConfirmationDialog cmsg2 $ withErrorDialog
+               (deleteDirRecursive dz >> refreshTreeView mygui myview Nothing)
   dz@(File {}, _) -> do
     let fp   = getFullPath dz
         cmsg = "Really delete file \"" ++ fp ++ "\"?"
