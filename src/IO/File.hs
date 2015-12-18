@@ -69,6 +69,12 @@ data FileOperation = FCopy DTInfoZipper DTInfoZipper
                    | None
 
 
+-- |Directory copy modes.
+-- Strict means we fail if the target directory already exists.
+-- Merge means we keep the old directories/files, but overwrite old files
+-- on collision.
+-- Replace means the target directory will be removed recursively before
+-- performing the copy operation.
 data DirCopyMode = Strict
                  | Merge
                  | Replace
@@ -85,9 +91,7 @@ runFileOp _                  = return ()
 
 
 -- TODO: allow renaming
--- |Copies a directory to the given destination. If the target directory
--- already exists, performs a semi-defined merge, overwriting already
--- existing files.
+-- |Copies a directory to the given destination.
 copyDir :: DirCopyMode
         -> DTInfoZipper  -- ^ source dir
         -> DTInfoZipper  -- ^ destination dir
