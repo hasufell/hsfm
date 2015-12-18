@@ -53,8 +53,6 @@ baseZipper dt = (dt, [])
 -- Note that this function can be slow, so it's not supposed to be called
 -- over a list of zippers. Use `goAllDown` instead.
 goDown :: FileName -> DTZipper a b -> Maybe (DTZipper a b)
-goDown ['.'] dtz      = Just dtz
-goDown ['.', '.'] dtz = Just $ goUp dtz
 goDown fn (dtp@(Dir n cs d), xs) =
   case mcdt of
     Just cdt -> Just (cdt, Dir n (crumb' fn cs) d : xs)
@@ -99,18 +97,6 @@ goRoot dz         = goRoot (goUp dz)
 getFullPath :: DTZipper a b -> FilePath
 getFullPath dz@(dt, _:_) = getFullPath (goUp dz) </> name dt
 getFullPath    (dt, [])  = name dt
-
-
--- |The zipper that describes the ".." file inside a directory. The name
--- is set to ".." too.
-upDirZipper :: DTZipper a b -> DTZipper a b
-upDirZipper dz = zipMap (\x -> x { name = "..", contents = [] }) $ goUp dz
-
-
--- |The zipper that describes the "." file inside a directory. The name
--- is set to "." too.
-curDirZipper :: DTZipper a b -> DTZipper a b
-curDirZipper dz = zipMap (\x -> x { name = ".", contents = [] }) dz
 
 
 -- |Retrieve the (current) directory component from the zipper.
