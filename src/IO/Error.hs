@@ -11,6 +11,10 @@ import Control.Monad
   , void
   , when
   )
+import Data.List
+  (
+    isPrefixOf
+  )
 import Data.Typeable
 import System.Directory
   (
@@ -31,6 +35,7 @@ data FmIOException = FileDoesNotExist String
                    | SameFile String String
                    | NotAFile String
                    | NotADir String
+                   | DestinationInSource String String
   deriving (Show, Typeable)
 
 
@@ -79,3 +84,10 @@ throwSameFile :: FilePath -- ^ should be canonicalized
               -> FilePath -- ^ should be canonicalized
               -> IO ()
 throwSameFile fp1 fp2 = when (equalFilePath fp1 fp2) (throw $ SameFile fp1 fp2)
+
+
+throwDestinationInSource :: FilePath -- ^ should be canonicalized
+                         -> FilePath -- ^ should be canonicalized
+                         -> IO ()
+throwDestinationInSource source dest =
+  when (source `isPrefixOf` dest) (throw $ DestinationInSource dest source)

@@ -15,14 +15,18 @@ import Control.Monad
   )
 import Data.DirTree
 import Data.DirTree.Zipper
+import Data.Foldable
+  (
+    for_
+  )
 import IO.Error
 import System.Directory
   (
     canonicalizePath
+  , createDirectoryIfMissing
   , doesDirectoryExist
   , doesFileExist
   , executable
-  , getPermissions
   , removeDirectory
   , removeFile
   )
@@ -33,6 +37,11 @@ import System.FilePath
   , takeFileName
   , takeDirectory
   , (</>)
+  )
+import System.Posix.Files
+  (
+    createSymbolicLink
+  , readSymbolicLink
   )
 import System.Process
   (
@@ -50,20 +59,56 @@ import qualified System.Directory as SD
 -- |Data type describing an actual file operation that can be
 -- carried out via `doFile`. Useful to build up a list of operations
 -- or delay operations.
-data FileOperation a b = FCopy (DTZipper a b) (DTZipper a b)
+data FileOperation = FCopy DTInfoZipper DTInfoZipper
                        | FMove FilePath FilePath
-                       | FDelete (DTZipper a b)
-                       | FOpen (DTZipper a b)
-                       | FExecute (DTZipper a b) [String]
+                       | FDelete DTInfoZipper
+                       | FOpen DTInfoZipper
+                       | FExecute DTInfoZipper [String]
                        | None
 
 
-runFileOp :: FileOperation a b -> IO ()
-runFileOp (FCopy from to)    = copyFileToDir from to
+runFileOp :: FileOperation -> IO ()
+runFileOp (FCopy from@(File {}, _) to) = copyFileToDir from to
+runFileOp (FCopy from@(Dir {}, _) to) = copyDir from to
 runFileOp (FDelete fp)       = easyDelete fp
 runFileOp (FOpen fp)         = void $ openFile fp
 runFileOp (FExecute fp args) = void $ executeFile fp args
 runFileOp _                  = return ()
+
+
+-- TODO: copy modes
+copyDir :: DTInfoZipper  -- ^ source dir
+        -> DTInfoZipper  -- ^ destination dir
+        -> IO ()
+copyDir from@(Dir fn _ _, _) to@(Dir {}, _) = do
+  let fromp = getFullPath from
+      top   = getFullPath to
+      destdir = getFullPath to </> fn
+
+  dirSanityThrow fromp
+  dirSanityThrow top
+  throwDestinationInSource fromp top
+
+  createDirectoryIfMissing False destdir
+
+  for_ (goAllDown from) $ \f -> do
+    newDest <- zipLazy mkDirInfo mkFileInfo destdir
+    case f of
+      -- recreate symlink
+      sz@(Dir { name = n, dir = (DirInfo { sym = True }) }, _)  -> do
+        let sympoint = getFullPath newDest </> n
+        -- delete old file/dir to be able to create symlink
+        for_ (goDown n newDest) $ \odtz ->
+          easyDelete odtz
+        symname <- readSymbolicLink (getFullPath sz)
+        createSymbolicLink symname sympoint
+      sz@(Dir {}, _)  ->
+        copyDir sz newDest
+      sz@(File {}, _) ->
+        copyFileToDir sz newDest
+copyDir from@(File _ _, _) _ = throw $ NotADir (getFullPath from)
+copyDir _ to@(File _ _, _)   = throw $ NotADir (getFullPath to)
+
 
 
 -- |Copies the given file.
@@ -84,6 +129,7 @@ copyFile from@(File name _, _) to = do
   let to' = toC </> takeFileName to
   throwSameFile fp to'
   SD.copyFile fp to'
+copyFile from _ = throw $ NotAFile (getFullPath from)
 
 
 -- |Copies the given file to the given dir with the same filename.
@@ -108,27 +154,31 @@ easyCopyFile from (Left to)  = copyFile from to
 easyCopyFile from (Right to) = copyFileToDir from to
 
 
--- |Deletes the given file.
+-- |Deletes the given file or symlink.
 --
 -- This will throw an exception if the filepath is not absolute
 -- or the file does not exist.
 --
 -- It also throws exceptions from `removeFile`.
-deleteFile :: DTZipper a b -> IO ()
+deleteFile :: DTInfoZipper -> IO ()
 deleteFile dtz@(File {}, _) = do
   let fp = getFullPath dtz
   fileSanityThrow fp
   removeFile fp
+deleteFile dtz@(Dir { dir = (DirInfo { sym = True }) }, _) = do
+  let fp = getFullPath dtz
+  throwNotAbsolute fp
+  removeFile fp
 deleteFile dtz = throw $ NotAFile (getFullPath dtz)
 
 
--- |Deletes the given directory.
+-- |Deletes the given directory. Does not work on symlinks.
 --
 -- This will throw an exception if the filepath is not absolute
 -- or the directory does not exist.
 --
 -- It also throws exceptions from `removeDirectory`.
-deleteDir :: DTZipper a b -> IO ()
+deleteDir :: DTInfoZipper -> IO ()
 deleteDir dtz@(Dir {}, _) = do
   let fp = getFullPath dtz
   dirSanityThrow fp
@@ -137,8 +187,9 @@ deleteDir dtz = throw $ NotADir (getFullPath dtz)
 
 
 -- |Deletes a file or directory, whatever it may be.
-easyDelete :: DTZipper a b -> IO ()
+easyDelete :: DTInfoZipper -> IO ()
 easyDelete dtz@(File {}, _) = deleteFile dtz
+easyDelete dtz@(Dir { dir = (DirInfo { sym = True }) }, _) = deleteFile dtz
 easyDelete dtz@(Dir {}, _)  = deleteDir dtz
 
 
@@ -160,13 +211,12 @@ openFile dtz = throw $ NotAFile (getFullPath dtz)
 -- This will throw an exception if the filepath is not absolute
 -- or the file does not exist. It will also throw an exception
 -- if the file is not executable.
-executeFile :: DTZipper a b      -- ^ program
+executeFile :: DTInfoZipper      -- ^ program
             -> [String]          -- ^ arguments
             -> IO ProcessHandle
-executeFile dtz@(File {}, _) args = do
+executeFile dtz@(File { file = (FileInfo { permissions = p }) }, _) args = do
   let fp = getFullPath dtz
   fileSanityThrow fp
-  p <- getPermissions fp
   unless (executable p) (throw $ FileNotExecutable fp)
   spawnProcess fp args
 executeFile dtz  _ = throw $ NotAFile (getFullPath dtz)
