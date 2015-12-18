@@ -79,6 +79,7 @@ runFileOp _                  = return ()
 
 
 -- TODO: copy modes
+-- TODO: allow renaming
 copyDir :: DTInfoZipper  -- ^ source dir
         -> DTInfoZipper  -- ^ destination dir
         -> IO ()
@@ -92,9 +93,10 @@ copyDir from@(Dir fn _ _, _) to@(Dir {}, _) = do
   throwDestinationInSource fromp top
 
   createDirectoryIfMissing False destdir
+  newDest <- zipLazy mkDirInfo mkFileInfo destdir
 
-  for_ (goAllDown from) $ \f -> do
-    newDest <- zipLazy mkDirInfo mkFileInfo destdir
+  for_ (goAllDown from) $ \f ->
+    -- TODO: maybe do this strict?
     case f of
       -- recreate symlink
       sz@(Dir { name = n, dir = (DirInfo { sym = True }) }, _)  -> do
@@ -110,7 +112,6 @@ copyDir from@(Dir fn _ _, _) to@(Dir {}, _) = do
         copyFileToDir sz newDest
 copyDir from@(File _ _, _) _ = throw $ NotADir (getFullPath from)
 copyDir _ to@(File _ _, _)   = throw $ NotADir (getFullPath to)
-
 
 
 -- |Copies the given file.
