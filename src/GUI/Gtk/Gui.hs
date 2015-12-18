@@ -142,8 +142,8 @@ data MyView = MkMyView {
   , filteredModel :: TVar (TypedTreeModelFilter DTInfoZipper)
   , fsState :: TVar DTInfoZipper
   , operationBuffer :: TVar (Either
-                         (DTInfoZipper -> FileOperation DirTreeInfo DirTreeInfo)
-                         (FileOperation DirTreeInfo DirTreeInfo))
+                         (DTInfoZipper -> FileOperation)
+                         FileOperation)
 }
 
 
@@ -181,7 +181,7 @@ setCallbacks mygui myview = do
   return ()
 
 
--- |Go the the url given at the `urlBar` and visualize it in the given
+-- |Go to the url given at the `urlBar` and visualize it in the given
 -- treeView.
 --
 -- This might update the TVar `rawModel`.
@@ -255,11 +255,7 @@ del row mygui myview = case row of
 -- |Supposed to be used with `withRow`. Initializes a file copy operation.
 copyInit :: DTInfoZipper -> MyGUI -> MyView -> IO ()
 copyInit row mygui myview = case row of
-  dz@(File {}, _) -> do
-    print "blah1"
-    writeTVarIO (operationBuffer myview) (Left $ FCopy dz)
-    return ()
-  _ -> return ()
+  dz -> writeTVarIO (operationBuffer myview) (Left $ FCopy dz)
 
 
 -- |Finalizes a file copy operation.
