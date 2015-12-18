@@ -108,7 +108,7 @@ copyDir :: DirCopyMode
         -> DTInfoZipper  -- ^ source dir
         -> DTInfoZipper  -- ^ destination dir
         -> IO ()
-copyDir cm from@(Dir fn _ _, _) to@(Dir {}, _) = do
+copyDir cm from@(Dir fn _ _, _) to@(tod@Dir {}, tobs) = do
   let fromp = getFullPath from
       top   = getFullPath to
       destdir = getFullPath to </> fn
@@ -120,7 +120,8 @@ copyDir cm from@(Dir fn _ _, _) to@(Dir {}, _) = do
 
   createDestdir destdir
 
-  newDest <- zipLazy mkDirInfo mkFileInfo destdir
+  ddinfo <- mkDirInfo destdir
+  let newDest = (Dir fn [] ddinfo, tod : tobs)
 
   for_ (goAllDown from) $ \f ->
     -- TODO: maybe do this strict?
