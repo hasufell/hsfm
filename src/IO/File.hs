@@ -61,12 +61,21 @@ import qualified System.Directory as SD
 -- |Data type describing an actual file operation that can be
 -- carried out via `doFile`. Useful to build up a list of operations
 -- or delay operations.
-data FileOperation = FCopy DTInfoZipper DTInfoZipper
-                   | FMove FilePath FilePath
-                   | FDelete DTInfoZipper
-                   | FOpen DTInfoZipper
+data FileOperation = FCopy    Copy
+                   | FMove    Move
+                   | FDelete  DTInfoZipper
+                   | FOpen    DTInfoZipper
                    | FExecute DTInfoZipper [String]
                    | None
+
+
+data Copy = CP1 DTInfoZipper
+          | CP2 DTInfoZipper DTInfoZipper
+          | CC  DTInfoZipper DTInfoZipper DirCopyMode
+
+
+data Move = MP1 DTInfoZipper
+          | MC  DTInfoZipper DTInfoZipper
 
 
 -- |Directory copy modes.
@@ -80,13 +89,16 @@ data DirCopyMode = Strict
                  | Replace
 
 
-runFileOp :: FileOperation -> IO ()
-runFileOp (FCopy from@(File {}, _) to) = copyFileToDir from to
-runFileOp (FCopy from@(Dir {}, _) to) = copyDir Merge from to
-runFileOp (FDelete fp)       = easyDelete fp
-runFileOp (FOpen fp)         = void $ openFile fp
-runFileOp (FExecute fp args) = void $ executeFile fp args
-runFileOp _                  = return ()
+runFileOp :: FileOperation -> IO (Maybe FileOperation)
+runFileOp (FCopy (CC from@(File {}, _) to cm)) =
+  copyFileToDir from to >> return Nothing
+runFileOp (FCopy (CC from@(Dir {}, _) to cm)) =
+  copyDir cm from to >> return Nothing
+runFileOp fo@(FCopy _) = return $ Just fo
+runFileOp (FDelete fp)       = easyDelete fp >> return Nothing
+runFileOp (FOpen fp)         = openFile fp >> return Nothing
+runFileOp (FExecute fp args) = executeFile fp args >> return Nothing
+runFileOp _                  = return Nothing
 
 
 

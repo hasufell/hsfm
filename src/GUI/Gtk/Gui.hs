@@ -141,9 +141,7 @@ data MyView = MkMyView {
   -- |filtered proxy model
   , filteredModel :: TVar (TypedTreeModelFilter DTInfoZipper)
   , fsState :: TVar DTInfoZipper
-  , operationBuffer :: TVar (Either
-                         (DTInfoZipper -> FileOperation)
-                         FileOperation)
+  , operationBuffer :: TVar FileOperation
 }
 
 
@@ -255,30 +253,23 @@ del row mygui myview = case row of
 -- |Supposed to be used with `withRow`. Initializes a file copy operation.
 copyInit :: DTInfoZipper -> MyGUI -> MyView -> IO ()
 copyInit row mygui myview = case row of
-  dz -> writeTVarIO (operationBuffer myview) (Left $ FCopy dz)
+  dz -> writeTVarIO (operationBuffer myview) (FCopy . CP1 $ dz)
 
 
 -- |Finalizes a file copy operation.
 copyFinal :: MyGUI -> MyView -> IO ()
 copyFinal mygui myview = do
-  mOp <- readTVarIO (operationBuffer myview)
-  op <- case mOp of
-    Left pOp -> do
-      curDir <- readTVarIO (fsState myview)
-      case pOp curDir of
-        op@(FCopy _ _) -> return op
-        _              -> return None
-    Right op@(FCopy _ _) -> return op
-    _ -> return None
-  doCopy op
-  where
-    doCopy op@(FCopy from to) = do
-      let cmsg = "Really copy file \"" ++ getFullPath from
-                 ++ "\"" ++ " to \"" ++ getFullPath to ++ "\"?"
-      withConfirmationDialog cmsg
-        $ withErrorDialog
-          (runFileOp op >> refreshTreeView mygui myview Nothing)
-    doCopy _ = return ()
+  op <- readTVarIO (operationBuffer myview)
+  case op of
+    FCopy (CP1 sourceDir) -> do
+      curDir   <- readTVarIO (fsState myview)
+      let cmsg = "Really copy file \"" ++ getFullPath sourceDir
+                 ++ "\"" ++ " to \"" ++ getFullPath curDir ++ "\"?"
+      withConfirmationDialog cmsg $ do
+        copyMode <- showCopyModeChooserDialog
+        withErrorDialog ((runFileOp . FCopy . CC sourceDir curDir $ copyMode)
+                         >> refreshTreeView mygui myview Nothing)
+    _ -> return ()
 
 
 -- |Go up one directory and visualize it in the treeView.
@@ -406,6 +397,7 @@ constructTreeView mygui myview = do
     dirtreePix (Failed {}) = errorPix mygui
 
 
+-- |Push a message to the status bar.
 pushStatusBar :: MyGUI -> String -> IO (ContextId, MessageId)
 pushStatusBar mygui str = do
   let sb = statusBar mygui
@@ -426,21 +418,44 @@ showErrorDialog str = do
   widgetDestroy errorDialog
 
 
+-- |Asks the user for confirmation and returns True/False.
 showConfirmationDialog :: String -> IO Bool
 showConfirmationDialog str = do
-  errorDialog <- messageDialogNew Nothing
-                                  [DialogDestroyWithParent]
-                                  MessageQuestion
-                                  ButtonsYesNo
-                                  str
-  rID <- dialogRun errorDialog
-  widgetDestroy errorDialog
+  confirmDialog <- messageDialogNew Nothing
+                                    [DialogDestroyWithParent]
+                                    MessageQuestion
+                                    ButtonsYesNo
+                                    str
+  rID <- dialogRun confirmDialog
+  widgetDestroy confirmDialog
   case rID of
     ResponseYes -> return True
     ResponseNo  -> return False
     _           -> return False
 
 
+-- |Asks the user which directory copy mode he wants via dialog popup
+-- and returns `DirCopyMode`.
+showCopyModeChooserDialog :: IO DirCopyMode
+showCopyModeChooserDialog = do
+  chooserDialog <- messageDialogNew Nothing
+                                    [DialogDestroyWithParent]
+                                    MessageQuestion
+                                    ButtonsNone
+                                    "Choose the copy mode"
+  dialogAddButton chooserDialog "Strict"  (ResponseUser 0)
+  dialogAddButton chooserDialog "Merge"   (ResponseUser 1)
+  dialogAddButton chooserDialog "Replace" (ResponseUser 2)
+  rID <- dialogRun chooserDialog
+  widgetDestroy chooserDialog
+  case rID of
+    ResponseUser 0 -> return Strict
+    ResponseUser 1 -> return Merge
+    ResponseUser 2 -> return Replace
+
+
+-- |Carry out an IO action with a confirmation dialog.
+-- If the user presses "No", then do nothing.
 withConfirmationDialog :: String -> IO () -> IO ()
 withConfirmationDialog str io = do
   run <- showConfirmationDialog str
@@ -471,7 +486,7 @@ startMainWindow startdir = do
 
   fsState <- readPath' startdir >>= newTVarIO
 
-  operationBuffer <- newTVarIO (Right None)
+  operationBuffer <- newTVarIO None
 
   builder <- builderNew
   builderAddFromFile builder "data/Gtk/builder.xml"
