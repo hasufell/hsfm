@@ -116,6 +116,7 @@ copyDir cm from@(Dir fn _ _, _) to@(Dir {}, _) = do
   dirSanityThrow fromp
   dirSanityThrow top
   throwDestinationInSource fromp top
+  throwSameFile fromp destdir
 
   createDestdir destdir
 
