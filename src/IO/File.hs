@@ -101,16 +101,7 @@ copyDir cm from@(Dir fn _ _, _) to@(Dir {}, _) = do
   dirSanityThrow top
   throwDestinationInSource fromp top
 
-  -- what to do with target directory
-  case cm of
-    Merge   ->
-      createDirectoryIfMissing False destdir
-    Strict  -> do
-      throwDirDoesExist destdir
-      createDirectory destdir
-    Replace -> do
-      whenM (doesDirectoryExist destdir) (removeDirectoryRecursive destdir)
-      createDirectory destdir
+  createDestdir destdir
 
   newDest <- zipLazy mkDirInfo mkFileInfo destdir
 
@@ -118,22 +109,35 @@ copyDir cm from@(Dir fn _ _, _) to@(Dir {}, _) = do
     -- TODO: maybe do this strict?
     case f of
       -- recreate symlink
-      sz@(Dir { name = n, dir = (DirInfo { sym = True }) }, _)  -> do
-        let sympoint = getFullPath newDest </> n
-
-        -- delete old file/dir to be able to create symlink
-        case cm of
-          Merge ->
-            for_ (goDown n newDest) $ \odtz ->
-              easyDelete odtz
-          _     -> return ()
-
-        symname <- readSymbolicLink (getFullPath sz)
-        createSymbolicLink symname sympoint
+      sz@(Dir { name = n, dir = (DirInfo { sym = True }) }, _)  ->
+        recreateSymlink newDest n sz
       sz@(Dir {}, _)  ->
         copyDir cm sz newDest
       sz@(File {}, _) ->
         copyFileToDir sz newDest
+  where
+    createDestdir destdir =
+      case cm of
+        Merge   ->
+          createDirectoryIfMissing False destdir
+        Strict  -> do
+          throwDirDoesExist destdir
+          createDirectory destdir
+        Replace -> do
+          whenM (doesDirectoryExist destdir) (removeDirectoryRecursive destdir)
+          createDirectory destdir
+    recreateSymlink newDest n sz = do
+      let sympoint = getFullPath newDest </> n
+
+      case cm of
+        Merge ->
+          -- delete old file/dir to be able to create symlink
+          for_ (goDown n newDest) $ \odtz ->
+            easyDelete odtz
+        _     -> return ()
+
+      symname <- readSymbolicLink (getFullPath sz)
+      createSymbolicLink symname sympoint
 
 copyDir _ from@(File _ _, _) _ = throw $ NotADir (getFullPath from)
 copyDir _ _ to@(File _ _, _)   = throw $ NotADir (getFullPath to)
