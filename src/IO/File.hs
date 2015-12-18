@@ -60,11 +60,13 @@ import qualified System.Directory as SD
 -- carried out via `doFile`. Useful to build up a list of operations
 -- or delay operations.
 data FileOperation = FCopy DTInfoZipper DTInfoZipper
-                       | FMove FilePath FilePath
-                       | FDelete DTInfoZipper
-                       | FOpen DTInfoZipper
-                       | FExecute DTInfoZipper [String]
-                       | None
+                   | FMove FilePath FilePath
+                   | FDelete DTInfoZipper
+                   | FOpen DTInfoZipper
+                   | FExecute DTInfoZipper [String]
+                   | None
+
+
 
 
 runFileOp :: FileOperation -> IO ()
