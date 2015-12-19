@@ -1,6 +1,7 @@
 {-# OPTIONS_HADDOCK ignore-exports #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
+-- |Provides error handling.
 module IO.Error where
 
 
@@ -31,6 +32,7 @@ import System.FilePath
 
 
 data FmIOException = FileDoesNotExist String
+                   | DirDoesNotExist String
                    | PathNotAbsolute String
                    | FileNotExecutable String
                    | SameFile String String
@@ -67,7 +69,7 @@ throwDirDoesExist fp =
 
 throwDirDoesNotExist :: FilePath -> IO ()
 throwDirDoesNotExist fp =
-  unlessM (doesDirectoryExist fp) (throw $ FileDoesNotExist fp)
+  unlessM (doesDirectoryExist fp) (throw $ DirDoesNotExist fp)
 
 
 throwFileDoesNotExist :: FilePath -> IO ()

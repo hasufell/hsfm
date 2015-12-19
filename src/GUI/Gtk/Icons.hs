@@ -1,5 +1,6 @@
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
+-- |Module for Gtk icon handling.
 module GUI.Gtk.Icons where
 
 

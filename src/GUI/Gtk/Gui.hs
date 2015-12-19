@@ -1,5 +1,6 @@
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
+-- |The main Gtk Gui module for creating the main window.
 module GUI.Gtk.Gui (startMainWindow) where
 
 
@@ -34,7 +35,6 @@ import Control.Monad.IO.Class
     liftIO
   )
 import Data.DirTree
-import Data.DirTree.Zipper
 import Data.Foldable
   (
     for_
@@ -55,7 +55,11 @@ import Data.Traversable
     forM
   )
 import Graphics.UI.Gtk
+import GUI.Gtk.Callbacks
+import GUI.Gtk.Data
+import GUI.Gtk.Dialogs
 import GUI.Gtk.Icons
+import GUI.Gtk.Utils
 import IO.Error
 import IO.File
 import IO.Utils
@@ -72,6 +76,7 @@ import System.Environment
 import System.FilePath
   (
     isAbsolute
+  , (</>)
   )
 import System.Glib.UTFString
   (
@@ -87,396 +92,33 @@ import System.Process
   )
 
 
+import Data.IntMap.Lazy (IntMap)
+import qualified Data.IntMap.Lazy as IM
+
+
 -- TODO: simplify where we modify the TVars
 -- TODO: double check garbage collection/gtk ref counting
 -- TODO: file watching, when and what to reread
 
 
--- |Monolithic object passed to various GUI functions in order
--- to keep the API stable and not alter the parameters too much.
--- This only holds GUI widgets that are needed to be read during
--- runtime.
-data MyGUI = MkMyGUI {
-  -- |main Window
-    rootWin  :: Window
-  , menubarFileQuit :: ImageMenuItem
-  , menubarFileOpen :: ImageMenuItem
-  , menubarFileCut :: ImageMenuItem
-  , menubarFileCopy :: ImageMenuItem
-  , menubarFilePaste :: ImageMenuItem
-  , menubarFileDelete :: ImageMenuItem
-  , menubarHelpAbout :: ImageMenuItem
-  , urlBar :: Entry
-  , statusBar :: Statusbar
-  -- |tree view
-  , treeView :: TreeView
-  -- |first column
-  , cF :: TreeViewColumn
-  -- |second column
-  , cMD :: TreeViewColumn
-  -- |renderer used for the treeView
-  , renderTxt :: CellRendererText
-  , renderPix :: CellRendererPixbuf
-  , settings :: TVar FMSettings
-  , folderPix :: Pixbuf
-  , filePix :: Pixbuf
-  , errorPix :: Pixbuf
-}
 
 
--- |FM-wide settings.
-data FMSettings = MkFMSettings {
-    showHidden :: Bool
-  , isLazy :: Bool
-}
 
-
--- |This describes the contents of the treeView and is separated from MyGUI,
--- because we might want to have multiple views.
-data MyView = MkMyView {
-  -- |raw model with unsorted data
-    rawModel :: TVar (ListStore DTInfoZipper)
-  -- |sorted proxy model
-  , sortedModel :: TVar (TypedTreeModelSort DTInfoZipper)
-  -- |filtered proxy model
-  , filteredModel :: TVar (TypedTreeModelFilter DTInfoZipper)
-  , fsState :: TVar DTInfoZipper
-  , operationBuffer :: TVar FileOperation
-}
-
-
--- |Set callbacks, on hotkeys, events and stuff.
-setCallbacks :: MyGUI -> MyView -> IO ()
-setCallbacks mygui myview = do
-  _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
-    [Control] <- eventModifier
-    "q"       <- fmap glibToString eventKeyName
-    liftIO mainQuit
-  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
-    [Control] <- eventModifier
-    "h"       <- fmap glibToString eventKeyName
-    liftIO $ modifyTVarIO (settings mygui)
-                          (\x -> x { showHidden = not . showHidden $ x})
-             >> (refreshTreeView' mygui myview =<< readTVarIO (fsState myview))
-  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
-    [Alt] <- eventModifier
-    "Up"  <- fmap glibToString eventKeyName
-    liftIO $ upDir mygui myview
-  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
-    "Delete"  <- fmap glibToString eventKeyName
-    liftIO $ withRow mygui myview del
-  _ <- treeView mygui `on` rowActivated $ (\_ _ -> withRow mygui myview open)
-  _ <- menubarFileQuit mygui `on` menuItemActivated $ mainQuit
-  _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
-  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
-    [Control] <- eventModifier
-    "c"       <- fmap glibToString eventKeyName
-    liftIO $ withRow mygui myview copyInit
-  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
-    [Control] <- eventModifier
-    "v"       <- fmap glibToString eventKeyName
-    liftIO $ copyFinal mygui myview
-  return ()
-
-
--- |Go to the url given at the `urlBar` and visualize it in the given
--- treeView.
---
--- This might update the TVar `rawModel`.
-urlGoTo :: MyGUI -> MyView -> IO ()
-urlGoTo mygui myview = do
-  fp <- entryGetText (urlBar mygui)
-  let abs = isAbsolute fp
-  exists <- (||) <$> doesDirectoryExist fp <*> doesFileExist fp
-  -- TODO: more explicit error handling?
-  refreshTreeView mygui myview (Just fp)
-
-
--- |Gets the currently selected row of the treeView, if any.
-getSelectedRow :: MyGUI
-               -> MyView
-               -> IO (Maybe DTInfoZipper)
-getSelectedRow mygui myview = do
-  (tp, _)        <- treeViewGetCursor $ treeView mygui
-  rawModel'      <- readTVarIO $ rawModel myview
-  sortedModel'   <- readTVarIO $ sortedModel myview
-  filteredModel' <- readTVarIO $ filteredModel myview
-  miter          <- treeModelGetIter sortedModel' tp
-  forM miter $ \iter -> do
-    cIter' <- treeModelSortConvertIterToChildIter sortedModel' iter
-    cIter  <- treeModelFilterConvertIterToChildIter filteredModel' cIter'
-    treeModelGetRow rawModel' cIter
-
-
--- |Carry out an action on the currently selected row.
---
--- If there is no row selected, does nothing.
-withRow :: MyGUI
-        -> MyView
-        -> (   DTInfoZipper
-            -> MyGUI
-            -> MyView
-            -> IO ()) -- ^ action to carry out
-        -> IO ()
-withRow mygui myview io = do
-  mrow <- getSelectedRow mygui myview
-  for_ mrow $ \row -> io row mygui myview
-
-
--- |Supposed to be used with `withRow`. Opens a file or directory.
-open :: DTInfoZipper -> MyGUI -> MyView -> IO ()
-open row mygui myview = case row of
-  (Dir {}, _) ->
-    refreshTreeView' mygui myview row
-  dz@(File {}, _) ->
-    withErrorDialog $ openFile dz
-  _ -> return ()
-
-
--- |Supposed to be used with `withRow`. Deletes a file or directory.
-del :: DTInfoZipper -> MyGUI -> MyView -> IO ()
-del row mygui myview = case row of
-  dz@(Dir _ cs _, _)   -> do
-    let fp    = getFullPath dz
-        cmsg  = "Really delete directory \"" ++ fp ++ "\"?"
-        cmsg2 = "Directory \"" ++ fp ++ "\" is not empty! Delete all contents?"
-    withConfirmationDialog cmsg $
-      if null cs
-        then withErrorDialog (deleteDir dz
-                              >> refreshTreeView mygui myview Nothing)
-        else withConfirmationDialog cmsg2 $ withErrorDialog
-               (deleteDirRecursive dz >> refreshTreeView mygui myview Nothing)
-  dz@(File {}, _) -> do
-    let fp   = getFullPath dz
-        cmsg = "Really delete file \"" ++ fp ++ "\"?"
-    withConfirmationDialog cmsg
-      $ withErrorDialog (deleteFile dz
-                          >> refreshTreeView mygui myview Nothing)
-
-
--- |Supposed to be used with `withRow`. Initializes a file copy operation.
-copyInit :: DTInfoZipper -> MyGUI -> MyView -> IO ()
-copyInit row mygui myview = case row of
-  dz -> writeTVarIO (operationBuffer myview) (FCopy . CP1 $ dz)
-
-
--- |Finalizes a file copy operation.
-copyFinal :: MyGUI -> MyView -> IO ()
-copyFinal mygui myview = do
-  op <- readTVarIO (operationBuffer myview)
-  case op of
-    FCopy (CP1 sourceDir) -> do
-      curDir   <- readTVarIO (fsState myview)
-      let cmsg = "Really copy file \"" ++ getFullPath sourceDir
-                 ++ "\"" ++ " to \"" ++ getFullPath curDir ++ "\"?"
-      withConfirmationDialog cmsg $ do
-        copyMode <- showCopyModeChooserDialog
-        withErrorDialog ((runFileOp . FCopy . CC sourceDir curDir $ copyMode)
-                         >> refreshTreeView mygui myview Nothing)
-    _ -> return ()
-
-
--- |Go up one directory and visualize it in the treeView.
-upDir :: MyGUI -> MyView -> IO ()
-upDir mygui myview = do
-  rawModel'    <- readTVarIO $ rawModel myview
-  sortedModel' <- readTVarIO $ sortedModel myview
-  fS           <- readTVarIO $ fsState myview
-  refreshTreeView' mygui myview (goUp fS)
-
-
--- |Create the `ListStore` of files/directories from the current directory.
--- This is the function which maps the Data.DirTree data structures
--- into the GTK+ data structures.
---
--- This also updates the TVar `fsState` inside the given view.
-fileListStore :: DTInfoZipper  -- ^ current dir
-              -> MyView
-              -> IO (ListStore DTInfoZipper)
-fileListStore dtz myview = do
-  writeTVarIO (fsState myview) dtz
-  listStoreNew (goAllDown dtz)
-
-
--- |Re-reads the current directory or the given one and updates the TreeView.
--- This means that the DTZipper is re-initialized.
--- If you can operate on the raw DTZipper directly, use `refreshTreeView'`
--- instead.
---
--- This also updates the TVar `rawModel`.
---
--- This throws exceptions via `dirSanityThrow` if the given/current
--- directory path does not exist.
-refreshTreeView :: MyGUI
-                -> MyView
-                -> Maybe FilePath
-                -> IO ()
-refreshTreeView mygui myview mfp = do
-  fsState <- readTVarIO $ fsState myview
-  let cfp = getFullPath fsState
-      fp  = fromMaybe cfp mfp
-
-  -- TODO catch exceptions
-  dirSanityThrow fp
-
-  newFsState  <- readPath' fp
-  newRawModel <- fileListStore newFsState myview
-  writeTVarIO (rawModel myview) newRawModel
-  constructTreeView mygui myview
-
-
--- |Refreshes the TreeView based on the given Zipper.
---
--- This also updates the TVar `rawModel`.
-refreshTreeView' :: MyGUI
-                 -> MyView
-                 -> DTInfoZipper
-                 -> IO ()
-refreshTreeView' mygui myview dtz = do
-  newRawModel  <- fileListStore dtz myview
-  writeTVarIO (rawModel myview) newRawModel
-  constructTreeView mygui myview
-
-
--- TODO: make this function more slim so only the most necessary parts are
--- called
--- |Constructs the visible TreeView with the current underlying mutable models,
--- which are retrieved from `MyGUI`.
---
--- This also updates the TVars `filteredModel` and `sortedModel` in the process.
-constructTreeView :: MyGUI
-                  -> MyView
-                  -> IO ()
-constructTreeView mygui myview = do
-  let treeView' = treeView mygui
-      cF' = cF mygui
-      cMD' = cMD mygui
-      render' = renderTxt mygui
-
-  -- update urlBar, this will break laziness slightly, probably
-  fsState <- readTVarIO $ fsState myview
-  let urlpath = getFullPath fsState
-  entrySetText (urlBar mygui) urlpath
-
-  rawModel' <- readTVarIO $ rawModel myview
-
-  -- filtering
-  filteredModel' <- treeModelFilterNew rawModel' []
-  writeTVarIO (filteredModel myview) filteredModel'
-  treeModelFilterSetVisibleFunc filteredModel' $ \iter -> do
-     hidden <- showHidden <$> readTVarIO (settings mygui)
-     row    <- treeModelGetRow rawModel' iter
-     if hidden
-       then return True
-       else return $ not ("." `isPrefixOf` (name . unZip $ row))
-
-  -- sorting
-  sortedModel' <- treeModelSortNewWithModel filteredModel'
-  writeTVarIO (sortedModel myview) sortedModel'
-  treeSortableSetSortFunc sortedModel' 1 $ \iter1 iter2 -> do
-      cIter1 <- treeModelFilterConvertIterToChildIter filteredModel' iter1
-      cIter2 <- treeModelFilterConvertIterToChildIter filteredModel' iter2
-      row1   <- treeModelGetRow rawModel' cIter1
-      row2   <- treeModelGetRow rawModel' cIter2
-      return $ compare (unZip row1) (unZip row2)
-  treeSortableSetSortColumnId sortedModel' 1 SortAscending
-
-  -- set values
-  treeModelSetColumn rawModel' (makeColumnIdPixbuf 0)
-                               (dirtreePix . unZip)
-  treeModelSetColumn rawModel' (makeColumnIdString 1)
-                               (name . unZip)
-  treeModelSetColumn rawModel' (makeColumnIdString 2)
-                               (packModTime . unZip)
-  treeModelSetColumn rawModel' (makeColumnIdString 3)
-                               (packPermissions . unZip)
-
-  -- update treeview model
-  treeViewSetModel treeView' sortedModel'
-
-  return ()
-  where
-    dirtreePix (Dir {})    = folderPix mygui
-    dirtreePix (File {})   = filePix mygui
-    dirtreePix (Failed {}) = errorPix mygui
-
-
--- |Push a message to the status bar.
-pushStatusBar :: MyGUI -> String -> IO (ContextId, MessageId)
-pushStatusBar mygui str = do
-  let sb = statusBar mygui
-  cid <- statusbarGetContextId sb "FM Status"
-  mid <- statusbarPush sb cid str
-  return (cid, mid)
-
-
--- |Pops up an error Dialog with the given String.
-showErrorDialog :: String -> IO ()
-showErrorDialog str = do
-  errorDialog <- messageDialogNew Nothing
-                                  [DialogDestroyWithParent]
-                                  MessageError
-                                  ButtonsClose
-                                  str
-  _ <- dialogRun errorDialog
-  widgetDestroy errorDialog
-
-
--- |Asks the user for confirmation and returns True/False.
-showConfirmationDialog :: String -> IO Bool
-showConfirmationDialog str = do
-  confirmDialog <- messageDialogNew Nothing
-                                    [DialogDestroyWithParent]
-                                    MessageQuestion
-                                    ButtonsYesNo
-                                    str
-  rID <- dialogRun confirmDialog
-  widgetDestroy confirmDialog
-  case rID of
-    ResponseYes -> return True
-    ResponseNo  -> return False
-    _           -> return False
-
-
--- |Asks the user which directory copy mode he wants via dialog popup
--- and returns `DirCopyMode`.
-showCopyModeChooserDialog :: IO DirCopyMode
-showCopyModeChooserDialog = do
-  chooserDialog <- messageDialogNew Nothing
-                                    [DialogDestroyWithParent]
-                                    MessageQuestion
-                                    ButtonsNone
-                                    "Choose the copy mode"
-  dialogAddButton chooserDialog "Strict"  (ResponseUser 0)
-  dialogAddButton chooserDialog "Merge"   (ResponseUser 1)
-  dialogAddButton chooserDialog "Replace" (ResponseUser 2)
-  rID <- dialogRun chooserDialog
-  widgetDestroy chooserDialog
-  case rID of
-    ResponseUser 0 -> return Strict
-    ResponseUser 1 -> return Merge
-    ResponseUser 2 -> return Replace
-
-
--- |Carry out an IO action with a confirmation dialog.
--- If the user presses "No", then do nothing.
-withConfirmationDialog :: String -> IO () -> IO ()
-withConfirmationDialog str io = do
-  run <- showConfirmationDialog str
-  when run io
-
-
--- |Execute the given IO action. If the action throws exceptions,
--- visualize them via `showErrorDialog`.
-withErrorDialog :: IO a -> IO ()
-withErrorDialog io = do
-  r <- try io
-  either (\e -> showErrorDialog $ show (e :: SomeException))
-         (\_ -> return ())
-         r
+    -------------------------
+    --[ Main Window Setup ]--
+    -------------------------
 
 
 -- |Set up the GUI.
+--
+-- Interaction with mutable references:
+--
+-- * 'settings' creates
+-- * 'fsState' creates
+-- * 'operationBuffer' creates
+-- * 'rawModel' creates
+-- * 'filteredModel' creates
+-- * 'sortedModel' creates
 startMainWindow :: FilePath -> IO ()
 startMainWindow startdir = do
 
@@ -488,7 +130,7 @@ startMainWindow startdir = do
   filePix   <- getIcon IFile 24
   errorPix  <- getIcon IError 24
 
-  fsState <- readPath' startdir >>= newTVarIO
+  fsState <- readPath startdir >>= newTVarIO
 
   operationBuffer <- newTVarIO None
 
@@ -520,7 +162,8 @@ startMainWindow startdir = do
                        "statusBar"
 
   -- create initial list store model with unsorted data
-  rawModel <- newTVarIO =<< listStoreNew . goAllDown =<< readTVarIO fsState
+  rawModel <- newTVarIO =<< listStoreNew . IM.keys . dirTree
+                        =<< readTVarIO fsState
 
   filteredModel <- newTVarIO =<< (\x -> treeModelFilterNew x [])
                            =<< readTVarIO rawModel

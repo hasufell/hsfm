@@ -1,5 +1,6 @@
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
+-- |Random and general IO utilities.
 module IO.Utils where
 
 

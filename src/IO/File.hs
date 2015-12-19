@@ -1,5 +1,13 @@
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
+-- |This module provides all the atomic IO related file operations like
+-- copy, delete, move and so on. It operates only on FilePaths and reads
+-- all necessary file information manually in order to stay atomic and not
+-- rely on the state of passed objects.
+--
+-- It would be nicer to pass states around, but the filesystem state changes
+-- too quickly and cannot be relied upon. Lazy implementations of filesystem
+-- trees have been tried as well, but they can introduce subtle bugs.
 module IO.File where
 
 
@@ -13,7 +21,6 @@ import Control.Monad
   , void
   )
 import Data.DirTree
-import Data.DirTree.Zipper
 import Data.Foldable
   (
     for_
@@ -44,6 +51,8 @@ import System.Posix.Files
   (
     createSymbolicLink
   , readSymbolicLink
+  , fileAccess
+  , getFileStatus
   )
 import System.Process
   (
@@ -52,6 +61,8 @@ import System.Process
   )
 
 import qualified System.Directory as SD
+
+import qualified System.Posix.Files as PF
 
 
 -- TODO: modify the DTZipper directly after file operations!?
@@ -63,38 +74,41 @@ import qualified System.Directory as SD
 -- or delay operations.
 data FileOperation = FCopy    Copy
                    | FMove    Move
-                   | FDelete  DTInfoZipper
-                   | FOpen    DTInfoZipper
-                   | FExecute DTInfoZipper [String]
+                   | FDelete  FilePath
+                   | FOpen    FilePath
+                   | FExecute FilePath [String]
                    | None
 
 
-data Copy = CP1 DTInfoZipper
-          | CP2 DTInfoZipper DTInfoZipper
-          | CC  DTInfoZipper DTInfoZipper DirCopyMode
+-- |Data type describing partial or complete file copy operation.
+-- CC stands for a complete operation and can be used for `runFileOp`.
+data Copy = CP1 FilePath
+          | CP2 FilePath FilePath
+          | CC  FilePath FilePath DirCopyMode
 
 
-data Move = MP1 DTInfoZipper
-          | MC  DTInfoZipper DTInfoZipper
+-- |Data type describing partial or complete file move operation.
+-- MC stands for a complete operation and can be used for `runFileOp`.
+data Move = MP1 FilePath
+          | MC  FilePath FilePath
 
 
 -- |Directory copy modes.
--- Strict means we fail if the target directory already exists.
--- Merge means we keep the old directories/files, but overwrite old files
--- on collision.
--- Replace means the target directory will be removed recursively before
--- performing the copy operation.
-data DirCopyMode = Strict
-                 | Merge
-                 | Replace
+data DirCopyMode = Strict  -- ^ fail if the target directory already exists
+                 | Merge   -- ^ overwrite files if necessary
+                 | Replace -- ^ remove target directory before copying
 
 
+-- |Run a given FileOperation. If the FileOperation is partial, it will
+-- be returned.
+--
+-- The operation may fail with:
+--
+-- * anything that `copyFileToDir`, `easyDelete`, `openFile`,
+-- `executeFile` throws
 runFileOp :: FileOperation -> IO (Maybe FileOperation)
-runFileOp (FCopy (CC from@(File {}, _) to cm)) =
-  copyFileToDir from to >> return Nothing
-runFileOp (FCopy (CC from@(Dir {}, _) to cm)) =
-  copyDir cm from to >> return Nothing
-runFileOp fo@(FCopy _) = return $ Just fo
+runFileOp (FCopy (CC from to cm)) = easyCopy cm from to >> return Nothing
+runFileOp (FCopy fo) = return $ Just $ FCopy fo
 runFileOp (FDelete fp)       = easyDelete fp >> return Nothing
 runFileOp (FOpen fp)         = openFile fp >> return Nothing
 runFileOp (FExecute fp args) = executeFile fp args >> return Nothing
@@ -102,37 +116,51 @@ runFileOp _                  = return Nothing
 
 
 
--- TODO: allow renaming
--- |Copies a directory to the given destination.
-copyDir :: DirCopyMode
-        -> DTInfoZipper  -- ^ source dir
-        -> DTInfoZipper  -- ^ destination dir
-        -> IO ()
-copyDir cm from@(Dir fn _ _, _) to@(tod@Dir {}, tobs) = do
-  let fromp = getFullPath from
-      top   = getFullPath to
-      destdir = getFullPath to </> fn
+    --------------------
+    --[ File Copying ]--
+    --------------------
 
-  dirSanityThrow fromp
-  dirSanityThrow top
-  throwDestinationInSource fromp top
-  throwSameFile fromp destdir
+
+-- TODO: allow renaming
+-- |Copies a directory to the given destination with the specified
+-- `DirCopyMode`.
+--
+-- The operation may fail with:
+--
+-- * `DirDoesNotExist` if the source or destination directory does not exist
+-- * `DestinationInSource` if the destination directory is contained within
+-- the source directory
+-- * `SameFile` if the source and destination directory are the same
+-- * `DirDoesExist` if the target directory already exists during the Strict
+-- copy mode
+-- * anything that `copyFileToDir`, `getFileStatus`, `createDirectory`,
+-- `easyDelete`, `readSymbolicLink`, `createDirectoryIfMissing`,
+-- `removeDirectoryRecursive`, `createSymbolicLink`, `copyDir`,
+-- `copyFileToDir`, `getDirectoryContents` throws
+copyDir :: DirCopyMode
+        -> FilePath  -- ^ source dir
+        -> FilePath  -- ^ destination dir
+        -> IO ()
+copyDir cm from to = do
+  let fn = takeFileName from
+      destdir = to </> fn
+
+  dirSanityThrow from
+  dirSanityThrow to
+  throwDestinationInSource from to
+  throwSameFile from destdir
 
   createDestdir destdir
 
-  ddinfo <- mkDirInfo destdir
-  let newDest = (Dir fn [] ddinfo, tod : tobs)
+  contents <- getDirsFiles from
 
-  for_ (goAllDown from) $ \f ->
-    -- TODO: maybe do this strict?
-    case f of
-      -- recreate symlink
-      sz@(Dir { name = n, dir = (DirInfo { sym = True }) }, _)  ->
-        recreateSymlink newDest n sz
-      sz@(Dir {}, _)  ->
-        copyDir cm sz newDest
-      sz@(File {}, _) ->
-        copyFileToDir sz newDest
+  for_ contents $ \f -> do
+      let ffn = from </> f
+      fs <- PF.getSymbolicLinkStatus ffn
+      case (PF.isSymbolicLink fs, PF.isDirectory fs) of
+        (True, _) -> recreateSymlink destdir f ffn
+        (_, True) -> copyDir cm ffn destdir
+        (_, _)    -> copyFileToDir ffn destdir
   where
     createDestdir destdir =
       case cm of
@@ -144,144 +172,177 @@ copyDir cm from@(Dir fn _ _, _) to@(tod@Dir {}, tobs) = do
         Replace -> do
           whenM (doesDirectoryExist destdir) (removeDirectoryRecursive destdir)
           createDirectory destdir
-    recreateSymlink newDest n sz = do
-      let sympoint = getFullPath newDest </> n
+    recreateSymlink destdir n f = do
+      let sympoint = destdir </> n
 
       case cm of
-        Merge ->
-          -- delete old file/dir to be able to create symlink
-          for_ (goDown n newDest) $ \odtz ->
-            easyDelete odtz
+        -- delete old file/dir to be able to create symlink
+        Merge -> easyDelete sympoint
         _     -> return ()
 
-      symname <- readSymbolicLink (getFullPath sz)
+      symname <- readSymbolicLink f
       createSymbolicLink symname sympoint
-
-copyDir _ from@(File _ _, _) _ = throw $ NotADir (getFullPath from)
-copyDir _ _ to@(File _ _, _)   = throw $ NotADir (getFullPath to)
 
 
 -- |Copies the given file.
 --
--- This will throw an exception if any of the filepaths are not absolute
--- and an exception if the source file does not exist.
+-- The operation may fail with:
 --
--- If the destination file already exists, it will be replaced.
-copyFile :: DTZipper a b  -- ^ source file
-         -> FilePath      -- ^ destination file
+-- * `PathNotAbsolute` either the source or destination file is not an
+-- absolute path
+-- * `FileDoesNotExist` the source file does not exist
+-- * `DirDoesNotExist` the target directory does not exist
+-- * `PathNotAbsolute` if either of the filepaths are not absolute
+-- * `SameFile` if the source and destination files are the same
+-- * anything that `canonicalizePath` or `System.Directory.copyFile` throws
+copyFile :: FilePath  -- ^ source file
+         -> FilePath  -- ^ destination file
          -> IO ()
-copyFile from@(File name _, _) to = do
-  let fp = getFullPath from
-  fileSanityThrow fp
+copyFile from to = do
+  fileSanityThrow from
   throwNotAbsolute to
   throwDirDoesExist to
   toC <- canonicalizePath (takeDirectory to)
   let to' = toC </> takeFileName to
-  throwSameFile fp to'
-  SD.copyFile fp to'
-copyFile from _ = throw $ NotAFile (getFullPath from)
+  throwSameFile from to'
+  SD.copyFile from to'
+
 
 
 -- |Copies the given file to the given dir with the same filename.
 --
--- This is just a convenience wrapper around `copyFile`.
-copyFileToDir :: DTZipper a b  -- ^ source file
-              -> DTZipper a b  -- ^ destination
-              -> IO ()
-copyFileToDir from@(File name _, _) to@(Dir {}, _) = do
-  let dp = getFullPath to
-  dirSanityThrow dp
-  copyFile from (dp </> name)
-copyFileToDir from (Dir {}, _) = throw $ NotAFile (getFullPath from)
-copyFileToDir _    to          = throw $ NotADir (getFullPath to)
+-- The operation may fail with:
+--
+-- * `DirDoesNotExist` if the target directory does not exist
+-- * `PathNotAbsolute` if the target directory is not absolute
+-- * anything that `copyFile` throws
+copyFileToDir :: FilePath -> FilePath -> IO ()
+copyFileToDir from to = do
+  let name = takeFileName from
+  dirSanityThrow to
+  copyFile from (to </> name)
 
 
--- |Copies the given file, regardless of whether the destination is
--- a file or a directory. This is a wrapper around `copyFile` and
--- `copyFileToDir`.
-easyCopyFile :: DTZipper a b -> Either FilePath (DTZipper a b) -> IO ()
-easyCopyFile from (Left to)  = copyFile from to
-easyCopyFile from (Right to) = copyFileToDir from to
+easyCopy :: DirCopyMode -> FilePath -> FilePath -> IO ()
+easyCopy cm from to = doFileOrDir from (copyDir cm from to)
+                                       (copyFileToDir from to)
 
 
+
+    ---------------------
+    --[ File Deletion ]--
+    ---------------------
+
+
+-- TODO: misbehaves on symlinks
 -- |Deletes the given file or symlink.
 --
--- This will throw an exception if the filepath is not absolute
--- or the file does not exist.
+-- The operation may fail with:
 --
--- It also throws exceptions from `removeFile`.
-deleteFile :: DTInfoZipper -> IO ()
-deleteFile dtz@(File {}, _) = do
-  let fp = getFullPath dtz
+-- * `FileDoesNotExist` if the file does not exist
+-- * `PathNotAbsolute` if the file is not absolute
+-- * anything that `removeFile` throws
+deleteFile :: FilePath -> IO ()
+deleteFile fp = do
   fileSanityThrow fp
   removeFile fp
-deleteFile dtz@(Dir { dir = (DirInfo { sym = True }) }, _) = do
-  let fp = getFullPath dtz
-  throwNotAbsolute fp
-  removeFile fp
-deleteFile dtz = throw $ NotAFile (getFullPath dtz)
 
 
--- |Deletes the given directory. Does not work on symlinks.
+-- TODO: misbehaves on symlinks
+-- |Deletes the given directory.
 --
--- This will throw an exception if the filepath is not absolute
--- or the directory does not exist.
+-- The operation may fail with:
 --
--- It also throws exceptions from `removeDirectory`.
-deleteDir :: DTInfoZipper -> IO ()
-deleteDir dtz@(Dir {}, _) = do
-  let fp = getFullPath dtz
+-- * `DirDoesNotExist` if the dir does not exist
+-- * `PathNotAbsolute` if the dir is not absolute
+-- * anything that `removeDirectory` throws
+deleteDir :: FilePath -> IO ()
+deleteDir fp = do
   dirSanityThrow fp
   removeDirectory fp
-deleteDir dtz = throw $ NotADir (getFullPath dtz)
 
 
--- |Deletes the given directory recursively. Does not work on symlinks.
+-- |Deletes the given directory recursively.
 --
--- This will throw an exception if the filepath is not absolute
--- or the directory does not exist.
+-- The operation may fail with:
 --
--- It also throws exceptions from `removeDirectoryRecursive`.
-deleteDirRecursive :: DTInfoZipper -> IO ()
-deleteDirRecursive dtz@(Dir {}, _) = do
-  let fp = getFullPath dtz
+-- * `DirDoesNotExist` if the dir does not exist
+-- * `PathNotAbsolute` if the dir is not absolute
+-- * anything that `removeDirectoryRecursive` throws
+deleteDirRecursive :: FilePath -> IO ()
+deleteDirRecursive fp = do
   dirSanityThrow fp
   removeDirectoryRecursive fp
-deleteDirRecursive dtz = throw $ NotADir (getFullPath dtz)
 
 
 -- |Deletes a file or directory, whatever it may be.
-easyDelete :: DTInfoZipper -> IO ()
-easyDelete dtz@(File {}, _) = deleteFile dtz
-easyDelete dtz@(Dir { dir = (DirInfo { sym = True }) }, _) = deleteFile dtz
-easyDelete dtz@(Dir {}, _)  = deleteDir dtz
+--
+-- The operation may fail with:
+--
+-- * `DirDoesNotExist`/`FileDoesNotExist` if the file/dir does not exist
+-- * `PathNotAbsolute` if the file/dir is not absolute
+-- * anything that `deleteDir`/`deleteFile` throws
+easyDelete :: FilePath -> IO ()
+easyDelete fp = doFileOrDir fp (deleteDir fp) (deleteFile fp)
+
+
+
+    --------------------
+    --[ File Opening ]--
+    --------------------
 
 
 -- |Opens a file appropriately by invoking xdg-open.
 --
--- This will throw an exception if the filepath is not absolute
--- or the file does not exist.
-openFile :: DTZipper a b
+-- The operation may fail with:
+--
+-- * `FileDoesNotExist` if the file does not exist
+-- * `PathNotAbsolute` if the file is not absolute
+openFile :: FilePath
          -> IO ProcessHandle
-openFile dtz@(File {}, _) = do
-  let fp = getFullPath dtz
+openFile fp = do
   fileSanityThrow fp
   spawnProcess "xdg-open" [fp]
-openFile dtz = throw $ NotAFile (getFullPath dtz)
 
 
 -- |Executes a program with the given arguments.
 --
--- This will throw an exception if the filepath is not absolute
--- or the file does not exist. It will also throw an exception
--- if the file is not executable.
-executeFile :: DTInfoZipper      -- ^ program
-            -> [String]          -- ^ arguments
+-- The operation may fail with:
+--
+-- * `FileDoesNotExist` if the program does not exist
+-- * `PathNotAbsolute` if the program is not absolute
+-- * `FileNotExecutable` if the program is not executable
+executeFile :: FilePath      -- ^ program
+            -> [String]      -- ^ arguments
             -> IO ProcessHandle
-executeFile dtz@(File { file = (FileInfo { permissions = p }) }, _) args = do
-  let fp = getFullPath dtz
-  fileSanityThrow fp
-  unless (executable p) (throw $ FileNotExecutable fp)
-  spawnProcess fp args
-executeFile dtz  _ = throw $ NotAFile (getFullPath dtz)
+executeFile prog args = do
+  fileSanityThrow prog
+  unlessM (fileAccess prog False False True) (throw $ FileNotExecutable prog)
+  spawnProcess prog args
 
+
+
+
+    --------------------
+    --[ Utilities ]--
+    --------------------
+
+
+-- |Executes either a directory or file related IO action, depending on
+-- the input filepath.
+--
+-- The operation may fail with:
+--
+-- * `throwFileDoesNotExist` if the filepath is neither a file or directory
+doFileOrDir :: FilePath -> IO () -> IO () -> IO ()
+doFileOrDir fp iod iof = do
+  isD <- doesDirectoryExist fp
+  isF <- doesFileExist fp
+  case (isD, isF) of
+    (True, False) -> do
+      dirSanityThrow fp
+      iod
+    (False, True) -> do
+      fileSanityThrow fp
+      iof
+    _             -> throwFileDoesNotExist fp
