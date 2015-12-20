@@ -63,6 +63,7 @@ import GUI.Gtk.Utils
 import IO.Error
 import IO.File
 import IO.Utils
+import MyPrelude
 import System.Directory
   (
     executable
@@ -92,8 +93,6 @@ import System.Process
   )
 
 
-import Data.IntMap.Lazy (IntMap)
-import qualified Data.IntMap.Lazy as IM
 
 
 -- TODO: simplify where we modify the TVars
@@ -130,7 +129,7 @@ startMainWindow startdir = do
   filePix   <- getIcon IFile 24
   errorPix  <- getIcon IError 24
 
-  fsState <- readPath startdir >>= newTVarIO
+  fsState <- Data.DirTree.readFile startdir >>= newTVarIO
 
   operationBuffer <- newTVarIO None
 
@@ -162,7 +161,8 @@ startMainWindow startdir = do
                        "statusBar"
 
   -- create initial list store model with unsorted data
-  rawModel <- newTVarIO =<< listStoreNew . IM.keys . dirTree
+  rawModel <- newTVarIO =<< listStoreNew
+                        =<< Data.DirTree.getContents
                         =<< readTVarIO fsState
 
   filteredModel <- newTVarIO =<< (\x -> treeModelFilterNew x [])

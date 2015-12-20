@@ -22,6 +22,7 @@ library
                        IO.Utils
                        IO.File
                        IO.Error
+                       MyPrelude
 
   build-depends:       base >= 4.7,
                        data-default,
@@ -50,6 +51,7 @@ executable hsfm-gtk
                        GUI.Gtk.Gui
                        GUI.Gtk.Icons
                        GUI.Gtk.Utils
+                       MyPrelude
   build-depends:       hsfm,
                        base >= 4.7,
                        containers,

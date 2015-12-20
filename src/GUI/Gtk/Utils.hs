@@ -34,9 +34,8 @@ import Graphics.UI.Gtk
 import GUI.Gtk.Data
 import IO.Error
 import IO.Utils
+import MyPrelude
 
-
-import qualified Data.IntMap.Lazy as IM
 
 
 
@@ -89,12 +88,13 @@ withRow mygui myview io = do
 -- Interaction with mutable references:
 --
 -- * 'fsState' writes
-fileListStore :: AnchoredDirFile FileInfo FileInfo  -- ^ current dir
+fileListStore :: AnchoredFile FileInfo FileInfo  -- ^ current dir
               -> MyView
               -> IO (ListStore Row)
 fileListStore dt myview = do
   writeTVarIO (fsState myview) dt
-  listStoreNew (IM.keys . dirTree $ dt)
+  cs <- Data.DirTree.getContents dt
+  listStoreNew cs
 
 
 -- |Re-reads the current directory or the given one and updates the TreeView.
@@ -114,13 +114,13 @@ refreshTreeView :: MyGUI
                 -> IO ()
 refreshTreeView mygui myview mfp = do
   fsState <- readTVarIO $ fsState myview
-  let cfp = anchor fsState
+  let cfp = fullPath fsState
       fp  = fromMaybe cfp mfp
 
   -- TODO catch exceptions
   dirSanityThrow fp
 
-  newFsState  <- readPath fp
+  newFsState  <- Data.DirTree.readFile fp
   newRawModel <- fileListStore newFsState myview
   writeTVarIO (rawModel myview) newRawModel
   constructTreeView mygui myview
@@ -133,7 +133,7 @@ refreshTreeView mygui myview mfp = do
 -- * 'rawModel' writes
 refreshTreeView' :: MyGUI
                  -> MyView
-                 -> AnchoredDirFile FileInfo FileInfo
+                 -> AnchoredFile FileInfo FileInfo
                  -> IO ()
 refreshTreeView' mygui myview dt = do
   newRawModel  <- fileListStore dt myview
@@ -163,10 +163,9 @@ constructTreeView mygui myview = do
       render' = renderTxt mygui
 
   fsState <- readTVarIO $ fsState myview
-  let dirL = dirLookup fsState
 
   -- update urlBar, this will break laziness slightly, probably
-  let urlpath = anchor fsState
+  let urlpath = fullPath fsState
   entrySetText (urlBar mygui) urlpath
 
   rawModel' <- readTVarIO $ rawModel myview
@@ -176,7 +175,7 @@ constructTreeView mygui myview = do
   writeTVarIO (filteredModel myview) filteredModel'
   treeModelFilterSetVisibleFunc filteredModel' $ \iter -> do
      hidden <- showHidden <$> readTVarIO (settings mygui)
-     row    <- (name . dirL) <$> treeModelGetRow rawModel' iter
+     row    <- (name . file) <$> treeModelGetRow rawModel' iter
      if hidden
        then return True
        else return $ not ("." `isPrefixOf` row)
@@ -187,29 +186,29 @@ constructTreeView mygui myview = do
   treeSortableSetSortFunc sortedModel' 1 $ \iter1 iter2 -> do
       cIter1 <- treeModelFilterConvertIterToChildIter filteredModel' iter1
       cIter2 <- treeModelFilterConvertIterToChildIter filteredModel' iter2
-      row1   <- dirL <$> treeModelGetRow rawModel' cIter1
-      row2   <- dirL <$> treeModelGetRow rawModel' cIter2
+      row1   <- treeModelGetRow rawModel' cIter1
+      row2   <- treeModelGetRow rawModel' cIter2
       return $ compare row1 row2
   treeSortableSetSortColumnId sortedModel' 1 SortAscending
 
   -- set values
   treeModelSetColumn rawModel' (makeColumnIdPixbuf 0)
-                     (dirtreePix . dirL)
+                     (dirtreePix . file)
   treeModelSetColumn rawModel' (makeColumnIdString 1)
-                     (name . dirL)
+                     (name . file)
   treeModelSetColumn rawModel' (makeColumnIdString 2)
-                     (packModTime . dirL)
+                     (packModTime . file)
   treeModelSetColumn rawModel' (makeColumnIdString 3)
-                     (packPermissions . dirL)
+                     (packPermissions . file)
 
   -- update treeview model
   treeViewSetModel treeView' sortedModel'
 
   return ()
   where
-    dirtreePix (Dir {})    = folderPix mygui
-    dirtreePix (File {})   = filePix mygui
-    dirtreePix (Failed {}) = errorPix mygui
+    dirtreePix (Dir {})     = folderPix mygui
+    dirtreePix (RegFile {}) = filePix mygui
+    dirtreePix (Failed {})  = errorPix mygui
 
 
 -- |Push a message to the status bar.

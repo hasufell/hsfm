@@ -41,8 +41,6 @@ import System.Glib.UTFString
   )
 
 
-import qualified Data.IntMap.Lazy as IM
-
 
 
 
@@ -107,14 +105,13 @@ urlGoTo mygui myview = do
 --
 -- * 'fsState' reads
 open :: Row -> MyGUI -> MyView -> IO ()
-open row mygui myview = do
-  fS <- readTVarIO $ fsState myview
-  case IM.lookup row (dirTree fS) of
-    Just dt@(Dir n _) -> do
-      newP <- readPath (anchor fS </> n)
-      refreshTreeView' mygui myview newP
-    Just dt@(File n _) ->
-      withErrorDialog $ openFile (anchor fS </> n)
+open row mygui myview =
+  case row of
+    r@(_ :/ Dir _ _) -> do
+      nv <- Data.DirTree.readFile $ fullPath r
+      refreshTreeView' mygui myview nv
+    r@(_ :/ RegFile _ _) ->
+      withErrorDialog $ openFile $ fullPath r
     _ -> return ()
 
 
@@ -124,24 +121,23 @@ open row mygui myview = do
 --
 -- * 'fsState' reads
 del :: Row -> MyGUI -> MyView -> IO ()
-del row mygui myview = do
-  fS <- readTVarIO $ fsState myview
-  case dirLookup fS row of
-    dt@(Dir n _)   -> do
-      let fp = anchor fS </> n
-      subADT <- readPath fp
+del row mygui myview =
+  case row of
+    r@(_ :/ Dir _ _)   -> do
+      let fp = fullPath r
+      subADT <- readDirectory fp
       let cmsg  = "Really delete directory \"" ++ fp ++ "\"?"
           cmsg2 = "Directory \"" ++ fp ++
                   "\" is not empty! Delete all contents?"
       withConfirmationDialog cmsg $
-        if IM.null (dirTree subADT)
+        if null subADT
           then withErrorDialog (deleteDir fp
                                 >> refreshTreeView mygui myview Nothing)
           else withConfirmationDialog cmsg2 $ withErrorDialog
                  (deleteDirRecursive fp
                   >> refreshTreeView mygui myview Nothing)
-    dt@(File _ _) -> do
-      let fp   = subDirName fS row
+    r@(_ :/ RegFile _ _) -> do
+      let fp   = fullPath r
           cmsg = "Really delete file \"" ++ fp ++ "\"?"
       withConfirmationDialog cmsg
         $ withErrorDialog (deleteFile fp
@@ -155,9 +151,8 @@ del row mygui myview = do
 -- * 'operationBuffer' writes
 -- * 'fsState' reads
 copyInit :: Row -> MyGUI -> MyView -> IO ()
-copyInit row mygui myview = do
-  fsState <- readTVarIO $ fsState myview
-  writeTVarIO (operationBuffer myview) (FCopy . CP1 $ subDirName fsState row)
+copyInit row mygui myview =
+  writeTVarIO (operationBuffer myview) (FCopy . CP1 $ fullPath row)
 
 
 -- |Finalizes a file copy operation.
@@ -171,7 +166,7 @@ copyFinal mygui myview = do
   op <- readTVarIO (operationBuffer myview)
   case op of
     FCopy (CP1 source) -> do
-      dest   <- anchor <$> readTVarIO (fsState myview)
+      dest   <- fullPath <$> readTVarIO (fsState myview)
       isFile <- doesFileExist source
       let cmsg = "Really copy file \"" ++ source
                  ++ "\"" ++ " to \"" ++ dest ++ "\"?"
@@ -194,5 +189,5 @@ upDir mygui myview = do
   rawModel'    <- readTVarIO $ rawModel myview
   sortedModel' <- readTVarIO $ sortedModel myview
   fS           <- readTVarIO $ fsState myview
-  newP <- readPath (baseDir . anchor $ fS)
-  refreshTreeView' mygui myview newP
+  nv <- goUp fS
+  refreshTreeView' mygui myview nv

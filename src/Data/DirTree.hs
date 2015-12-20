@@ -32,7 +32,6 @@ import Control.Monad.State.Lazy
 
   )
 import Data.Default
-import Data.IntMap.Lazy (IntMap)
 import Data.List
   (
     delete
@@ -61,6 +60,10 @@ import Data.Word
   (
     Word64
   )
+import Safe
+  (
+    atDef
+  )
 import System.Directory
   (
     doesFileExist
@@ -77,6 +80,7 @@ import System.FilePath
   , equalFilePath
   , joinPath
   , splitDirectories
+  , takeFileName
   , (</>)
   )
 import System.IO
@@ -117,7 +121,6 @@ import qualified Data.Bifoldable    as BFL
 import qualified Data.Traversable   as T
 import qualified System.Posix.Files as PF
 import qualified System.Posix.Directory as PFD
-import qualified Data.IntMap.Lazy as IM
 
 
 
@@ -131,10 +134,10 @@ import qualified Data.IntMap.Lazy as IM
 type FileName = String
 
 
--- |Represents a directory with it's contents (one level only), while
--- preserving the context via the anchor.
-data AnchoredDirFile a b =
-  (:/) { anchor :: FilePath, dirTree :: IntMap (DirFile a b) }
+-- |Represents a file. The `anchor` field is the path
+-- to that file without the filename.
+data AnchoredFile a b =
+  (:/) { anchor :: FilePath, file :: File a b }
   deriving (Eq, Ord, Show)
 
 
@@ -143,7 +146,7 @@ data AnchoredDirFile a b =
 -- Handles, Strings representing a file's contents or anything else you can
 -- think of. We catch any IO errors in the Failed constructor. an Exception
 -- can be converted to a String with 'show'.
-data DirFile a b =
+data File a b =
     Failed {
     name :: FileName
   , err  :: IOException
@@ -152,9 +155,9 @@ data DirFile a b =
     name :: FileName
   , dir  :: a
   }
-  | File {
+  | RegFile {
     name :: FileName
-  , file :: b
+  , regFile :: b
   } deriving (Show, Eq)
 
 
@@ -192,19 +195,19 @@ data FileInfo = FileInfo {
     ----------------------------
 
 
-instance BF.Bifunctor DirFile where
+instance BF.Bifunctor File where
   bimap = BT.bimapDefault
 
 
-instance BFL.Bifoldable DirFile where
+instance BFL.Bifoldable File where
   bifoldMap = BT.bifoldMapDefault
 
 
-instance BT.Bitraversable DirFile where
+instance BT.Bitraversable File where
     bitraverse f1 f2 (Dir n b) =
       Dir n <$> f1 b
-    bitraverse _ f2 (File n a) =
-      File n <$> f2 a
+    bitraverse _ f2 (RegFile n a) =
+      RegFile n <$> f2 a
     bitraverse _ _ (Failed n e) =
       pure (Failed n e)
 
@@ -213,8 +216,8 @@ instance BT.Bitraversable DirFile where
 -- | First compare constructors: Failed < Dir < File...
 -- Then compare `name`...
 -- Then compare free variable parameter of `File` constructors
-instance (Ord a, Ord b, Eq a, Eq b) => Ord (DirFile a b) where
-    compare (File n a) (File n' a') =
+instance (Ord a, Ord b, Eq a, Eq b) => Ord (File a b) where
+    compare (RegFile n a) (RegFile n' a') =
         case compare n n' of
              EQ -> compare a a'
              el -> el
@@ -235,13 +238,33 @@ instance (Ord a, Ord b, Eq a, Eq b) => Ord (DirFile a b) where
     ----------------------------
 
 
--- | build an AnchoredDirFile, given the path to a directory, opening the files
--- using readFile.
--- Uses `readDirectoryWith` internally and has the effect of traversing the
--- entire directory structure. See `readDirectoryWithL` for lazy production
--- of a DirFile structure.
-readDirectory :: FilePath -> IO (AnchoredDirFile String String)
-readDirectory = readDirectoryWith readFile return
+-- |Read a file into an `AnchoredFile`, filling the free variables via
+-- `getFileInfo`. This also works on directories, but doesn't look at
+-- their contents.
+readFileWith :: (FilePath -> IO a)
+             -> (FilePath -> IO b)
+             -> FilePath
+             -> IO (AnchoredFile a b)
+readFileWith fd ff fp = do
+  file <- handleDT fn $ do
+    isFile <- doesFileExist fp
+    if isFile
+       then RegFile fn <$> ff fp
+       else Dir fn <$> fd fp
+  return (bd :/ file)
+  where
+    fn = topDir fp
+    bd = baseDir fp
+
+
+readFile :: FilePath -> IO (AnchoredFile FileInfo FileInfo)
+readFile = readFileWith getFileInfo getFileInfo
+
+
+-- |Build a list of AnchoredFile, given the path to a directory, filling
+-- the free variables via `getFileInfo`.
+readDirectory :: FilePath -> IO [AnchoredFile FileInfo FileInfo]
+readDirectory = readDirectoryWith getFileInfo getFileInfo
 
 
 -- | same as readDirectory but allows us to, for example, use
@@ -249,7 +272,7 @@ readDirectory = readDirectoryWith readFile return
 readDirectoryWith :: (FilePath -> IO a)
                   -> (FilePath -> IO b)
                   -> FilePath
-                  -> IO (AnchoredDirFile a b)
+                  -> IO [AnchoredFile a b]
 readDirectoryWith fd ff p = buildWith' buildAtOnce' fd ff p
 
 
@@ -261,11 +284,11 @@ readDirectoryWith fd ff p = buildWith' buildAtOnce' fd ff p
 
 
 
--- | builds a DirFile from the contents of the directory passed to it, saving
+-- | builds a File from the contents of the directory passed to it, saving
 -- the base directory in the Anchored* wrapper. Errors are caught in the tree in
 -- the Failed constructor. The 'file' fields initially are populated with full
 -- paths to the files they are abstracting.
-build :: FilePath -> IO (AnchoredDirFile FilePath FilePath)
+build :: FilePath -> IO [AnchoredFile FilePath FilePath]
 build = buildWith' buildAtOnce' return return   -- we say 'return' here to get
                                                 -- back a  tree  of  FilePaths
 
@@ -275,7 +298,7 @@ build = buildWith' buildAtOnce' return return   -- we say 'return' here to get
 
 
 type UserIO a = FilePath -> IO a
-type Builder a b = UserIO a -> UserIO b -> FilePath -> IO (IntMap (DirFile a b))
+type Builder a b = UserIO a -> UserIO b -> FilePath -> IO [File a b]
 
 -- remove non-existent file errors, which are artifacts of the "non-atomic"
 -- nature of traversing a system firectory tree:
@@ -283,10 +306,10 @@ buildWith' :: Builder a b
            -> UserIO a
            -> UserIO b
            -> FilePath
-           -> IO (AnchoredDirFile a b)
+           -> IO [AnchoredFile a b]
 buildWith' bf' fd ff p =
     do tree <- bf' fd ff p
-       return (p :/ removeNonexistent tree)
+       return $ fmap (p :/) (removeNonexistent tree)
 
 
 
@@ -298,7 +321,7 @@ buildAtOnce' fd ff p = do
     let subf = p </> n
     do isFile <- doesFileExist subf
        if isFile
-          then File n <$> ff subf
+          then RegFile n <$> ff subf
           else Dir n <$> fd subf
 
 
@@ -314,22 +337,22 @@ buildAtOnce' fd ff p = do
 
 
 -- | True if any Failed constructors in the tree
-anyFailed :: [DirFile a b] -> Bool
+anyFailed :: [File a b] -> Bool
 anyFailed = not . successful
 
 -- | True if there are no Failed constructors in the tree
-successful :: [DirFile a b] -> Bool
+successful :: [File a b] -> Bool
 successful = null . failures
 
 
 -- | returns true if argument is a `Failed` constructor:
-failed :: DirFile a b -> Bool
+failed :: File a b -> Bool
 failed (Failed _ _) = True
 failed _            = False
 
 
 -- | returns a list of 'Failed' constructors only:
-failures :: [DirFile a b] -> [DirFile a b]
+failures :: [File a b] -> [File a b]
 failures = filter failed
 
 
@@ -339,27 +362,27 @@ failures = filter failed
 
 -- | Tests equality of two trees, ignoring their free variable portion. Can be
 -- used to check if any files have been added or deleted, for instance.
-equalShape :: DirFile a b -> DirFile c d -> Bool
+equalShape :: File a b -> File c d -> Bool
 equalShape d d' = comparingShape d d' == EQ
 
 -- TODO: we should use equalFilePath here, but how to sort properly?
 -- with System.Directory.canonicalizePath, before compare?
 
 -- | a compare function that ignores the free "file" type variable:
-comparingShape :: DirFile a b -> DirFile c d -> Ordering
+comparingShape :: File a b -> File c d -> Ordering
 comparingShape (Dir n _) (Dir n' _) = compare n n'
 -- else simply compare the flat constructors, non-recursively:
 comparingShape t t'  = comparingConstr t t'
 
 
  -- HELPER: a non-recursive comparison
-comparingConstr :: DirFile a b -> DirFile a1 b1 -> Ordering
-comparingConstr (Failed _ _) (Dir _ _)    = LT
-comparingConstr (Failed _ _) (File _ _)   = LT
-comparingConstr (File _ _)   (Failed _ _) = GT
-comparingConstr (File _ _)   (Dir _ _)    = GT
-comparingConstr (Dir _ _)    (Failed _ _) = GT
-comparingConstr (Dir _ _)    (File _ _)   = LT
+comparingConstr :: File a b -> File a1 b1 -> Ordering
+comparingConstr (Failed _ _)  (Dir _ _)     = LT
+comparingConstr (Failed _ _)  (RegFile _ _) = LT
+comparingConstr (RegFile _ _) (Failed _ _)  = GT
+comparingConstr (RegFile _ _) (Dir _ _)     = GT
+comparingConstr (Dir _ _)     (Failed _ _)  = GT
+comparingConstr (Dir _ _)     (RegFile _ _) = LT
  -- else compare on the names of constructors that are the same, without
  -- looking at the contents of Dir constructors:
 comparingConstr t t'  = compare (name t) (name t')
@@ -377,11 +400,11 @@ comparingConstr t t'  = compare (name t) (name t')
 
 
 ---- CONSTRUCTOR IDENTIFIERS ----
-isFileC :: DirFile a b -> Bool
-isFileC (File _ _) = True
-isFileC _          = False
+isFileC :: File a b -> Bool
+isFileC (RegFile _ _) = True
+isFileC _             = False
 
-isDirC :: DirFile a b -> Bool
+isDirC :: File a b -> Bool
 isDirC (Dir _ _) = True
 isDirC _         = False
 
@@ -400,36 +423,37 @@ baseDir = joinPath . init . splitDirectories
 ---- IO HELPERS: ----
 
 
+-- |Go up one directory in the filesystem hierarchy.
+goUp :: AnchoredFile FileInfo FileInfo -> IO (AnchoredFile FileInfo FileInfo)
+goUp af@("" :/ _) = return af
+goUp    (bp :/ _) = Data.DirTree.readFile bp
 
------ the let expression is an annoying hack, because dropFileName "." == ""
------ and getDirectoryContents fails epically on ""
--- prepares the directory contents list. we sort so that we can be sure of
--- a consistent fold/traversal order on the same directory:
-getDirsFiles :: FilePath -> IO (IntMap FilePath)
+
+getContents :: AnchoredFile FileInfo FileInfo
+            -> IO [AnchoredFile FileInfo FileInfo]
+getContents (bp :/ Dir n _) = readDirectory (bp </> n)
+getContents _ = return []
+
+
+-- |Get all files of a given directory and return them as a List.
+getDirsFiles :: FilePath -> IO [FilePath]
 getDirsFiles fp = do
   dirstream <- PFD.openDirStream fp
-  let mdirs :: Int -> IntMap FilePath -> IO (IntMap FilePath)
-      mdirs ix dirs = do
+  let mdirs :: [FilePath] -> IO [FilePath]
+      mdirs dirs = do
         dir <- PFD.readDirStream dirstream
         if dir == ""
           then return dirs
-          else mdirs (ix + 1) (instertF ix dir dirs)
-  dirs <- mdirs 0 IM.empty
+          else mdirs (instert dir dirs)
+  dirs <- mdirs []
   PFD.closeDirStream dirstream
   return dirs
   where
-    instertF ix dir dirs = case dir of
+    instert dir dirs = case dir of
       "."  -> dirs
       ".." -> dirs
-      _    -> IM.insert ix dir dirs
+      _    -> dir : dirs
 
-
--- |Read a filepath and return transform it into our `AnchoredDirFile`
--- with the free variables of both the File and Dir constructors filled
--- with `FileInfo`.
-readPath :: FilePath
-         -> IO (AnchoredDirFile FileInfo FileInfo)
-readPath = readDirectoryWith getFileInfo getFileInfo
 
 
 -- |Gets all file information.
@@ -463,10 +487,10 @@ getFileInfo fp = do
 
 
 -- |Gets the free variable. Returns Nothing if the constructor is of `Failed`.
-getFreeVar :: DirFile a a -> Maybe a
-getFreeVar (File _ f)  = Just f
-getFreeVar (Dir _  d)  = Just d
-getFreeVar _           = Nothing
+getFreeVar :: File a a -> Maybe a
+getFreeVar (RegFile _ f)  = Just f
+getFreeVar (Dir _  d)     = Just d
+getFreeVar _              = Nothing
 
 
 ---- FAILURE HELPERS: ----
@@ -474,7 +498,7 @@ getFreeVar _           = Nothing
 
 -- handles an IO exception by returning a Failed constructor filled with that
 -- exception:
-handleDT :: FileName -> IO (DirFile a b) -> IO (DirFile a b)
+handleDT :: FileName -> IO (File a b) -> IO (File a b)
 handleDT n = handle (return . Failed n)
 
 
@@ -484,8 +508,8 @@ handleDT n = handle (return . Failed n)
 --    So we filter those errors out because the user should not see errors
 -- raised by the internal implementation of this module:
 --     This leaves the error if it exists in the top (user-supplied) level:
-removeNonexistent :: IntMap (DirFile a b) -> IntMap (DirFile a b)
-removeNonexistent = IM.filter isOkConstructor
+removeNonexistent :: [File a b] -> [File a b]
+removeNonexistent = filter isOkConstructor
      where isOkConstructor c = not (failed c) || isOkError c
            isOkError = not . isDoesNotExistErrorType . ioeGetErrorType . err
 
@@ -495,20 +519,11 @@ removeNonexistent = IM.filter isOkConstructor
 ---- OTHER: ----
 
 
--- TODO: use Maybe type?
-dirLookup :: AnchoredDirFile a b -> Int -> DirFile a b
-dirLookup df ix =
-  fromMaybe errTree (IM.lookup ix . dirTree $ df)
-  where
-    errTree = Failed "Not found!!!"
-                     (userError $ "Failed to lookup index " ++ show ix)
+fullPath :: AnchoredFile a b -> FilePath
+fullPath (bp :/ f) = bp </> name f
 
 
-subDirName :: AnchoredDirFile a b -> Int -> FilePath
-subDirName df ix = anchor df </> name (dirLookup df ix)
-
-
-fromFreeVar :: (Default d) => (a -> d) -> DirFile a a -> d
+fromFreeVar :: (Default d) => (a -> d) -> File a a -> d
 fromFreeVar f df = maybeD f $ getFreeVar df
 
 
@@ -517,12 +532,12 @@ maybeD = maybe def
 
 
 -- |Pack the modification time
-packModTime :: DirFile FileInfo FileInfo
+packModTime :: File FileInfo FileInfo
             -> String
 packModTime = fromFreeVar
                 $ show . posixSecondsToUTCTime . realToFrac . modificationTime
 
-packPermissions :: DirFile FileInfo FileInfo
+packPermissions :: File FileInfo FileInfo
                 -> String
 packPermissions dt = fromFreeVar (pStr . permissions) dt
   where

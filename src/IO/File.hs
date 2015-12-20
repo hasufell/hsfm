@@ -67,6 +67,7 @@ import qualified System.Posix.Files as PF
 
 -- TODO: modify the DTZipper directly after file operations!?
 -- TODO: file operations should be threaded and not block the UI
+-- TODO: canonicalize paths?
 
 
 -- |Data type describing an actual file operation that can be

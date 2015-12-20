@@ -56,7 +56,7 @@ data FMSettings = MkFMSettings {
 }
 
 
-type Row = Int
+type Row = AnchoredFile FileInfo FileInfo
 
 
 -- |This describes the contents of the treeView and is separated from MyGUI,
@@ -65,7 +65,7 @@ data MyView = MkMyView {
     rawModel :: TVar (ListStore Row)
   , sortedModel :: TVar (TypedTreeModelSort Row)
   , filteredModel :: TVar (TypedTreeModelFilter Row)
-  , fsState :: TVar (AnchoredDirFile FileInfo FileInfo)
+  , fsState :: TVar (AnchoredFile FileInfo FileInfo)
   , operationBuffer :: TVar FileOperation
 }
 
