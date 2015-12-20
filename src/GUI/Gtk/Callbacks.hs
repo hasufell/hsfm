@@ -170,13 +170,14 @@ copyFinal :: MyGUI -> MyView -> IO ()
 copyFinal mygui myview = do
   op <- readTVarIO (operationBuffer myview)
   case op of
-    FCopy (CP1 sourceDir) -> do
-      curDir   <- anchor <$> readTVarIO (fsState myview)
-      let cmsg = "Really copy file \"" ++ sourceDir
-                 ++ "\"" ++ " to \"" ++ curDir ++ "\"?"
+    FCopy (CP1 source) -> do
+      dest   <- anchor <$> readTVarIO (fsState myview)
+      isFile <- doesFileExist source
+      let cmsg = "Really copy file \"" ++ source
+                 ++ "\"" ++ " to \"" ++ dest ++ "\"?"
       withConfirmationDialog cmsg $ do
-        copyMode <- showCopyModeChooserDialog
-        withErrorDialog ((runFileOp . FCopy . CC sourceDir curDir $ copyMode)
+        copyMode <- if isFile then return Strict else showCopyModeChooserDialog
+        withErrorDialog ((runFileOp . FCopy . CC source dest $ copyMode)
                          >> refreshTreeView mygui myview Nothing)
     _ -> return ()
 
