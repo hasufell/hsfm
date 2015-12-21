@@ -379,10 +379,11 @@ executeFile prog' args = do
     --------------------
 
 
--- |Carry out action 1 if the filepath is a symlink, otherwise action2.
+-- |Carries out the given action if the filepath is a symlink. If not,
+-- carries out an alternative action.
 onSymlinkOr :: FilePath
-            -> IO ()    -- ^ action1
-            -> IO ()    -- ^ action2
+            -> IO ()    -- ^ action if symlink
+            -> IO ()    -- ^ action if not symlink
             -> IO ()
 onSymlinkOr fp a1 a2 = do
   isSymlink <- PF.isSymbolicLink <$> PF.getSymbolicLinkStatus fp
@@ -395,7 +396,10 @@ onSymlinkOr fp a1 a2 = do
 -- The operation may fail with:
 --
 -- * `throwFileDoesNotExist` if the filepath is neither a file or directory
-onDirOrFile :: FilePath -> IO () -> IO () -> IO ()
+onDirOrFile :: FilePath
+            -> IO ()    -- ^ action if directory
+            -> IO ()    -- ^ action if file
+            -> IO ()
 onDirOrFile fp' iod iof = do
   fp <- canonicalizePath' fp'
   isD <- doesDirectoryExist fp
