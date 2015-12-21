@@ -205,7 +205,8 @@ copyFile :: FilePath  -- ^ source file
          -> IO ()
 copyFile from' to' = do
   from <- canonicalizePath from'
-  to   <- canonicalizePath to'
+  tod  <- canonicalizePath (baseDir to')
+  let to = tod </> takeFileName to'
   fileSanityThrow from
   throwNotAbsolute to
   throwDirDoesExist to
