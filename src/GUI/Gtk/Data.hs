@@ -65,7 +65,6 @@ data MyView = MkMyView {
     rawModel :: TVar (ListStore Row)
   , sortedModel :: TVar (TypedTreeModelSort Row)
   , filteredModel :: TVar (TypedTreeModelFilter Row)
-  , fsState :: TVar (AnchoredFile FileInfo FileInfo)
   , operationBuffer :: TVar FileOperation
 }
 

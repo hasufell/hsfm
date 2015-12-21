@@ -113,7 +113,6 @@ import System.Process
 -- Interaction with mutable references:
 --
 -- * 'settings' creates
--- * 'fsState' creates
 -- * 'operationBuffer' creates
 -- * 'rawModel' creates
 -- * 'filteredModel' creates
@@ -128,8 +127,6 @@ startMainWindow startdir = do
   folderPix <- getIcon IFolder 24
   filePix   <- getIcon IFile 24
   errorPix  <- getIcon IError 24
-
-  fsState <- Data.DirTree.readFile startdir >>= newTVarIO
 
   operationBuffer <- newTVarIO None
 
@@ -163,7 +160,7 @@ startMainWindow startdir = do
   -- create initial list store model with unsorted data
   rawModel <- newTVarIO =<< listStoreNew
                         =<< Data.DirTree.getContents
-                        =<< readTVarIO fsState
+                        =<< Data.DirTree.readFile startdir
 
   filteredModel <- newTVarIO =<< (\x -> treeModelFilterNew x [])
                            =<< readTVarIO rawModel

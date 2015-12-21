@@ -25,6 +25,7 @@ import Data.List
 import Data.Maybe
   (
     fromMaybe
+  , fromJust
   )
 import Data.Traversable
   (
@@ -84,17 +85,27 @@ withRow mygui myview io = do
 -- |Create the 'ListStore' of files/directories from the current directory.
 -- This is the function which maps the Data.DirTree data structures
 -- into the GTK+ data structures.
---
--- Interaction with mutable references:
---
--- * 'fsState' writes
 fileListStore :: AnchoredFile FileInfo FileInfo  -- ^ current dir
               -> MyView
               -> IO (ListStore Row)
 fileListStore dt myview = do
-  writeTVarIO (fsState myview) dt
   cs <- Data.DirTree.getContents dt
   listStoreNew cs
+
+
+-- |Currently unsafe. This is used to obtain any row (possibly the '.' row)
+-- and extract the "current working directory" from it.
+--
+-- Interaction with mutable references:
+--
+-- * 'rawModel' reads
+getCwdFromFirstRow :: MyView
+                   -> IO FilePath
+getCwdFromFirstRow myview = do
+  rawModel' <- readTVarIO $ rawModel myview
+  iter      <- fromJust <$> treeModelGetIterFirst rawModel'
+  af        <- treeModelGetRow rawModel' iter
+  return $ anchor af
 
 
 -- |Re-reads the current directory or the given one and updates the TreeView.
@@ -106,16 +117,14 @@ fileListStore dt myview = do
 --
 -- Interaction with mutable references:
 --
--- * 'fsState' reads
 -- * 'rawModel' writes
 refreshTreeView :: MyGUI
                 -> MyView
                 -> Maybe FilePath
                 -> IO ()
 refreshTreeView mygui myview mfp = do
-  fsState <- readTVarIO $ fsState myview
-  let cfp = fullPath fsState
-      fp  = fromMaybe cfp mfp
+  mcdir <- getCwdFromFirstRow myview
+  let fp  = fromMaybe mcdir mfp
 
   -- TODO catch exceptions
   dirSanityThrow fp
@@ -148,7 +157,6 @@ refreshTreeView' mygui myview dt = do
 --
 -- Interaction with mutable references:
 --
--- * 'fsState' reads
 -- * 'rawModel' reads
 -- * 'filteredModel' writes
 -- * 'sortedModel' writes
@@ -162,11 +170,10 @@ constructTreeView mygui myview = do
       cMD' = cMD mygui
       render' = renderTxt mygui
 
-  fsState <- readTVarIO $ fsState myview
+  mcdir <- getCwdFromFirstRow myview
 
-  -- update urlBar, this will break laziness slightly, probably
-  let urlpath = fullPath fsState
-  entrySetText (urlBar mygui) urlpath
+  -- update urlBar
+  entrySetText (urlBar mygui) mcdir
 
   rawModel' <- readTVarIO $ rawModel myview
 
@@ -178,7 +185,7 @@ constructTreeView mygui myview = do
      row    <- (name . file) <$> treeModelGetRow rawModel' iter
      if hidden
        then return True
-       else return $ not ("." `isPrefixOf` row)
+       else return $ not . hiddenFile $ row
 
   -- sorting
   sortedModel' <- treeModelSortNewWithModel filteredModel'

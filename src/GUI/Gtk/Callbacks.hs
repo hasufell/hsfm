@@ -54,7 +54,6 @@ import System.Glib.UTFString
 -- Interaction with mutable references:
 --
 -- * 'settings mygui' modifies
--- * 'fsState' reads
 setCallbacks :: MyGUI -> MyView -> IO ()
 setCallbacks mygui myview = do
   _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
@@ -64,9 +63,10 @@ setCallbacks mygui myview = do
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
     "h"       <- fmap glibToString eventKeyName
+    mcdir <- liftIO $ getCwdFromFirstRow myview
     liftIO $ modifyTVarIO (settings mygui)
                           (\x -> x { showHidden = not . showHidden $ x})
-             >> (refreshTreeView' mygui myview =<< readTVarIO (fsState myview))
+             >> refreshTreeView mygui myview (Just mcdir)
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Alt] <- eventModifier
     "Up"  <- fmap glibToString eventKeyName
@@ -100,10 +100,6 @@ urlGoTo mygui myview = do
 
 
 -- |Supposed to be used with 'withRow'. Opens a file or directory.
---
--- Interaction with mutable references:
---
--- * 'fsState' reads
 open :: Row -> MyGUI -> MyView -> IO ()
 open row mygui myview =
   case row of
@@ -116,10 +112,6 @@ open row mygui myview =
 
 
 -- |Supposed to be used with 'withRow'. Deletes a file or directory.
---
--- Interaction with mutable references:
---
--- * 'fsState' reads
 del :: Row -> MyGUI -> MyView -> IO ()
 del row mygui myview =
   case row of
@@ -149,7 +141,6 @@ del row mygui myview =
 -- Interaction with mutable references:
 --
 -- * 'operationBuffer' writes
--- * 'fsState' reads
 copyInit :: Row -> MyGUI -> MyView -> IO ()
 copyInit row mygui myview =
   writeTVarIO (operationBuffer myview) (FCopy . CP1 $ fullPath row)
@@ -160,13 +151,13 @@ copyInit row mygui myview =
 -- Interaction with mutable references:
 --
 -- * 'operationBuffer' reads
--- * 'fsState' reads
 copyFinal :: MyGUI -> MyView -> IO ()
 copyFinal mygui myview = do
   op <- readTVarIO (operationBuffer myview)
+  mcdir <- getCwdFromFirstRow myview
   case op of
     FCopy (CP1 source) -> do
-      dest   <- fullPath <$> readTVarIO (fsState myview)
+      let dest = mcdir
       isFile <- doesFileExist source
       let cmsg = "Really copy file \"" ++ source
                  ++ "\"" ++ " to \"" ++ dest ++ "\"?"
@@ -183,11 +174,10 @@ copyFinal mygui myview = do
 --
 -- * 'rawModel' reads
 -- * 'sortedModel' reads
--- * 'fsState' reads
 upDir :: MyGUI -> MyView -> IO ()
 upDir mygui myview = do
+  mcdir <- getCwdFromFirstRow myview
   rawModel'    <- readTVarIO $ rawModel myview
   sortedModel' <- readTVarIO $ sortedModel myview
-  fS           <- readTVarIO $ fsState myview
-  nv <- goUp fS
+  nv <- goUp' mcdir
   refreshTreeView' mygui myview nv

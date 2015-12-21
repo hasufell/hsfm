@@ -35,6 +35,7 @@ import Data.Default
 import Data.List
   (
     delete
+  , isPrefixOf
   , sort
   , sortBy
   , (\\)
@@ -66,7 +67,8 @@ import Safe
   )
 import System.Directory
   (
-    doesFileExist
+    canonicalizePath
+  , doesFileExist
   , executable
   , getPermissions
   , readable
@@ -246,25 +248,26 @@ readFileWith :: (FilePath -> IO a)
              -> FilePath
              -> IO (AnchoredFile a b)
 readFileWith fd ff fp = do
+  cfp <- canonicalizePath fp
+  let fn = topDir cfp
+      bd = baseDir cfp
   file <- handleDT fn $ do
-    isFile <- doesFileExist fp
+    isFile <- doesFileExist cfp
     if isFile
-       then RegFile fn <$> ff fp
-       else Dir fn <$> fd fp
+       then RegFile fn <$> ff cfp
+       else Dir fn <$> fd cfp
   return (bd :/ file)
-  where
-    fn = topDir fp
-    bd = baseDir fp
 
 
 readFile :: FilePath -> IO (AnchoredFile FileInfo FileInfo)
-readFile = readFileWith getFileInfo getFileInfo
+readFile fp = readFileWith getFileInfo getFileInfo =<< canonicalizePath fp
 
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
 -- the free variables via `getFileInfo`.
 readDirectory :: FilePath -> IO [AnchoredFile FileInfo FileInfo]
-readDirectory = readDirectoryWith getFileInfo getFileInfo
+readDirectory fp = readDirectoryWith getFileInfo getFileInfo
+                     =<< canonicalizePath fp
 
 
 -- | same as readDirectory but allows us to, for example, use
@@ -273,7 +276,8 @@ readDirectoryWith :: (FilePath -> IO a)
                   -> (FilePath -> IO b)
                   -> FilePath
                   -> IO [AnchoredFile a b]
-readDirectoryWith fd ff p = buildWith' buildAtOnce' fd ff p
+readDirectoryWith fd ff p = buildWith' buildAtOnce' fd ff
+                              =<< canonicalizePath p
 
 
 
@@ -282,15 +286,6 @@ readDirectoryWith fd ff p = buildWith' buildAtOnce' fd ff p
     --[ LOWER LEVEL FUNCTIONS ]--
     -----------------------------
 
-
-
--- | builds a File from the contents of the directory passed to it, saving
--- the base directory in the Anchored* wrapper. Errors are caught in the tree in
--- the Failed constructor. The 'file' fields initially are populated with full
--- paths to the files they are abstracting.
-build :: FilePath -> IO [AnchoredFile FilePath FilePath]
-build = buildWith' buildAtOnce' return return   -- we say 'return' here to get
-                                                -- back a  tree  of  FilePaths
 
 
 
@@ -308,17 +303,20 @@ buildWith' :: Builder a b
            -> FilePath
            -> IO [AnchoredFile a b]
 buildWith' bf' fd ff p =
-    do tree <- bf' fd ff p
-       return $ fmap (p :/) (removeNonexistent tree)
+  do
+    cfp <- canonicalizePath p
+    tree <- bf' fd ff cfp
+    return $ fmap (cfp :/) (removeNonexistent tree)
 
 
 
 -- IO function passed to our builder and finally executed here:
 buildAtOnce' :: Builder a b
 buildAtOnce' fd ff p = do
-  contents <- getDirsFiles p
+  cfp <- canonicalizePath p
+  contents <- getAllDirsFiles cfp
   for contents $ \n -> handleDT n $ do
-    let subf = p </> n
+    let subf = cfp </> n
     do isFile <- doesFileExist subf
        if isFile
           then RegFile n <$> ff subf
@@ -419,6 +417,13 @@ topDir = last . splitDirectories
 baseDir = joinPath . init . splitDirectories
 
 
+hiddenFile :: FilePath -> Bool
+hiddenFile "."  = False
+hiddenFile ".." = False
+hiddenFile str
+  | "." `isPrefixOf` str = True
+  | otherwise            = False
+
 
 ---- IO HELPERS: ----
 
@@ -429,6 +434,12 @@ goUp af@("" :/ _) = return af
 goUp    (bp :/ _) = Data.DirTree.readFile bp
 
 
+goUp' :: FilePath -> IO (AnchoredFile FileInfo FileInfo)
+goUp' fp = do
+  cfp <- canonicalizePath fp
+  Data.DirTree.readFile $ baseDir cfp
+
+
 getContents :: AnchoredFile FileInfo FileInfo
             -> IO [AnchoredFile FileInfo FileInfo]
 getContents (bp :/ Dir n _) = readDirectory (bp </> n)
@@ -436,6 +447,23 @@ getContents _ = return []
 
 
 -- |Get all files of a given directory and return them as a List.
+-- This includes "." and "..".
+getAllDirsFiles :: FilePath -> IO [FilePath]
+getAllDirsFiles fp = do
+  dirstream <- PFD.openDirStream fp
+  let mdirs :: [FilePath] -> IO [FilePath]
+      mdirs dirs = do
+        dir <- PFD.readDirStream dirstream
+        if dir == ""
+          then return dirs
+          else mdirs (dir : dirs)
+  dirs <- mdirs []
+  PFD.closeDirStream dirstream
+  return dirs
+
+
+-- |Get all files of a given directory and return them as a List.
+-- This excludes "." and "..".
 getDirsFiles :: FilePath -> IO [FilePath]
 getDirsFiles fp = do
   dirstream <- PFD.openDirStream fp
@@ -444,16 +472,15 @@ getDirsFiles fp = do
         dir <- PFD.readDirStream dirstream
         if dir == ""
           then return dirs
-          else mdirs (instert dir dirs)
+          else mdirs (insert dir dirs)
   dirs <- mdirs []
   PFD.closeDirStream dirstream
   return dirs
   where
-    instert dir dirs = case dir of
+    insert dir dirs = case dir of
       "."  -> dirs
       ".." -> dirs
       _    -> dir : dirs
-
 
 
 -- |Gets all file information.

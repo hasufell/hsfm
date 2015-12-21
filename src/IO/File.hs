@@ -142,27 +142,31 @@ copyDir :: DirCopyMode
         -> FilePath  -- ^ source dir
         -> FilePath  -- ^ destination dir
         -> IO ()
-copyDir cm from to = do
-  let fn = takeFileName from
-      destdir = to </> fn
-
-  dirSanityThrow from
-  dirSanityThrow to
-  throwDestinationInSource from to
-  throwSameFile from destdir
-
-  createDestdir destdir
-
-  contents <- getDirsFiles from
-
-  for_ contents $ \f -> do
-      let ffn = from </> f
-      fs <- PF.getSymbolicLinkStatus ffn
-      case (PF.isSymbolicLink fs, PF.isDirectory fs) of
-        (True, _) -> recreateSymlink destdir f ffn
-        (_, True) -> copyDir cm ffn destdir
-        (_, _)    -> copyFileToDir ffn destdir
+copyDir cm from' to' = do
+  from <- canonicalizePath from'
+  to   <- canonicalizePath to'
+  go from to
   where
+    go from to = do
+      let fn = takeFileName from
+          destdir = to </> fn
+
+      dirSanityThrow from
+      dirSanityThrow to
+      throwDestinationInSource from to
+      throwSameFile from destdir
+
+      createDestdir destdir
+
+      contents <- getDirsFiles from
+
+      for_ contents $ \f -> do
+          let ffn = from </> f
+          fs <- PF.getSymbolicLinkStatus ffn
+          case (PF.isSymbolicLink fs, PF.isDirectory fs) of
+            (True, _) -> recreateSymlink destdir f ffn
+            (_, True) -> copyDir cm ffn destdir
+            (_, _)    -> copyFileToDir ffn destdir
     createDestdir destdir =
       case cm of
         Merge   ->
@@ -199,7 +203,9 @@ copyDir cm from to = do
 copyFile :: FilePath  -- ^ source file
          -> FilePath  -- ^ destination file
          -> IO ()
-copyFile from to = do
+copyFile from' to' = do
+  from <- canonicalizePath from'
+  to   <- canonicalizePath to'
   fileSanityThrow from
   throwNotAbsolute to
   throwDirDoesExist to
@@ -218,7 +224,9 @@ copyFile from to = do
 -- * `PathNotAbsolute` if the target directory is not absolute
 -- * anything that `copyFile` throws
 copyFileToDir :: FilePath -> FilePath -> IO ()
-copyFileToDir from to = do
+copyFileToDir from' to' = do
+  from <- canonicalizePath from'
+  to   <- canonicalizePath to'
   let name = takeFileName from
   dirSanityThrow to
   copyFile from (to </> name)
@@ -244,7 +252,8 @@ easyCopy cm from to = doFileOrDir from (copyDir cm from to)
 -- * `PathNotAbsolute` if the file is not absolute
 -- * anything that `removeFile` throws
 deleteFile :: FilePath -> IO ()
-deleteFile fp = do
+deleteFile fp' = do
+  fp <- canonicalizePath fp'
   fileSanityThrow fp
   removeFile fp
 
@@ -258,7 +267,8 @@ deleteFile fp = do
 -- * `PathNotAbsolute` if the dir is not absolute
 -- * anything that `removeDirectory` throws
 deleteDir :: FilePath -> IO ()
-deleteDir fp = do
+deleteDir fp' = do
+  fp <- canonicalizePath fp'
   dirSanityThrow fp
   removeDirectory fp
 
@@ -271,7 +281,8 @@ deleteDir fp = do
 -- * `PathNotAbsolute` if the dir is not absolute
 -- * anything that `removeDirectoryRecursive` throws
 deleteDirRecursive :: FilePath -> IO ()
-deleteDirRecursive fp = do
+deleteDirRecursive fp' = do
+  fp <- canonicalizePath fp'
   dirSanityThrow fp
   removeDirectoryRecursive fp
 
@@ -284,7 +295,9 @@ deleteDirRecursive fp = do
 -- * `PathNotAbsolute` if the file/dir is not absolute
 -- * anything that `deleteDir`/`deleteFile` throws
 easyDelete :: FilePath -> IO ()
-easyDelete fp = doFileOrDir fp (deleteDir fp) (deleteFile fp)
+easyDelete fp' = do
+  fp <- canonicalizePath fp'
+  doFileOrDir fp (deleteDir fp) (deleteFile fp)
 
 
 
@@ -301,7 +314,8 @@ easyDelete fp = doFileOrDir fp (deleteDir fp) (deleteFile fp)
 -- * `PathNotAbsolute` if the file is not absolute
 openFile :: FilePath
          -> IO ProcessHandle
-openFile fp = do
+openFile fp' = do
+  fp <- canonicalizePath fp'
   fileSanityThrow fp
   spawnProcess "xdg-open" [fp]
 
@@ -316,7 +330,8 @@ openFile fp = do
 executeFile :: FilePath      -- ^ program
             -> [String]      -- ^ arguments
             -> IO ProcessHandle
-executeFile prog args = do
+executeFile prog' args = do
+  prog <- canonicalizePath prog'
   fileSanityThrow prog
   unlessM (fileAccess prog False False True) (throw $ FileNotExecutable prog)
   spawnProcess prog args
@@ -336,7 +351,8 @@ executeFile prog args = do
 --
 -- * `throwFileDoesNotExist` if the filepath is neither a file or directory
 doFileOrDir :: FilePath -> IO () -> IO () -> IO ()
-doFileOrDir fp iod iof = do
+doFileOrDir fp' iod iof = do
+  fp <- canonicalizePath fp'
   isD <- doesDirectoryExist fp
   isF <- doesFileExist fp
   case (isD, isF) of
