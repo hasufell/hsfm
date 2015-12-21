@@ -138,8 +138,8 @@ runFileOp _                  = return Nothing
 -- * `DirDoesExist` if the target directory already exists during the Strict
 -- copy mode
 -- * anything that `copyFileToDir`, `getFileStatus`, `createDirectory`,
--- `easyDelete`, `readSymbolicLink`, `createDirectoryIfMissing`,
--- `removeDirectoryRecursive`, `createSymbolicLink`, `copyDir`,
+-- `easyDelete`, `createDirectoryIfMissing`,
+-- `removeDirectoryRecursive`, `recreateSymlink`, `copyDir`,
 -- `copyFileToDir`, `getDirectoryContents` throws
 copyDir :: DirCopyMode
         -> FilePath  -- ^ source dir
@@ -183,7 +183,7 @@ copyDir cm from' to' = do
     recreateSymlink' destdir n f = do
       let sympoint = destdir </> n
 
-      case cm of
+      _ <- case cm of
         -- delete old file/dir to be able to create symlink
         Merge -> easyDelete sympoint
         _     -> return ()
