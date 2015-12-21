@@ -143,8 +143,8 @@ copyDir :: DirCopyMode
         -> FilePath  -- ^ destination dir
         -> IO ()
 copyDir cm from' to' = do
-  from <- canonicalizePath from'
-  to   <- canonicalizePath to'
+  from <- canonicalizePath' from'
+  to   <- canonicalizePath' to'
   go from to
   where
     go from to = do
@@ -204,13 +204,13 @@ copyFile :: FilePath  -- ^ source file
          -> FilePath  -- ^ destination file
          -> IO ()
 copyFile from' to' = do
-  from <- canonicalizePath from'
-  tod  <- canonicalizePath (baseDir to')
+  from <- canonicalizePath' from'
+  tod  <- canonicalizePath' (baseDir to')
   let to = tod </> takeFileName to'
   fileSanityThrow from
   throwNotAbsolute to
   throwDirDoesExist to
-  toC <- canonicalizePath (takeDirectory to)
+  toC <- canonicalizePath' (takeDirectory to)
   let to' = toC </> takeFileName to
   throwSameFile from to'
   SD.copyFile from to'
@@ -226,8 +226,8 @@ copyFile from' to' = do
 -- * anything that `copyFile` throws
 copyFileToDir :: FilePath -> FilePath -> IO ()
 copyFileToDir from' to' = do
-  from <- canonicalizePath from'
-  to   <- canonicalizePath to'
+  from <- canonicalizePath' from'
+  to   <- canonicalizePath' to'
   let name = takeFileName from
   dirSanityThrow to
   copyFile from (to </> name)
@@ -254,7 +254,7 @@ easyCopy cm from to = doFileOrDir from (copyDir cm from to)
 -- * anything that `removeFile` throws
 deleteFile :: FilePath -> IO ()
 deleteFile fp' = do
-  fp <- canonicalizePath fp'
+  fp <- canonicalizePath' fp'
   fileSanityThrow fp
   removeFile fp
 
@@ -269,7 +269,7 @@ deleteFile fp' = do
 -- * anything that `removeDirectory` throws
 deleteDir :: FilePath -> IO ()
 deleteDir fp' = do
-  fp <- canonicalizePath fp'
+  fp <- canonicalizePath' fp'
   dirSanityThrow fp
   removeDirectory fp
 
@@ -283,7 +283,7 @@ deleteDir fp' = do
 -- * anything that `removeDirectoryRecursive` throws
 deleteDirRecursive :: FilePath -> IO ()
 deleteDirRecursive fp' = do
-  fp <- canonicalizePath fp'
+  fp <- canonicalizePath' fp'
   dirSanityThrow fp
   removeDirectoryRecursive fp
 
@@ -297,7 +297,7 @@ deleteDirRecursive fp' = do
 -- * anything that `deleteDir`/`deleteFile` throws
 easyDelete :: FilePath -> IO ()
 easyDelete fp' = do
-  fp <- canonicalizePath fp'
+  fp <- canonicalizePath' fp'
   doFileOrDir fp (deleteDir fp) (deleteFile fp)
 
 
@@ -316,7 +316,7 @@ easyDelete fp' = do
 openFile :: FilePath
          -> IO ProcessHandle
 openFile fp' = do
-  fp <- canonicalizePath fp'
+  fp <- canonicalizePath' fp'
   fileSanityThrow fp
   spawnProcess "xdg-open" [fp]
 
@@ -332,7 +332,7 @@ executeFile :: FilePath      -- ^ program
             -> [String]      -- ^ arguments
             -> IO ProcessHandle
 executeFile prog' args = do
-  prog <- canonicalizePath prog'
+  prog <- canonicalizePath' prog'
   fileSanityThrow prog
   unlessM (fileAccess prog False False True) (throw $ FileNotExecutable prog)
   spawnProcess prog args
@@ -353,7 +353,7 @@ executeFile prog' args = do
 -- * `throwFileDoesNotExist` if the filepath is neither a file or directory
 doFileOrDir :: FilePath -> IO () -> IO () -> IO ()
 doFileOrDir fp' iod iof = do
-  fp <- canonicalizePath fp'
+  fp <- canonicalizePath' fp'
   isD <- doesDirectoryExist fp
   isF <- doesFileExist fp
   case (isD, isF) of

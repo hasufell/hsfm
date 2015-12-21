@@ -35,6 +35,7 @@ import Data.Default
 import Data.List
   (
     delete
+  , foldl'
   , isPrefixOf
   , sort
   , sortBy
@@ -64,6 +65,7 @@ import Data.Word
 import Safe
   (
     atDef
+  , initDef
   )
 import System.Directory
   (
@@ -79,6 +81,7 @@ import System.Directory
 import System.FilePath
   (
     combine
+  , normalise
   , equalFilePath
   , joinPath
   , splitDirectories
@@ -248,7 +251,7 @@ readFileWith :: (FilePath -> IO a)
              -> FilePath
              -> IO (AnchoredFile a b)
 readFileWith fd ff fp = do
-  cfp <- canonicalizePath fp
+  cfp <- canonicalizePath' fp
   let fn = topDir cfp
       bd = baseDir cfp
   file <- handleDT fn $ do
@@ -260,14 +263,14 @@ readFileWith fd ff fp = do
 
 
 readFile :: FilePath -> IO (AnchoredFile FileInfo FileInfo)
-readFile fp = readFileWith getFileInfo getFileInfo =<< canonicalizePath fp
+readFile fp = readFileWith getFileInfo getFileInfo =<< canonicalizePath' fp
 
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
 -- the free variables via `getFileInfo`.
 readDirectory :: FilePath -> IO [AnchoredFile FileInfo FileInfo]
 readDirectory fp = readDirectoryWith getFileInfo getFileInfo
-                     =<< canonicalizePath fp
+                     =<< canonicalizePath' fp
 
 
 -- | same as readDirectory but allows us to, for example, use
@@ -277,7 +280,7 @@ readDirectoryWith :: (FilePath -> IO a)
                   -> FilePath
                   -> IO [AnchoredFile a b]
 readDirectoryWith fd ff p = buildWith' buildAtOnce' fd ff
-                              =<< canonicalizePath p
+                              =<< canonicalizePath' p
 
 
 
@@ -304,7 +307,7 @@ buildWith' :: Builder a b
            -> IO [AnchoredFile a b]
 buildWith' bf' fd ff p =
   do
-    cfp <- canonicalizePath p
+    cfp <- canonicalizePath' p
     tree <- bf' fd ff cfp
     return $ fmap (cfp :/) (removeNonexistent tree)
 
@@ -313,7 +316,7 @@ buildWith' bf' fd ff p =
 -- IO function passed to our builder and finally executed here:
 buildAtOnce' :: Builder a b
 buildAtOnce' fd ff p = do
-  cfp <- canonicalizePath p
+  cfp <- canonicalizePath' p
   contents <- getAllDirsFiles cfp
   for contents $ \n -> handleDT n $ do
     let subf = cfp </> n
@@ -425,6 +428,30 @@ hiddenFile str
   | otherwise            = False
 
 
+-- |Like `normalise` from System.FilePath but removes occurences of '..'.
+-- Note that this sort of misbehaves if the path contains symlink
+-- components.
+normalize :: FilePath -> FilePath
+normalize fp =
+  joinPath $ foldl' ff [] (splitDirectories . normalise $ fp)
+  where
+    ff ["/"] ".." = ["/"]
+    ff x ".."     = initDef [] x
+    ff x y        = x ++ [y]
+
+
+-- |Like `canonicalizePath` from System.Directory, but preserves the last
+-- component if it's a symlink.
+canonicalizePath' :: FilePath -> IO FilePath
+canonicalizePath' fp = do
+  isSymlink <- PF.isSymbolicLink <$> PF.getSymbolicLinkStatus fp
+  if isSymlink
+    then do
+         cbase <- canonicalizePath (baseDir fp)
+         return $ cbase </> topDir fp
+    else canonicalizePath fp
+
+
 ---- IO HELPERS: ----
 
 
@@ -436,7 +463,7 @@ goUp    (bp :/ _) = Data.DirTree.readFile bp
 
 goUp' :: FilePath -> IO (AnchoredFile FileInfo FileInfo)
 goUp' fp = do
-  cfp <- canonicalizePath fp
+  cfp <- canonicalizePath' fp
   Data.DirTree.readFile $ baseDir cfp
 
 
