@@ -192,14 +192,15 @@ copyDir cm from' to' = do
 
 
 
--- |Recreate a symlink. Don't call `canonicalizePath` on the symlink
--- destination since that will mess with the symlink.
+-- |Recreate a symlink.
 recreateSymlink :: FilePath  -- ^ the old symlink file
                 -> FilePath  -- ^ destination of the new symlink file
                 -> IO ()
-recreateSymlink symf' symdest = do
+recreateSymlink symf' symdest' = do
   symf     <- canonicalizePath' symf'
   symname  <- readSymbolicLink symf
+  symdestd <- canonicalizePath' (baseDir symdest')
+  let symdest = symdestd </> takeFileName symdest'
   createSymbolicLink symname symdest
 
 
