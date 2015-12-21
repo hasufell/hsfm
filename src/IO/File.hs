@@ -11,6 +11,10 @@
 module IO.File where
 
 
+import Control.Applicative
+  (
+    (<$>)
+  )
 import Control.Exception
   (
     throw
@@ -65,9 +69,7 @@ import qualified System.Directory as SD
 import qualified System.Posix.Files as PF
 
 
--- TODO: modify the DTZipper directly after file operations!?
 -- TODO: file operations should be threaded and not block the UI
--- TODO: canonicalize paths?
 
 
 -- |Data type describing an actual file operation that can be
@@ -124,7 +126,8 @@ runFileOp _                  = return Nothing
 
 -- TODO: allow renaming
 -- |Copies a directory to the given destination with the specified
--- `DirCopyMode`.
+-- `DirCopyMode`. This is safe to call if the source directory is a symlink
+-- in which case it will just be recreated.
 --
 -- The operation may fail with:
 --
@@ -145,7 +148,7 @@ copyDir :: DirCopyMode
 copyDir cm from' to' = do
   from <- canonicalizePath' from'
   to   <- canonicalizePath' to'
-  go from to
+  onSymlinkOr from (copyFileToDir from to) (go from to)
   where
     go from to = do
       let fn = takeFileName from
@@ -164,7 +167,7 @@ copyDir cm from' to' = do
           let ffn = from </> f
           fs <- PF.getSymbolicLinkStatus ffn
           case (PF.isSymbolicLink fs, PF.isDirectory fs) of
-            (True, _) -> recreateSymlink destdir f ffn
+            (True, _) -> recreateSymlink' destdir f ffn
             (_, True) -> copyDir cm ffn destdir
             (_, _)    -> copyFileToDir ffn destdir
     createDestdir destdir =
@@ -177,7 +180,7 @@ copyDir cm from' to' = do
         Replace -> do
           whenM (doesDirectoryExist destdir) (removeDirectoryRecursive destdir)
           createDirectory destdir
-    recreateSymlink destdir n f = do
+    recreateSymlink' destdir n f = do
       let sympoint = destdir </> n
 
       case cm of
@@ -185,11 +188,22 @@ copyDir cm from' to' = do
         Merge -> easyDelete sympoint
         _     -> return ()
 
-      symname <- readSymbolicLink f
-      createSymbolicLink symname sympoint
+      recreateSymlink f sympoint
 
 
--- |Copies the given file.
+
+-- |Recreate a symlink. Don't call `canonicalizePath` on the symlink
+-- destination since that will mess with the symlink.
+recreateSymlink :: FilePath  -- ^ the old symlink file
+                -> FilePath  -- ^ destination of the new symlink file
+                -> IO ()
+recreateSymlink symf' symdest = do
+  symf     <- canonicalizePath' symf'
+  symname  <- readSymbolicLink symf
+  createSymbolicLink symname symdest
+
+
+-- |Copies the given file. This can also be called on symlinks.
 --
 -- The operation may fail with:
 --
@@ -207,17 +221,19 @@ copyFile from' to' = do
   from <- canonicalizePath' from'
   tod  <- canonicalizePath' (baseDir to')
   let to = tod </> takeFileName to'
-  fileSanityThrow from
-  throwNotAbsolute to
-  throwDirDoesExist to
-  toC <- canonicalizePath' (takeDirectory to)
-  let to' = toC </> takeFileName to
-  throwSameFile from to'
-  SD.copyFile from to'
+  onSymlinkOr from (recreateSymlink from to) $ do
+    fileSanityThrow from
+    throwNotAbsolute to
+    throwDirDoesExist to
+    toC <- canonicalizePath' (takeDirectory to)
+    let to' = toC </> takeFileName to
+    throwSameFile from to'
+    SD.copyFile from to'
 
 
 
 -- |Copies the given file to the given dir with the same filename.
+-- This can also be called on symlinks.
 --
 -- The operation may fail with:
 --
@@ -234,7 +250,7 @@ copyFileToDir from' to' = do
 
 
 easyCopy :: DirCopyMode -> FilePath -> FilePath -> IO ()
-easyCopy cm from to = doFileOrDir from (copyDir cm from to)
+easyCopy cm from to = onDirOrFile from (copyDir cm from to)
                                        (copyFileToDir from to)
 
 
@@ -244,8 +260,20 @@ easyCopy cm from to = doFileOrDir from (copyDir cm from to)
     ---------------------
 
 
--- TODO: misbehaves on symlinks
--- |Deletes the given file or symlink.
+-- |Deletes a symlink, which can either point to a file or directory.
+--
+-- The operation may fail with:
+--
+-- * `dirSanityThrow`
+-- * `fileSanityThrow`
+deleteSymlink :: FilePath -> IO ()
+deleteSymlink fp' = do
+  fp <- canonicalizePath' fp'
+  onDirOrFile fp (dirSanityThrow fp >> removeFile fp)
+                 (fileSanityThrow fp >> removeFile fp)
+
+
+-- |Deletes the given file.
 --
 -- The operation may fail with:
 --
@@ -256,10 +284,10 @@ deleteFile :: FilePath -> IO ()
 deleteFile fp' = do
   fp <- canonicalizePath' fp'
   fileSanityThrow fp
+  throwIsSymlink fp
   removeFile fp
 
 
--- TODO: misbehaves on symlinks
 -- |Deletes the given directory.
 --
 -- The operation may fail with:
@@ -268,10 +296,12 @@ deleteFile fp' = do
 -- * `PathNotAbsolute` if the dir is not absolute
 -- * anything that `removeDirectory` throws
 deleteDir :: FilePath -> IO ()
-deleteDir fp' = do
-  fp <- canonicalizePath' fp'
-  dirSanityThrow fp
-  removeDirectory fp
+deleteDir fp' =
+  onSymlinkOr fp' (deleteFile fp') $ do
+    fp <- canonicalizePath' fp'
+    dirSanityThrow fp
+    throwIsSymlink fp
+    removeDirectory fp
 
 
 -- |Deletes the given directory recursively.
@@ -282,13 +312,15 @@ deleteDir fp' = do
 -- * `PathNotAbsolute` if the dir is not absolute
 -- * anything that `removeDirectoryRecursive` throws
 deleteDirRecursive :: FilePath -> IO ()
-deleteDirRecursive fp' = do
-  fp <- canonicalizePath' fp'
-  dirSanityThrow fp
-  removeDirectoryRecursive fp
+deleteDirRecursive fp' =
+  onSymlinkOr fp' (deleteFile fp') $ do
+    fp <- canonicalizePath' fp'
+    dirSanityThrow fp
+    throwIsSymlink fp
+    removeDirectoryRecursive fp
 
 
--- |Deletes a file or directory, whatever it may be.
+-- |Deletes a file, directory or symlink, whatever it may be.
 --
 -- The operation may fail with:
 --
@@ -298,7 +330,8 @@ deleteDirRecursive fp' = do
 easyDelete :: FilePath -> IO ()
 easyDelete fp' = do
   fp <- canonicalizePath' fp'
-  doFileOrDir fp (deleteDir fp) (deleteFile fp)
+  onSymlinkOr fp (deleteSymlink fp) $
+    onDirOrFile fp (deleteDir fp) (deleteFile fp)
 
 
 
@@ -345,14 +378,24 @@ executeFile prog' args = do
     --------------------
 
 
+-- |Carry out action 1 if the filepath is a symlink, otherwise action2.
+onSymlinkOr :: FilePath
+            -> IO ()    -- ^ action1
+            -> IO ()    -- ^ action2
+            -> IO ()
+onSymlinkOr fp a1 a2 = do
+  isSymlink <- PF.isSymbolicLink <$> PF.getSymbolicLinkStatus fp
+  if isSymlink then a1 else a2
+
+
 -- |Executes either a directory or file related IO action, depending on
 -- the input filepath.
 --
 -- The operation may fail with:
 --
 -- * `throwFileDoesNotExist` if the filepath is neither a file or directory
-doFileOrDir :: FilePath -> IO () -> IO () -> IO ()
-doFileOrDir fp' iod iof = do
+onDirOrFile :: FilePath -> IO () -> IO () -> IO ()
+onDirOrFile fp' iod iof = do
   fp <- canonicalizePath' fp'
   isD <- doesDirectoryExist fp
   isF <- doesFileExist fp

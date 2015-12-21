@@ -115,6 +115,10 @@ open row mygui myview =
 del :: Row -> MyGUI -> MyView -> IO ()
 del row mygui myview =
   case row of
+    r@(_ :/ Dir { dir = FileInfo { isSymbolicLink = True } }) ->
+      delSym r
+    r@(_ :/ RegFile { regFile = FileInfo { isSymbolicLink = True } }) ->
+      delSym r
     r@(_ :/ Dir _ _)   -> do
       let fp = fullPath r
       subADT <- readDirectory fp
@@ -133,6 +137,13 @@ del row mygui myview =
           cmsg = "Really delete file \"" ++ fp ++ "\"?"
       withConfirmationDialog cmsg
         $ withErrorDialog (deleteFile fp
+                            >> refreshTreeView mygui myview Nothing)
+  where
+    delSym r = do
+      let fp   = fullPath r
+          cmsg = "Really delete symlink \"" ++ fp ++ "\"?"
+      withConfirmationDialog cmsg
+        $ withErrorDialog (deleteSymlink fp
                             >> refreshTreeView mygui myview Nothing)
 
 

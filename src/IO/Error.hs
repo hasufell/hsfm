@@ -5,6 +5,10 @@
 module IO.Error where
 
 
+import Control.Applicative
+  (
+    (<$>)
+  )
 import Control.Exception
 import Control.Monad
   (
@@ -30,6 +34,8 @@ import System.FilePath
   , takeFileName
   )
 
+import qualified System.Posix.Files as PF
+
 
 data FmIOException = FileDoesNotExist String
                    | DirDoesNotExist String
@@ -40,6 +46,7 @@ data FmIOException = FileDoesNotExist String
                    | NotADir String
                    | DestinationInSource String String
                    | DirDoesExist String
+                   | IsSymlink String
   deriving (Show, Typeable)
 
 
@@ -88,3 +95,9 @@ throwDestinationInSource :: FilePath -- ^ should be canonicalized
                          -> IO ()
 throwDestinationInSource source dest =
   when (source `isPrefixOf` dest) (throw $ DestinationInSource dest source)
+
+
+throwIsSymlink :: FilePath -> IO ()
+throwIsSymlink fp =
+  whenM (PF.isSymbolicLink <$> PF.getSymbolicLinkStatus fp)
+        (throw $ IsSymlink fp)

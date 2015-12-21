@@ -444,6 +444,7 @@ normalize fp =
 -- component if it's a symlink.
 canonicalizePath' :: FilePath -> IO FilePath
 canonicalizePath' fp = do
+  -- TODO: throw fileDoesNotExist error earlier
   isSymlink <- PF.isSymbolicLink <$> PF.getSymbolicLinkStatus fp
   if isSymlink
     then do
