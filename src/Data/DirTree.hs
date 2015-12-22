@@ -193,6 +193,16 @@ data FileInfo = FileInfo {
 } deriving (Show, Eq, Ord)
 
 
+isSymL :: AnchoredFile FileInfo FileInfo
+       -> (Bool, AnchoredFile FileInfo FileInfo)
+isSymL f@(_ :/ Dir _ FileInfo { isSymbolicLink = True }) = (True, f)
+isSymL f@(_ :/ RegFile _ FileInfo { isSymbolicLink = True }) = (True, f)
+isSymL f = (False, f)
+
+
+pattern IsSymL b <- (isSymL -> (b, f))
+
+
 
 
     ----------------------------

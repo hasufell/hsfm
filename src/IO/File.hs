@@ -125,13 +125,12 @@ runFileOp _                  = return Nothing
 
 -- TODO: allow renaming
 -- |Copies a directory to the given destination with the specified
--- `DirCopyMode`. This is safe to call if the source directory is a symlink
--- in which case it will just be recreated.
+-- `DirCopyMode`.
 copyDir :: DirCopyMode
         -> AnchoredFile FileInfo FileInfo  -- ^ source dir
         -> AnchoredFile FileInfo FileInfo  -- ^ destination dir
         -> IO ()
-copyDir cm from@(_ :/ Dir _ FileInfo { isSymbolicLink = True }) _
+copyDir cm (IsSymL True) _
   = return ()
 copyDir cm from@(_ :/ Dir fromn _)
              to@(_ :/ Dir {})
@@ -150,10 +149,7 @@ copyDir cm from@(_ :/ Dir fromn _)
 
     for_ contents $ \f ->
       case f of
-        (_ :/ Dir _ FileInfo { isSymbolicLink = True }) ->
-          recreateSymlink f destdir
-        (_ :/ RegFile _ FileInfo { isSymbolicLink = True }) ->
-          recreateSymlink f destdir
+        (IsSymL True) -> recreateSymlink f destdir
         (_ :/ Dir {}) -> copyDir cm f destdir
         (_ :/ RegFile {}) -> copyFileToDir f destdir
         _                 -> return ()
@@ -186,16 +182,11 @@ recreateSymlink :: AnchoredFile FileInfo FileInfo  -- ^ the old symlink file
                 -> AnchoredFile FileInfo FileInfo  -- ^ destination dir of the
                                                    --   new symlink file
                 -> IO ()
-recreateSymlink symf@(_ :/ RegFile n FileInfo { isSymbolicLink = True })
+recreateSymlink symf@(IsSymL True)
                 symdest@(_ :/ Dir {})
   = do
     symname <- readSymbolicLink (fullPath symf)
-    createSymbolicLink symname (fullPath symdest </> n)
-recreateSymlink symf@(_ :/ Dir n FileInfo { isSymbolicLink = True })
-                symdest@(_ :/ Dir {})
-  = do
-    symname <- readSymbolicLink (fullPath symf)
-    createSymbolicLink symname (fullPath symdest </> n)
+    createSymbolicLink symname (fullPath symdest </> (name . file $ symf))
 recreateSymlink _ _ = return ()
 
 
@@ -203,8 +194,7 @@ recreateSymlink _ _ = return ()
 copyFile :: AnchoredFile FileInfo FileInfo  -- ^ source file
          -> AnchoredFile FileInfo FileInfo  -- ^ destination file
          -> IO ()
-copyFile from@(_ :/ RegFile _ FileInfo { isSymbolicLink = True }) _ = return ()
-copyFile from@(_ :/ Dir _ FileInfo { isSymbolicLink = True }) _ = return ()
+copyFile (IsSymL True) _ = return ()
 copyFile from@(_ :/ RegFile {}) to@(_ :/ RegFile {}) = do
   let from' = fullPath from
       to'   = fullPath to
@@ -218,10 +208,7 @@ copyFile _ _ = return ()
 copyFileToDir :: AnchoredFile FileInfo FileInfo
               -> AnchoredFile FileInfo FileInfo
               -> IO ()
-copyFileToDir from@(_ :/ RegFile _ FileInfo { isSymbolicLink = True }) _
-  = return ()
-copyFileToDir from@(_ :/ Dir _ FileInfo { isSymbolicLink = True }) _
-  = return ()
+copyFileToDir (IsSymL True) _ = return ()
 copyFileToDir from@(_ :/ RegFile fn _)
                 to@(_ :/ Dir {}) =
   do
@@ -235,12 +222,7 @@ easyCopy :: DirCopyMode
          -> AnchoredFile FileInfo FileInfo
          -> AnchoredFile FileInfo FileInfo
          -> IO ()
-easyCopy _ from@(_ :/ RegFile _ FileInfo { isSymbolicLink = True })
-             to@(_ :/ Dir {})
-  = recreateSymlink from to
-easyCopy _ from@(_ :/ Dir _ FileInfo { isSymbolicLink = True })
-             to@(_ :/ Dir {})
-  = recreateSymlink from to
+easyCopy _ from@(IsSymL True) to@(_ :/ Dir {}) = recreateSymlink from to
 easyCopy _ from@(_ :/ RegFile fn _)
              to@(_ :/ Dir {})
   = copyFileToDir from to
@@ -261,9 +243,7 @@ easyCopy _ _ _ = return ()
 
 -- |Deletes a symlink, which can either point to a file or directory.
 deleteSymlink :: AnchoredFile FileInfo FileInfo -> IO ()
-deleteSymlink f@(_ :/ RegFile _ FileInfo { isSymbolicLink = True })
-  = removeFile (fullPath f)
-deleteSymlink f@(_ :/ Dir _ FileInfo { isSymbolicLink = True })
+deleteSymlink f@(IsSymL True)
   = removeFile (fullPath f)
 deleteSymlink _
   = return ()
@@ -271,8 +251,7 @@ deleteSymlink _
 
 -- |Deletes the given file, never symlinks.
 deleteFile :: AnchoredFile FileInfo FileInfo -> IO ()
-deleteFile f@(_ :/ RegFile _ FileInfo { isSymbolicLink = True })
-  = return ()
+deleteFile   (IsSymL True) = return ()
 deleteFile f@(_ :/ RegFile {})
   = removeFile (fullPath f)
 deleteFile _
@@ -281,8 +260,7 @@ deleteFile _
 
 -- |Deletes the given directory, never symlinks.
 deleteDir :: AnchoredFile FileInfo FileInfo -> IO ()
-deleteDir f@(_ :/ Dir _ FileInfo { isSymbolicLink = True })
-  = return ()
+deleteDir   (IsSymL True) = return ()
 deleteDir f@(_ :/ Dir {})
   = removeDirectory (fullPath f)
 deleteDir _ = return ()
@@ -290,8 +268,7 @@ deleteDir _ = return ()
 
 -- |Deletes the given directory recursively, never symlinks.
 deleteDirRecursive :: AnchoredFile FileInfo FileInfo -> IO ()
-deleteDirRecursive f@(_ :/ Dir _ FileInfo { isSymbolicLink = True })
-  = return ()
+deleteDirRecursive (IsSymL True) = return ()
 deleteDirRecursive f@(_ :/ Dir {})
   = removeDirectoryRecursive (fullPath f)
 deleteDirRecursive _ = return ()
@@ -300,10 +277,7 @@ deleteDirRecursive _ = return ()
 -- |Deletes a file, directory or symlink, whatever it may be.
 -- In case of directory, performs recursive deletion.
 easyDelete :: AnchoredFile FileInfo FileInfo -> IO ()
-easyDelete f@(_ :/ RegFile _ FileInfo { isSymbolicLink = True })
-  = deleteSymlink f
-easyDelete f@(_ :/ Dir _ FileInfo { isSymbolicLink = True })
-  = deleteSymlink f
+easyDelete f@(IsSymL True) = deleteSymlink f
 easyDelete f@(_ :/ RegFile {})
   = deleteFile f
 easyDelete f@(_ :/ Dir {})
