@@ -144,8 +144,6 @@ copyFinal mygui myview = do
   case op of
     FCopy (CP1 s) -> do
       dest <- goUp mcdir
-      print dest
-      print s
       let cmsg = "Really copy \"" ++ fullPath s
                  ++ "\"" ++ " to \"" ++ fullPath dest ++ "\"?"
       withConfirmationDialog cmsg . withErrorDialog
