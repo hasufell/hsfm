@@ -146,8 +146,9 @@ copyFinal mygui myview = withErrorDialog $ do
       dest <- goUp mcdir
       let cmsg = "Really copy \"" ++ fullPath s
                  ++ "\"" ++ " to \"" ++ fullPath dest ++ "\"?"
+      cm <- showCopyModeChooserDialog
       withConfirmationDialog cmsg
-        (runFileOp (FCopy . CC s dest $ Strict)
+        (runFileOp (FCopy . CC s dest $ cm)
          >> refreshTreeView mygui myview Nothing)
       return ()
     _ -> return ()
