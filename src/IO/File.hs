@@ -108,11 +108,6 @@ data DirCopyMode = Strict  -- ^ fail if the target directory already exists
 
 -- |Run a given FileOperation. If the FileOperation is partial, it will
 -- be returned.
---
--- The operation may fail with:
---
--- * anything that `copyFileToDir`, `easyDelete`, `openFile`,
--- `executeFile` throws
 runFileOp :: FileOperation -> IO (Maybe FileOperation)
 runFileOp (FCopy (CC from to cm)) = easyCopy cm from to >> return Nothing
 runFileOp (FCopy fo) = return $ Just $ FCopy fo
@@ -132,19 +127,6 @@ runFileOp _                  = return Nothing
 -- |Copies a directory to the given destination with the specified
 -- `DirCopyMode`. This is safe to call if the source directory is a symlink
 -- in which case it will just be recreated.
---
--- The operation may fail with:
---
--- * `DirDoesNotExist` if the source or destination directory does not exist
--- * `DestinationInSource` if the destination directory is contained within
--- the source directory
--- * `SameFile` if the source and destination directory are the same
--- * `DirDoesExist` if the target directory already exists during the Strict
--- copy mode
--- * anything that `copyFileToDir`, `getFileStatus`, `createDirectory`,
--- `easyDelete`, `createDirectoryIfMissing`,
--- `removeDirectoryRecursive`, `recreateSymlink`, `copyDir`,
--- `copyFileToDir`, `getDirectoryContents` throws
 copyDir :: DirCopyMode
         -> AnchoredFile FileInfo FileInfo  -- ^ source dir
         -> AnchoredFile FileInfo FileInfo  -- ^ destination dir
@@ -218,16 +200,6 @@ recreateSymlink _ _ = return ()
 
 
 -- |Copies the given file to the given file destination. Not symlinks.
---
--- The operation may fail with:
---
--- * `PathNotAbsolute` either the source or destination file is not an
--- absolute path
--- * `FileDoesNotExist` the source file does not exist
--- * `DirDoesNotExist` the target directory does not exist
--- * `PathNotAbsolute` if either of the filepaths are not absolute
--- * `SameFile` if the source and destination files are the same
--- * anything that `canonicalizePath` or `System.Directory.copyFile` throws
 copyFile :: AnchoredFile FileInfo FileInfo  -- ^ source file
          -> AnchoredFile FileInfo FileInfo  -- ^ destination file
          -> IO ()
@@ -348,23 +320,12 @@ easyDelete _
 
 
 -- |Opens a file appropriately by invoking xdg-open.
---
--- The operation may fail with:
---
--- * `FileDoesNotExist` if the file does not exist
--- * `PathNotAbsolute` if the file is not absolute
 openFile :: AnchoredFile a b
          -> IO ProcessHandle
 openFile f = spawnProcess "xdg-open" [fullPath f]
 
 
 -- |Executes a program with the given arguments.
---
--- The operation may fail with:
---
--- * `FileDoesNotExist` if the program does not exist
--- * `PathNotAbsolute` if the program is not absolute
--- * `FileNotExecutable` if the program is not executable
 executeFile :: AnchoredFile FileInfo FileInfo  -- ^ program
             -> [String]                        -- ^ arguments
             -> IO (Maybe ProcessHandle)
