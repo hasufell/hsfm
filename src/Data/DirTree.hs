@@ -200,7 +200,7 @@ isSymL f@(_ :/ RegFile _ FileInfo { isSymbolicLink = True }) = (True, f)
 isSymL f = (False, f)
 
 
-pattern IsSymL b <- (isSymL -> (b, f))
+pattern IsSymL b <- (isSymL -> (b, _))
 
 
 
