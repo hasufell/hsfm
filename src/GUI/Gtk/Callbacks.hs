@@ -105,20 +105,20 @@ urlGoTo mygui myview = do
 
 -- |Supposed to be used with 'withRow'. Opens a file or directory.
 open :: Row -> MyGUI -> MyView -> IO ()
-open row mygui myview =
+open row mygui myview = withErrorDialog $
   case row of
     r@(_ :/ Dir _ _) -> do
       nv <- Data.DirTree.readFile $ fullPath r
       refreshTreeView' mygui myview nv
     r ->
-      withErrorDialog $ openFile r
+      void $ openFile r
 
 
 -- |Supposed to be used with 'withRow'. Deletes a file or directory.
 del :: Row -> MyGUI -> MyView -> IO ()
-del row mygui myview = do
+del row mygui myview = withErrorDialog $ do
   let cmsg  = "Really delete \"" ++ fullPath row ++ "\"?"
-  withConfirmationDialog cmsg . withErrorDialog
+  withConfirmationDialog cmsg
     $ easyDelete row >> refreshTreeView mygui myview Nothing
 
 
@@ -138,7 +138,7 @@ copyInit row mygui myview =
 --
 -- * 'operationBuffer' reads
 copyFinal :: MyGUI -> MyView -> IO ()
-copyFinal mygui myview = do
+copyFinal mygui myview = withErrorDialog $ do
   op <- readTVarIO (operationBuffer myview)
   mcdir <- getFirstRow myview
   case op of
@@ -146,9 +146,9 @@ copyFinal mygui myview = do
       dest <- goUp mcdir
       let cmsg = "Really copy \"" ++ fullPath s
                  ++ "\"" ++ " to \"" ++ fullPath dest ++ "\"?"
-      withConfirmationDialog cmsg . withErrorDialog
-        $ (runFileOp (FCopy . CC s dest $ Strict)
-           >> refreshTreeView mygui myview Nothing)
+      withConfirmationDialog cmsg
+        (runFileOp (FCopy . CC s dest $ Strict)
+         >> refreshTreeView mygui myview Nothing)
       return ()
     _ -> return ()
 
@@ -160,7 +160,7 @@ copyFinal mygui myview = do
 -- * 'rawModel' reads
 -- * 'sortedModel' reads
 upDir :: MyGUI -> MyView -> IO ()
-upDir mygui myview = do
+upDir mygui myview = withErrorDialog $ do
   mcdir <- getFirstRow myview
   rawModel'    <- readTVarIO $ rawModel myview
   sortedModel' <- readTVarIO $ sortedModel myview
