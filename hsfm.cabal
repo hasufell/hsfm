@@ -42,6 +42,8 @@ library
   Default-Extensions:  RecordWildCards
   ghc-options:
     -O2
+    -threaded
+    "-with-rtsopts=-N"
 
 executable hsfm-gtk
   main-is:             GUI/Gtk.hs
@@ -52,6 +54,7 @@ executable hsfm-gtk
                        GUI.Gtk.Icons
                        GUI.Gtk.Utils
                        MyPrelude
+
   build-depends:       hsfm,
                        base >= 4.7,
                        containers,
@@ -74,3 +77,5 @@ executable hsfm-gtk
   Default-Extensions:  RecordWildCards
   ghc-options:
     -O2
+    -threaded
+    "-with-rtsopts=-N"
