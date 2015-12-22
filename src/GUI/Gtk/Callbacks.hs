@@ -14,6 +14,10 @@ import Control.Concurrent.STM
   , newTVarIO
   , readTVarIO
   )
+import Control.Monad
+  (
+    void
+  )
 import Control.Monad.IO.Class
   (
     liftIO
@@ -63,10 +67,10 @@ setCallbacks mygui myview = do
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
     "h"       <- fmap glibToString eventKeyName
-    mcdir <- liftIO $ getCwdFromFirstRow myview
+    mcdir <- liftIO $ getFirstRow myview
     liftIO $ modifyTVarIO (settings mygui)
                           (\x -> x { showHidden = not . showHidden $ x})
-             >> refreshTreeView mygui myview (Just mcdir)
+             >> refreshTreeView' mygui myview mcdir
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Alt] <- eventModifier
     "Up"  <- fmap glibToString eventKeyName
@@ -106,45 +110,16 @@ open row mygui myview =
     r@(_ :/ Dir _ _) -> do
       nv <- Data.DirTree.readFile $ fullPath r
       refreshTreeView' mygui myview nv
-    r@(_ :/ RegFile _ _) ->
-      withErrorDialog $ openFile $ fullPath r
-    _ -> return ()
+    r ->
+      withErrorDialog $ openFile r
 
 
 -- |Supposed to be used with 'withRow'. Deletes a file or directory.
 del :: Row -> MyGUI -> MyView -> IO ()
-del row mygui myview =
-  case row of
-    r@(_ :/ Dir { dir = FileInfo { isSymbolicLink = True } }) ->
-      delSym r
-    r@(_ :/ RegFile { regFile = FileInfo { isSymbolicLink = True } }) ->
-      delSym r
-    r@(_ :/ Dir _ _)   -> do
-      let fp = fullPath r
-      subADT <- readDirectory fp
-      let cmsg  = "Really delete directory \"" ++ fp ++ "\"?"
-          cmsg2 = "Directory \"" ++ fp ++
-                  "\" is not empty! Delete all contents?"
-      withConfirmationDialog cmsg $
-        if null subADT
-          then withErrorDialog (deleteDir fp
-                                >> refreshTreeView mygui myview Nothing)
-          else withConfirmationDialog cmsg2 $ withErrorDialog
-                 (deleteDirRecursive fp
-                  >> refreshTreeView mygui myview Nothing)
-    r@(_ :/ RegFile _ _) -> do
-      let fp   = fullPath r
-          cmsg = "Really delete file \"" ++ fp ++ "\"?"
-      withConfirmationDialog cmsg
-        $ withErrorDialog (deleteFile fp
-                            >> refreshTreeView mygui myview Nothing)
-  where
-    delSym r = do
-      let fp   = fullPath r
-          cmsg = "Really delete symlink \"" ++ fp ++ "\"?"
-      withConfirmationDialog cmsg
-        $ withErrorDialog (deleteSymlink fp
-                            >> refreshTreeView mygui myview Nothing)
+del row mygui myview = do
+  let cmsg  = "Really delete \"" ++ fullPath row ++ "\"?"
+  withConfirmationDialog cmsg . withErrorDialog
+    $ easyDelete row >> refreshTreeView mygui myview Nothing
 
 
 -- |Supposed to be used with 'withRow'. Initializes a file copy operation.
@@ -154,7 +129,7 @@ del row mygui myview =
 -- * 'operationBuffer' writes
 copyInit :: Row -> MyGUI -> MyView -> IO ()
 copyInit row mygui myview =
-  writeTVarIO (operationBuffer myview) (FCopy . CP1 $ fullPath row)
+  writeTVarIO (operationBuffer myview) (FCopy . CP1 $ row)
 
 
 -- |Finalizes a file copy operation.
@@ -165,17 +140,18 @@ copyInit row mygui myview =
 copyFinal :: MyGUI -> MyView -> IO ()
 copyFinal mygui myview = do
   op <- readTVarIO (operationBuffer myview)
-  mcdir <- getCwdFromFirstRow myview
+  mcdir <- getFirstRow myview
   case op of
-    FCopy (CP1 source) -> do
-      let dest = mcdir
-      isFile <- doesFileExist source
-      let cmsg = "Really copy file \"" ++ source
-                 ++ "\"" ++ " to \"" ++ dest ++ "\"?"
-      withConfirmationDialog cmsg $ do
-        copyMode <- if isFile then return Strict else showCopyModeChooserDialog
-        withErrorDialog ((runFileOp . FCopy . CC source dest $ copyMode)
-                         >> refreshTreeView mygui myview Nothing)
+    FCopy (CP1 s) -> do
+      dest <- goUp mcdir
+      print dest
+      print s
+      let cmsg = "Really copy \"" ++ fullPath s
+                 ++ "\"" ++ " to \"" ++ fullPath dest ++ "\"?"
+      withConfirmationDialog cmsg . withErrorDialog
+        $ (runFileOp (FCopy . CC s dest $ Strict)
+           >> refreshTreeView mygui myview Nothing)
+      return ()
     _ -> return ()
 
 
@@ -187,8 +163,8 @@ copyFinal mygui myview = do
 -- * 'sortedModel' reads
 upDir :: MyGUI -> MyView -> IO ()
 upDir mygui myview = do
-  mcdir <- getCwdFromFirstRow myview
+  mcdir <- getFirstRow myview
   rawModel'    <- readTVarIO $ rawModel myview
   sortedModel' <- readTVarIO $ sortedModel myview
-  nv <- goUp' mcdir
+  nv <- goUp =<< goUp mcdir
   refreshTreeView' mygui myview nv

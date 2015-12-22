@@ -251,14 +251,13 @@ readFileWith :: (FilePath -> IO a)
              -> FilePath
              -> IO (AnchoredFile a b)
 readFileWith fd ff fp = do
-  cfp <- canonicalizePath' fp
-  let fn = topDir cfp
-      bd = baseDir cfp
-  file <- handleDT fn $ do
-    isFile <- doesFileExist cfp
+  let fn = topDir fp
+      bd = baseDir fp
+  file <- handleDT (topDir fp) $ do
+    isFile <- doesFileExist fp
     if isFile
-       then RegFile fn <$> ff cfp
-       else Dir fn <$> fd cfp
+       then RegFile fn <$> ff fp
+       else Dir fn <$> fd fp
   return (bd :/ file)
 
 
@@ -267,20 +266,30 @@ readFile fp = readFileWith getFileInfo getFileInfo =<< canonicalizePath' fp
 
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
--- the free variables via `getFileInfo`.
+-- the free variables via `getFileInfo`. This includes the "." and ".."
+-- directories.
 readDirectory :: FilePath -> IO [AnchoredFile FileInfo FileInfo]
-readDirectory fp = readDirectoryWith getFileInfo getFileInfo
+readDirectory fp = readDirectoryWith getAllDirsFiles getFileInfo getFileInfo
+                     =<< canonicalizePath' fp
+
+
+-- |Build a list of AnchoredFile, given the path to a directory, filling
+-- the free variables via `getFileInfo`. This excludes the "." and ".."
+-- directories.
+readDirectory' :: FilePath -> IO [AnchoredFile FileInfo FileInfo]
+readDirectory' fp = readDirectoryWith getDirsFiles getFileInfo getFileInfo
                      =<< canonicalizePath' fp
 
 
 -- | same as readDirectory but allows us to, for example, use
 -- ByteString.readFile to return a tree of ByteStrings.
-readDirectoryWith :: (FilePath -> IO a)
+readDirectoryWith :: (FilePath -> IO [FilePath])
+                  -> (FilePath -> IO a)
                   -> (FilePath -> IO b)
                   -> FilePath
                   -> IO [AnchoredFile a b]
-readDirectoryWith fd ff p = buildWith' buildAtOnce' fd ff
-                              =<< canonicalizePath' p
+readDirectoryWith getfiles fd ff p = buildWith' (buildAtOnce' getfiles) fd ff
+                                     =<< canonicalizePath' p
 
 
 
@@ -314,17 +323,15 @@ buildWith' bf' fd ff p =
 
 
 -- IO function passed to our builder and finally executed here:
-buildAtOnce' :: Builder a b
-buildAtOnce' fd ff p = do
-  cfp <- canonicalizePath' p
-  contents <- getAllDirsFiles cfp
+buildAtOnce' :: (FilePath -> IO [FilePath]) -> Builder a b
+buildAtOnce' getfiles fd ff fp = do
+  contents <- getfiles fp
   for contents $ \n -> handleDT n $ do
-    let subf = cfp </> n
+    let subf = fp </> n
     do isFile <- doesFileExist subf
        if isFile
           then RegFile n <$> ff subf
           else Dir n <$> fd subf
-
 
 
 

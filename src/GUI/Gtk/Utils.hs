@@ -99,13 +99,12 @@ fileListStore dt myview = do
 -- Interaction with mutable references:
 --
 -- * 'rawModel' reads
-getCwdFromFirstRow :: MyView
-                   -> IO FilePath
-getCwdFromFirstRow myview = do
+getFirstRow :: MyView
+            -> IO (AnchoredFile FileInfo FileInfo)
+getFirstRow myview = do
   rawModel' <- readTVarIO $ rawModel myview
   iter      <- fromJust <$> treeModelGetIterFirst rawModel'
-  af        <- treeModelGetRow rawModel' iter
-  return $ anchor af
+  treeModelGetRow rawModel' iter
 
 
 -- |Re-reads the current directory or the given one and updates the TreeView.
@@ -123,8 +122,8 @@ refreshTreeView :: MyGUI
                 -> Maybe FilePath
                 -> IO ()
 refreshTreeView mygui myview mfp = do
-  mcdir <- getCwdFromFirstRow myview
-  let fp  = fromMaybe mcdir mfp
+  mcdir <- getFirstRow myview
+  let fp  = fromMaybe (anchor mcdir) mfp
 
   -- TODO catch exceptions
   dirSanityThrow fp
@@ -170,10 +169,10 @@ constructTreeView mygui myview = do
       cMD' = cMD mygui
       render' = renderTxt mygui
 
-  mcdir <- getCwdFromFirstRow myview
+  mcdir <- getFirstRow myview
 
   -- update urlBar
-  entrySetText (urlBar mygui) mcdir
+  entrySetText (urlBar mygui) (anchor mcdir)
 
   rawModel' <- readTVarIO $ rawModel myview
 
