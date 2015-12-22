@@ -138,7 +138,6 @@ copyDir cm from@(_ :/ Dir fromn _)
     let fromp    = fullPath from
         top      = fullPath to
         destdirp = fullPath to </> fromn
-    print destdirp
     throwDestinationInSource fromp destdirp
     throwSameFile fromp destdirp
 
