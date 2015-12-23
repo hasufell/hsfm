@@ -110,11 +110,13 @@ data DirCopyMode = Strict  -- ^ fail if the target directory already exists
 -- be returned.
 runFileOp :: FileOperation -> IO (Maybe FileOperation)
 runFileOp (FCopy (CC from to cm)) = easyCopy cm from to >> return Nothing
-runFileOp (FCopy fo) = return $ Just $ FCopy fo
-runFileOp (FDelete fp)       = easyDelete fp >> return Nothing
-runFileOp (FOpen fp)         = openFile fp >> return Nothing
-runFileOp (FExecute fp args) = executeFile fp args >> return Nothing
-runFileOp _                  = return Nothing
+runFileOp (FCopy fo)              = return              $ Just $ FCopy fo
+runFileOp (FMove (MC from to))    = easyMove from to    >> return Nothing
+runFileOp (FMove fo)              = return              $ Just $ FMove fo
+runFileOp (FDelete fp)            = easyDelete fp       >> return Nothing
+runFileOp (FOpen fp)              = openFile fp         >> return Nothing
+runFileOp (FExecute fp args)      = executeFile fp args >> return Nothing
+runFileOp _                       = return Nothing
 
 
 
@@ -232,6 +234,52 @@ easyCopy cm from@(_ :/ Dir fn _)
               to@(_ :/ Dir {})
   = copyDir cm from to
 easyCopy _ _ _ = return ()
+
+
+
+
+    -------------------
+    --[ File Moving ]--
+    -------------------
+
+
+-- |Move a given file to the given target directory.
+-- Includes symlinks, which are treated as files and the symlink is not
+-- followed.
+moveFile :: AnchoredFile FileInfo FileInfo -- ^ file to move
+         -> AnchoredFile FileInfo FileInfo -- ^ base target directory
+         -> IO ()
+moveFile from@SymlOrRegFile to@(_ :/ Dir {}) = do
+  let from' = fullPath from
+      to'   = fullPath to </> (name . file $ from)
+  throwSameFile from' to'
+  SD.renameFile from' to'
+moveFile _ _ = return ()
+
+
+-- |Move a given directory to the given target directory.
+-- Excludes symlinks.
+moveDir :: AnchoredFile FileInfo FileInfo -- ^ dir to move
+        -> AnchoredFile FileInfo FileInfo -- ^ base target directory
+        -> IO ()
+moveDir (IsSymL True) _ = return ()
+moveDir from@(_ :/ Dir n _) to@(_ :/ Dir {}) = do
+  let from' = fullPath from
+      to'   = fullPath to </> n
+  throwSameFile from' to'
+  SD.renameDirectory from' to'
+moveDir _ _ = return ()
+
+
+-- |Moves a file, directory or symlink. In case of a symlink, it is
+-- treated as a file and the symlink is not being followed.
+easyMove :: AnchoredFile FileInfo FileInfo    -- ^ source
+         -> AnchoredFile FileInfo FileInfo    -- ^ base target directory
+         -> IO ()
+easyMove from@(IsSymL True) to@(_ :/ Dir {})      = moveFile from to
+easyMove from@(_ :/ RegFile _ _) to@(_ :/ Dir {}) = moveFile from to
+easyMove from@(_ :/ Dir _ _) to@(_ :/ Dir {})     = moveDir from to
+easyMove _ _ = return ()
 
 
 

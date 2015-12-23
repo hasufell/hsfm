@@ -200,8 +200,15 @@ isSymL f@(_ :/ RegFile _ FileInfo { isSymbolicLink = True }) = (True, f)
 isSymL f = (False, f)
 
 
-pattern IsSymL b <- (isSymL -> (b, _))
+symlOrRegFile :: AnchoredFile FileInfo FileInfo
+              -> (Bool, AnchoredFile FileInfo FileInfo)
+symlOrRegFile f@(_ :/ RegFile {}) = (True, f)
+symlOrRegFile f@(_ :/ Dir _ FileInfo { isSymbolicLink = True }) = (True, f)
+symlOrRegFile f = (False, f)
 
+
+pattern IsSymL b <- (isSymL -> (b, _))
+pattern SymlOrRegFile <- (symlOrRegFile -> (True, _))
 
 
 
