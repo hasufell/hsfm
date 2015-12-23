@@ -83,6 +83,7 @@ import System.FilePath
     combine
   , normalise
   , equalFilePath
+  , isAbsolute
   , joinPath
   , splitDirectories
   , takeFileName
@@ -141,8 +142,8 @@ type FileName = String
 
 -- |Represents a file. The `anchor` field is the path
 -- to that file without the filename.
-data AnchoredFile a b =
-  (:/) { anchor :: FilePath, file :: File a b }
+data AnchoredFile a =
+  (:/) { anchor :: FilePath, file :: File a }
   deriving (Eq, Ord, Show)
 
 
@@ -151,18 +152,40 @@ data AnchoredFile a b =
 -- Handles, Strings representing a file's contents or anything else you can
 -- think of. We catch any IO errors in the Failed constructor. an Exception
 -- can be converted to a String with 'show'.
-data File a b =
+data File a =
     Failed {
     name :: FileName
   , err  :: IOException
   }
   | Dir {
     name :: FileName
-  , dir  :: a
+  , fvar :: a
   }
   | RegFile {
     name :: FileName
-  , regFile :: b
+  , fvar :: a
+  }
+  | SymLink {
+    name  :: FileName
+  , fvar  :: a
+  , sdest :: AnchoredFile a  -- ^ symlink madness,
+                             --   we need to know where it points to
+  }
+  | BlockDev {
+    name :: FileName
+  , fvar :: a
+  }
+  | CharDev {
+    name :: FileName
+  , fvar :: a
+  }
+  | NamedPipe {
+    name :: FileName
+  , fvar :: a
+  }
+  | Socket {
+    name :: FileName
+  , fvar :: a
   } deriving (Show, Eq)
 
 
@@ -182,33 +205,30 @@ data FileInfo = FileInfo {
   , accessTimeHiRes :: POSIXTime
   , modificationTimeHiRes :: POSIXTime
   , statusChangeTimeHiRes :: POSIXTime
-  , isBlockDevice :: Bool
-  , isCharacterDevice :: Bool
-  , isNamedPipe :: Bool
-  , isRegularFile :: Bool
-  , isDirectory :: Bool
-  , isSymbolicLink :: Bool
-  , isSocket :: Bool
-  , permissions :: Permissions
 } deriving (Show, Eq, Ord)
 
 
-isSymL :: AnchoredFile FileInfo FileInfo
-       -> (Bool, AnchoredFile FileInfo FileInfo)
-isSymL f@(_ :/ Dir _ FileInfo { isSymbolicLink = True }) = (True, f)
-isSymL f@(_ :/ RegFile _ FileInfo { isSymbolicLink = True }) = (True, f)
-isSymL f = (False, f)
+type UserIO a = FilePath -> IO a
+
+type Builder a = UserIO a -> FilePath -> IO [File a]
 
 
-symlOrRegFile :: AnchoredFile FileInfo FileInfo
-              -> (Bool, AnchoredFile FileInfo FileInfo)
+symlOrRegFile :: AnchoredFile FileInfo
+              -> (Bool, AnchoredFile FileInfo)
 symlOrRegFile f@(_ :/ RegFile {}) = (True, f)
-symlOrRegFile f@(_ :/ Dir _ FileInfo { isSymbolicLink = True }) = (True, f)
+symlOrRegFile f@(_ :/ SymLink {}) = (True, f)
 symlOrRegFile f = (False, f)
 
 
-pattern IsSymL b <- (isSymL -> (b, _))
+sdir :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
+sdir f@(_ :/ SymLink { sdest = (_ :/ Dir {} )}) = (True, f)
+sdir f@(_ :/ Dir {})                     = (True, f)
+sdir f = (False, f)
+
+
 pattern SymlOrRegFile <- (symlOrRegFile -> (True, _))
+
+pattern SDir f <- (sdir -> (True, f))
 
 
 
@@ -217,28 +237,10 @@ pattern SymlOrRegFile <- (symlOrRegFile -> (True, _))
     ----------------------------
 
 
-instance BF.Bifunctor File where
-  bimap = BT.bimapDefault
-
-
-instance BFL.Bifoldable File where
-  bifoldMap = BT.bifoldMapDefault
-
-
-instance BT.Bitraversable File where
-    bitraverse f1 f2 (Dir n b) =
-      Dir n <$> f1 b
-    bitraverse _ f2 (RegFile n a) =
-      RegFile n <$> f2 a
-    bitraverse _ _ (Failed n e) =
-      pure (Failed n e)
-
-
-
 -- | First compare constructors: Failed < Dir < File...
 -- Then compare `name`...
 -- Then compare free variable parameter of `File` constructors
-instance (Ord a, Ord b, Eq a, Eq b) => Ord (File a b) where
+instance (Ord a, Eq a) => Ord (File a) where
     compare (RegFile n a) (RegFile n' a') =
         case compare n n' of
              EQ -> compare a a'
@@ -261,94 +263,73 @@ instance (Ord a, Ord b, Eq a, Eq b) => Ord (File a b) where
 
 
 -- |Read a file into an `AnchoredFile`, filling the free variables via
--- `getFileInfo`. This also works on directories, but doesn't look at
--- their contents.
+-- the given function.
 readFileWith :: (FilePath -> IO a)
-             -> (FilePath -> IO b)
              -> FilePath
-             -> IO (AnchoredFile a b)
-readFileWith fd ff fp = do
-  let fn = topDir fp
-      bd = baseDir fp
-  file <- handleDT (topDir fp) $ do
-    isFile <- doesFileExist fp
-    if isFile
-       then RegFile fn <$> ff fp
-       else Dir fn <$> fd fp
-  return (bd :/ file)
+             -> IO (AnchoredFile a)
+readFileWith ff p = do
+  let fn = topDir p
+      bd = baseDir p
+  handleDT' bd fn $ do
+    fs  <- PF.getSymbolicLinkStatus p
+    fv  <- ff p
+    file <- constructFile fs fv bd fn
+    return (bd :/ file)
+  where
+    constructFile fs fv bd' n
+      | PF.isSymbolicLink    fs = do
+          -- symlink madness, we need to make sure we save the correct
+          -- AnchoredFile
+          let fp = bd' </> n
+          resolvedSyml <- handleDT' bd' n $ do
+            sfp <- (\x -> if isAbsolute x then x else bd' </> x)
+                     <$> PF.readSymbolicLink fp
+            _ <- PF.getFileStatus sfp -- important to break infinite symbolic
+                                      -- link cycle
+            readFileWith ff sfp
+          return $ SymLink n fv resolvedSyml
+      | PF.isDirectory       fs = return $ Dir       n fv
+      | PF.isRegularFile     fs = return $ RegFile   n fv
+      | PF.isBlockDevice     fs = return $ BlockDev  n fv
+      | PF.isCharacterDevice fs = return $ CharDev   n fv
+      | PF.isNamedPipe       fs = return $ NamedPipe n fv
+      | PF.isSocket          fs = return $ Socket    n fv
+      | otherwise               = return $ Failed    n (userError
+                                                        "Unknown filetype!")
 
 
-readFile :: FilePath -> IO (AnchoredFile FileInfo FileInfo)
-readFile fp = readFileWith getFileInfo getFileInfo =<< canonicalizePath' fp
+readFile :: FilePath -> IO (AnchoredFile FileInfo)
+readFile fp = readFileWith getFileInfo =<< canonicalizePath' fp
 
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
 -- the free variables via `getFileInfo`. This includes the "." and ".."
 -- directories.
-readDirectory :: FilePath -> IO [AnchoredFile FileInfo FileInfo]
-readDirectory fp = readDirectoryWith getAllDirsFiles getFileInfo getFileInfo
+readDirectory :: FilePath -> IO [AnchoredFile FileInfo]
+readDirectory fp = readDirectoryWith getAllDirsFiles getFileInfo
                      =<< canonicalizePath' fp
 
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
 -- the free variables via `getFileInfo`. This excludes the "." and ".."
 -- directories.
-readDirectory' :: FilePath -> IO [AnchoredFile FileInfo FileInfo]
-readDirectory' fp = readDirectoryWith getDirsFiles getFileInfo getFileInfo
-                     =<< canonicalizePath' fp
+readDirectory' :: FilePath -> IO [AnchoredFile FileInfo]
+readDirectory' fp = readDirectoryWith getDirsFiles getFileInfo
+                      =<< canonicalizePath' fp
 
 
 -- | same as readDirectory but allows us to, for example, use
 -- ByteString.readFile to return a tree of ByteStrings.
 readDirectoryWith :: (FilePath -> IO [FilePath])
                   -> (FilePath -> IO a)
-                  -> (FilePath -> IO b)
                   -> FilePath
-                  -> IO [AnchoredFile a b]
-readDirectoryWith getfiles fd ff p = buildWith' (buildAtOnce' getfiles) fd ff
-                                     =<< canonicalizePath' p
+                  -> IO [AnchoredFile a]
+readDirectoryWith getfiles ff p = do
+  contents <- getfiles =<< canonicalizePath' p
+  cs <- mapM (\x -> readFileWith ff $ p </> x) contents
+  return $ removeNonexistent cs
 
 
-
-
-    -----------------------------
-    --[ LOWER LEVEL FUNCTIONS ]--
-    -----------------------------
-
-
-
-
-    -- -- -- helpers: -- -- --
-
-
-type UserIO a = FilePath -> IO a
-type Builder a b = UserIO a -> UserIO b -> FilePath -> IO [File a b]
-
--- remove non-existent file errors, which are artifacts of the "non-atomic"
--- nature of traversing a system firectory tree:
-buildWith' :: Builder a b
-           -> UserIO a
-           -> UserIO b
-           -> FilePath
-           -> IO [AnchoredFile a b]
-buildWith' bf' fd ff p =
-  do
-    cfp <- canonicalizePath' p
-    tree <- bf' fd ff cfp
-    return $ fmap (cfp :/) (removeNonexistent tree)
-
-
-
--- IO function passed to our builder and finally executed here:
-buildAtOnce' :: (FilePath -> IO [FilePath]) -> Builder a b
-buildAtOnce' getfiles fd ff fp = do
-  contents <- getfiles fp
-  for contents $ \n -> handleDT n $ do
-    let subf = fp </> n
-    do isFile <- doesFileExist subf
-       if isFile
-          then RegFile n <$> ff subf
-          else Dir n <$> fd subf
 
 
 
@@ -362,22 +343,22 @@ buildAtOnce' getfiles fd ff fp = do
 
 
 -- | True if any Failed constructors in the tree
-anyFailed :: [File a b] -> Bool
+anyFailed :: [File a] -> Bool
 anyFailed = not . successful
 
 -- | True if there are no Failed constructors in the tree
-successful :: [File a b] -> Bool
+successful :: [File a] -> Bool
 successful = null . failures
 
 
 -- | returns true if argument is a `Failed` constructor:
-failed :: File a b -> Bool
+failed :: File a -> Bool
 failed (Failed _ _) = True
 failed _            = False
 
 
 -- | returns a list of 'Failed' constructors only:
-failures :: [File a b] -> [File a b]
+failures :: [File a] -> [File a]
 failures = filter failed
 
 
@@ -387,21 +368,21 @@ failures = filter failed
 
 -- | Tests equality of two trees, ignoring their free variable portion. Can be
 -- used to check if any files have been added or deleted, for instance.
-equalShape :: File a b -> File c d -> Bool
+equalShape :: File a -> File b -> Bool
 equalShape d d' = comparingShape d d' == EQ
 
 -- TODO: we should use equalFilePath here, but how to sort properly?
 -- with System.Directory.canonicalizePath, before compare?
 
 -- | a compare function that ignores the free "file" type variable:
-comparingShape :: File a b -> File c d -> Ordering
+comparingShape :: File a -> File b -> Ordering
 comparingShape (Dir n _) (Dir n' _) = compare n n'
 -- else simply compare the flat constructors, non-recursively:
 comparingShape t t'  = comparingConstr t t'
 
 
  -- HELPER: a non-recursive comparison
-comparingConstr :: File a b -> File a1 b1 -> Ordering
+comparingConstr :: File a -> File b -> Ordering
 comparingConstr (Failed _ _)  (Dir _ _)     = LT
 comparingConstr (Failed _ _)  (RegFile _ _) = LT
 comparingConstr (RegFile _ _) (Failed _ _)  = GT
@@ -425,11 +406,11 @@ comparingConstr t t'  = compare (name t) (name t')
 
 
 ---- CONSTRUCTOR IDENTIFIERS ----
-isFileC :: File a b -> Bool
+isFileC :: File a -> Bool
 isFileC (RegFile _ _) = True
 isFileC _             = False
 
-isDirC :: File a b -> Bool
+isDirC :: File a -> Bool
 isDirC (Dir _ _) = True
 isDirC _         = False
 
@@ -481,20 +462,20 @@ canonicalizePath' fp = do
 
 
 -- |Go up one directory in the filesystem hierarchy.
-goUp :: AnchoredFile FileInfo FileInfo -> IO (AnchoredFile FileInfo FileInfo)
+goUp :: AnchoredFile FileInfo -> IO (AnchoredFile FileInfo)
 goUp af@("" :/ _) = return af
 goUp    (bp :/ _) = Data.DirTree.readFile bp
 
 
-goUp' :: FilePath -> IO (AnchoredFile FileInfo FileInfo)
+goUp' :: FilePath -> IO (AnchoredFile FileInfo)
 goUp' fp = do
   cfp <- canonicalizePath' fp
   Data.DirTree.readFile $ baseDir cfp
 
 
-getContents :: AnchoredFile FileInfo FileInfo
-            -> IO [AnchoredFile FileInfo FileInfo]
-getContents (bp :/ Dir n _) = readDirectory (bp </> n)
+getContents :: AnchoredFile FileInfo
+            -> IO [AnchoredFile FileInfo]
+getContents (SDir af) = readDirectory (fullPath af)
 getContents _ = return []
 
 
@@ -539,7 +520,6 @@ getDirsFiles fp = do
 getFileInfo :: FilePath -> IO FileInfo
 getFileInfo fp = do
   fs <- PF.getSymbolicLinkStatus fp
-  perms <- getPermissions fp
   return $ FileInfo
     (PF.deviceID fs)
     (PF.fileID fs)
@@ -555,18 +535,10 @@ getFileInfo fp = do
     (PF.accessTimeHiRes fs)
     (PF.modificationTimeHiRes fs)
     (PF.statusChangeTimeHiRes fs)
-    (PF.isBlockDevice fs)
-    (PF.isCharacterDevice fs)
-    (PF.isNamedPipe fs)
-    (PF.isRegularFile fs)
-    (PF.isDirectory fs)
-    (PF.isSymbolicLink fs)
-    (PF.isSocket fs)
-    perms
 
 
 -- |Gets the free variable. Returns Nothing if the constructor is of `Failed`.
-getFreeVar :: File a a -> Maybe a
+getFreeVar :: File a -> Maybe a
 getFreeVar (RegFile _ f)  = Just f
 getFreeVar (Dir _  d)     = Just d
 getFreeVar _              = Nothing
@@ -577,8 +549,14 @@ getFreeVar _              = Nothing
 
 -- handles an IO exception by returning a Failed constructor filled with that
 -- exception:
-handleDT :: FileName -> IO (File a b) -> IO (File a b)
+handleDT :: FileName -> IO (File a) -> IO (File a)
 handleDT n = handle (return . Failed n)
+
+
+-- handles an IO exception by returning a Failed constructor filled with that
+-- exception:
+handleDT' :: FilePath -> FileName -> IO (AnchoredFile a) -> IO (AnchoredFile a)
+handleDT' bp n = handle (\e -> return $ bp :/ Failed n e)
 
 
 -- DoesNotExist errors not present at the topmost level could happen if a
@@ -587,10 +565,11 @@ handleDT n = handle (return . Failed n)
 --    So we filter those errors out because the user should not see errors
 -- raised by the internal implementation of this module:
 --     This leaves the error if it exists in the top (user-supplied) level:
-removeNonexistent :: [File a b] -> [File a b]
+removeNonexistent :: [AnchoredFile a] -> [AnchoredFile a]
 removeNonexistent = filter isOkConstructor
-     where isOkConstructor c = not (failed c) || isOkError c
-           isOkError = not . isDoesNotExistErrorType . ioeGetErrorType . err
+  where
+    isOkConstructor (_ :/ c) = not (failed c) || isOkError c
+    isOkError = not . isDoesNotExistErrorType . ioeGetErrorType . err
 
 
 
@@ -598,11 +577,11 @@ removeNonexistent = filter isOkConstructor
 ---- OTHER: ----
 
 
-fullPath :: AnchoredFile a b -> FilePath
+fullPath :: AnchoredFile a -> FilePath
 fullPath (bp :/ f) = bp </> name f
 
 
-fromFreeVar :: (Default d) => (a -> d) -> File a a -> d
+fromFreeVar :: (Default d) => (a -> d) -> File a -> d
 fromFreeVar f df = maybeD f $ getFreeVar df
 
 
@@ -610,20 +589,38 @@ maybeD :: (Default b) => (a -> b) -> Maybe a -> b
 maybeD = maybe def
 
 
--- |Pack the modification time
-packModTime :: File FileInfo FileInfo
+-- |Pack the modification time into a string.
+packModTime :: File FileInfo
             -> String
 packModTime = fromFreeVar
                 $ show . posixSecondsToUTCTime . realToFrac . modificationTime
 
-packPermissions :: File FileInfo FileInfo
+
+-- |Pack the permissions into a string, similar to what "ls -l" does.
+packPermissions :: File FileInfo
                 -> String
-packPermissions dt = fromFreeVar (pStr . permissions) dt
+packPermissions dt = fromFreeVar (pStr . fileMode) dt
   where
-    pStr perm =    str perm readable   "r"
-                ++ str perm writable   "w"
-                ++ str perm (if isDirC dt then searchable else executable)
-                            "x"
-    str perm f ch
-      | f perm    = ch
-      | otherwise = "-"
+    pStr ffm = typeModeStr ++ ownerModeStr ++ groupModeStr ++ otherModeStr
+      where
+        typeModeStr
+          | hasFM PF.regularFileMode      = "-"
+          | hasFM PF.directoryMode        = "d"
+          | hasFM PF.symbolicLinkMode     = "l"
+          | hasFM PF.socketMode           = "s"
+          | hasFM PF.blockSpecialMode     = "b"
+          | hasFM PF.characterSpecialMode = "c"
+          | hasFM PF.namedPipeMode        = "p"
+        ownerModeStr =    hasFmStr PF.ownerReadMode    "r"
+                       ++ hasFmStr PF.ownerWriteMode   "w"
+                       ++ hasFmStr PF.ownerExecuteMode "x"
+        groupModeStr =    hasFmStr PF.groupReadMode    "r"
+                       ++ hasFmStr PF.groupWriteMode   "w"
+                       ++ hasFmStr PF.groupExecuteMode "x"
+        otherModeStr =    hasFmStr PF.otherReadMode    "r"
+                       ++ hasFmStr PF.otherWriteMode   "w"
+                       ++ hasFmStr PF.otherExecuteMode "x"
+        hasFmStr fm str
+          | hasFM fm  = str
+          | otherwise = "-"
+        hasFM fm = ffm `PF.intersectFileModes` fm == fm

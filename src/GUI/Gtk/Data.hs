@@ -56,7 +56,7 @@ data FMSettings = MkFMSettings {
 }
 
 
-type Row = AnchoredFile FileInfo FileInfo
+type Row = AnchoredFile FileInfo
 
 
 -- |This describes the contents of the treeView and is separated from MyGUI,

@@ -85,7 +85,7 @@ withRow mygui myview io = do
 -- |Create the 'ListStore' of files/directories from the current directory.
 -- This is the function which maps the Data.DirTree data structures
 -- into the GTK+ data structures.
-fileListStore :: AnchoredFile FileInfo FileInfo  -- ^ current dir
+fileListStore :: AnchoredFile FileInfo  -- ^ current dir
               -> MyView
               -> IO (ListStore Row)
 fileListStore dt myview = do
@@ -100,7 +100,7 @@ fileListStore dt myview = do
 --
 -- * 'rawModel' reads
 getFirstRow :: MyView
-            -> IO (AnchoredFile FileInfo FileInfo)
+            -> IO (AnchoredFile FileInfo)
 getFirstRow myview = do
   rawModel' <- readTVarIO $ rawModel myview
   iter      <- fromJust <$> treeModelGetIterFirst rawModel'
@@ -141,7 +141,7 @@ refreshTreeView mygui myview mfp = do
 -- * 'rawModel' writes
 refreshTreeView' :: MyGUI
                  -> MyView
-                 -> AnchoredFile FileInfo FileInfo
+                 -> AnchoredFile FileInfo
                  -> IO ()
 refreshTreeView' mygui myview dt = do
   newRawModel  <- fileListStore dt myview
@@ -215,6 +215,7 @@ constructTreeView mygui myview = do
     dirtreePix (Dir {})     = folderPix mygui
     dirtreePix (RegFile {}) = filePix mygui
     dirtreePix (Failed {})  = errorPix mygui
+    dirtreePix _  = errorPix mygui
 
 
 -- |Push a message to the status bar.
