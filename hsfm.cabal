@@ -52,7 +52,6 @@ executable hsfm-gtk
   other-modules:       GUI.Gtk.Callbacks
                        GUI.Gtk.Data
                        GUI.Gtk.Dialogs
-                       GUI.Gtk.Gui
                        GUI.Gtk.Icons
                        GUI.Gtk.Utils
                        MyPrelude
