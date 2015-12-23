@@ -182,8 +182,8 @@ operationFinal mygui myview = withErrorDialog $ do
 -- * 'sortedModel' reads
 upDir :: MyGUI -> MyView -> IO ()
 upDir mygui myview = withErrorDialog $ do
-  mcdir <- getFirstRow myview
+  cdir <- goUp =<< getFirstRow myview
   rawModel'    <- readTVarIO $ rawModel myview
   sortedModel' <- readTVarIO $ sortedModel myview
-  nv <- goUp =<< goUp mcdir
+  nv <- goUp cdir
   refreshTreeView' mygui myview nv
