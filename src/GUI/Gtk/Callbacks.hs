@@ -87,8 +87,12 @@ setCallbacks mygui myview = do
     liftIO $ withRow mygui myview copyInit
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
+    "x"       <- fmap glibToString eventKeyName
+    liftIO $ withRow mygui myview moveInit
+  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
+    [Control] <- eventModifier
     "v"       <- fmap glibToString eventKeyName
-    liftIO $ copyFinal mygui myview
+    liftIO $ operationFinal mygui myview
   return ()
 
 
@@ -122,6 +126,16 @@ del row mygui myview = withErrorDialog $ do
     $ easyDelete row >> refreshTreeView mygui myview Nothing
 
 
+-- |Initializes a file move operation.
+--
+-- Interaction with mutable references:
+--
+-- * 'operationBuffer' writes
+moveInit :: Row -> MyGUI -> MyView -> IO ()
+moveInit row mygui myview =
+  writeTVarIO (operationBuffer myview) (FMove . MP1 $ row)
+
+
 -- |Supposed to be used with 'withRow'. Initializes a file copy operation.
 --
 -- Interaction with mutable references:
@@ -132,23 +146,29 @@ copyInit row mygui myview =
   writeTVarIO (operationBuffer myview) (FCopy . CP1 $ row)
 
 
--- |Finalizes a file copy operation.
+-- |Finalizes a file operation, such as copy or move.
 --
 -- Interaction with mutable references:
 --
 -- * 'operationBuffer' reads
-copyFinal :: MyGUI -> MyView -> IO ()
-copyFinal mygui myview = withErrorDialog $ do
+operationFinal :: MyGUI -> MyView -> IO ()
+operationFinal mygui myview = withErrorDialog $ do
   op <- readTVarIO (operationBuffer myview)
-  mcdir <- getFirstRow myview
+  cdir <- goUp =<< getFirstRow myview
   case op of
+    FMove (MP1 s) -> do
+      let cmsg = "Really move \"" ++ fullPath s
+                  ++ "\"" ++ " to \"" ++ fullPath cdir ++ "\"?"
+      withConfirmationDialog cmsg
+        (runFileOp (FMove . MC s $ cdir)
+         >> refreshTreeView mygui myview Nothing)
+      return ()
     FCopy (CP1 s) -> do
-      dest <- goUp mcdir
       let cmsg = "Really copy \"" ++ fullPath s
-                 ++ "\"" ++ " to \"" ++ fullPath dest ++ "\"?"
+                 ++ "\"" ++ " to \"" ++ fullPath cdir ++ "\"?"
       cm <- showCopyModeChooserDialog
       withConfirmationDialog cmsg
-        (runFileOp (FCopy . CC s dest $ cm)
+        (runFileOp (FCopy . CC s cdir $ cm)
          >> refreshTreeView mygui myview Nothing)
       return ()
     _ -> return ()
