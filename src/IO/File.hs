@@ -127,7 +127,7 @@ runFileOp _                       = return Nothing
 
 -- TODO: allow renaming
 -- |Copies a directory to the given destination with the specified
--- `DirCopyMode`.
+-- `DirCopyMode`. Excludes symlinks.
 copyDir :: DirCopyMode
         -> AnchoredFile FileInfo FileInfo  -- ^ source dir
         -> AnchoredFile FileInfo FileInfo  -- ^ destination dir
@@ -191,7 +191,8 @@ recreateSymlink symf@(IsSymL True)
 recreateSymlink _ _ = return ()
 
 
--- |Copies the given file to the given file destination. Not symlinks.
+-- |Copies the given file to the given file destination.
+-- Excludes symlinks.
 copyFile :: AnchoredFile FileInfo FileInfo  -- ^ source file
          -> AnchoredFile FileInfo FileInfo  -- ^ destination file
          -> IO ()
@@ -205,7 +206,7 @@ copyFile _ _ = return ()
 
 
 -- |Copies the given file to the given dir with the same filename.
--- This can also be called on symlinks.
+-- Excludes symlinks.
 copyFileToDir :: AnchoredFile FileInfo FileInfo
               -> AnchoredFile FileInfo FileInfo
               -> IO ()
@@ -219,6 +220,8 @@ copyFileToDir from@(_ :/ RegFile fn _)
 copyFileToDir _ _ = return ()
 
 
+-- |Copies a file, directory or symlink. In case of a symlink, it is just
+-- recreated, even if it points to a directory.
 easyCopy :: DirCopyMode
          -> AnchoredFile FileInfo FileInfo
          -> AnchoredFile FileInfo FileInfo
@@ -322,7 +325,8 @@ deleteDirRecursive _ = return ()
 
 
 -- |Deletes a file, directory or symlink, whatever it may be.
--- In case of directory, performs recursive deletion.
+-- In case of directory, performs recursive deletion. In case of
+-- a symlink, the symlink file is deleted.
 easyDelete :: AnchoredFile FileInfo FileInfo -> IO ()
 easyDelete f@(IsSymL True) = deleteSymlink f
 easyDelete f@(_ :/ RegFile {})
