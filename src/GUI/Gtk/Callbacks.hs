@@ -79,7 +79,6 @@ setCallbacks mygui myview = do
     "Delete"  <- fmap glibToString eventKeyName
     liftIO $ withRow mygui myview del
   _ <- treeView mygui `on` rowActivated $ (\_ _ -> withRow mygui myview open)
-  _ <- menubarFileQuit mygui `on` menuItemActivated $ mainQuit
   _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
@@ -93,6 +92,24 @@ setCallbacks mygui myview = do
     [Control] <- eventModifier
     "v"       <- fmap glibToString eventKeyName
     liftIO $ operationFinal mygui myview
+
+  -- menubar-file
+  _ <- menubarFileQuit mygui `on` menuItemActivated $ mainQuit
+  _ <- menubarFileOpen mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview open
+  _ <- menubarFileExecute mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview execute
+
+  -- menubar-edit
+  _ <- menubarEditCopy mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview copyInit
+  _ <- menubarEditPaste mygui `on` menuItemActivated $
+    liftIO $ operationFinal mygui myview
+  _ <- menubarEditDelete mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview del
+  _ <- menubarEditCut mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview moveInit
+
   return ()
 
 
@@ -116,6 +133,12 @@ open row mygui myview = withErrorDialog $
       refreshTreeView' mygui myview nv
     r ->
       void $ openFile r
+
+
+-- |Execute a given file.
+execute :: Row -> MyGUI -> MyView -> IO ()
+execute row mygui myview = withErrorDialog $
+  void $ executeFile row []
 
 
 -- |Supposed to be used with 'withRow'. Deletes a file or directory.

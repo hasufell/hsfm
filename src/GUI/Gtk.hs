@@ -151,14 +151,16 @@ startMainWindow startdir = do
                        "menubarFileQuit"
   menubarFileOpen   <- builderGetObject builder castToImageMenuItem
                        "menubarFileOpen"
-  menubarFileCut    <- builderGetObject builder castToImageMenuItem
-                       "menubarFileCut"
-  menubarFileCopy   <- builderGetObject builder castToImageMenuItem
-                       "menubarFileCopy"
-  menubarFilePaste  <- builderGetObject builder castToImageMenuItem
-                       "menubarFilePaste"
-  menubarFileDelete <- builderGetObject builder castToImageMenuItem
-                      "menubarFileDelete"
+  menubarFileExecute <- builderGetObject builder castToImageMenuItem
+                        "menubarFileExecute"
+  menubarEditCut    <- builderGetObject builder castToImageMenuItem
+                       "menubarEditCut"
+  menubarEditCopy   <- builderGetObject builder castToImageMenuItem
+                       "menubarEditCopy"
+  menubarEditPaste  <- builderGetObject builder castToImageMenuItem
+                       "menubarEditPaste"
+  menubarEditDelete <- builderGetObject builder castToImageMenuItem
+                      "menubarEditDelete"
   menubarHelpAbout  <- builderGetObject builder castToImageMenuItem
                       "menubarHelpAbout"
   urlBar            <- builderGetObject builder castToEntry

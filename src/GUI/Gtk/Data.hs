@@ -28,10 +28,11 @@ data MyGUI = MkMyGUI {
     rootWin  :: Window
   , menubarFileQuit :: ImageMenuItem
   , menubarFileOpen :: ImageMenuItem
-  , menubarFileCut :: ImageMenuItem
-  , menubarFileCopy :: ImageMenuItem
-  , menubarFilePaste :: ImageMenuItem
-  , menubarFileDelete :: ImageMenuItem
+  , menubarFileExecute :: ImageMenuItem
+  , menubarEditCut :: ImageMenuItem
+  , menubarEditCopy :: ImageMenuItem
+  , menubarEditPaste :: ImageMenuItem
+  , menubarEditDelete :: ImageMenuItem
   , menubarHelpAbout :: ImageMenuItem
   , urlBar :: Entry
   , statusBar :: Statusbar
