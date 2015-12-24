@@ -3,6 +3,10 @@
 module GUI.Gtk.Dialogs where
 
 
+import Control.Applicative
+  (
+    (<$>)
+  )
 import Control.Exception
   (
     try
@@ -13,7 +17,28 @@ import Control.Monad
     when
   , void
   )
-
+import Data.Version
+  (
+    showVersion
+  )
+import Distribution.Package
+  (
+    PackageIdentifier(..)
+  , PackageName(..)
+  )
+import Distribution.PackageDescription
+  (
+    GenericPackageDescription(..)
+  , PackageDescription(..)
+  )
+import Distribution.PackageDescription.Parse
+  (
+    readPackageDescription
+  )
+import Distribution.Verbosity
+  (
+    silent
+  )
 import Graphics.UI.Gtk
 import GUI.Gtk.Data
 import IO.File
@@ -78,18 +103,19 @@ showCopyModeChooserDialog = do
 -- |Shows the about dialog from the help menu.
 showAboutDialog :: IO ()
 showAboutDialog = do
-  ad <- aboutDialogNew
-  licensestr <- readFile "LICENSE"
+  ad       <- aboutDialogNew
+  lstr     <- readFile "LICENSE"
   hsfmicon <- pixbufNewFromFile "data/Gtk/icons/hsfm.png"
+  pdesc    <- packageDescription <$> readPackageDescription silent "hsfm.cabal"
   set ad
-    [ aboutDialogProgramName  := "hsfm"
-    , aboutDialogName         := "hsfm"
-    , aboutDialogVersion      := "0.0.0.1"
-    , aboutDialogCopyright    := "Copyright: (c) 2015 Julian Ospald"
-    , aboutDialogComments     := "A file manager written in Haskell"
-    , aboutDialogLicense      := Just licensestr
-    , aboutDialogWebsite      := "https://github.com/hasufell/hsfm"
-    , aboutDialogAuthors      := ["Julian Ospald <hasufell@hasufell.de>"]
+    [ aboutDialogProgramName  := (unPackageName . pkgName . package) pdesc
+    , aboutDialogName         := (unPackageName . pkgName . package) pdesc
+    , aboutDialogVersion      := (showVersion . pkgVersion . package) pdesc
+    , aboutDialogCopyright    := copyright pdesc
+    , aboutDialogComments     := description pdesc
+    , aboutDialogLicense      := Just lstr
+    , aboutDialogWebsite      := homepage pdesc
+    , aboutDialogAuthors      := [author pdesc]
     , aboutDialogLogo         := Just hsfmicon
     , aboutDialogWrapLicense  := True
     ]

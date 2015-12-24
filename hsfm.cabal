@@ -7,6 +7,7 @@ license-file:        LICENSE
 author:              Julian Ospald
 maintainer:          hasufell@hasufell.de
 copyright:           Copyright: (c) 2015 Julian Ospald
+homepage:            https://github.com/hasufell/hsfm
 category:            Desktop
 build-type:          Simple
 cabal-version:       >=1.10
@@ -61,6 +62,7 @@ executable hsfm-gtk
 
   build-depends:       hsfm,
                        base >= 4.7,
+                       Cabal >= 1.22.0.0,
                        containers,
                        data-default,
                        gtk3 >= 0.14.1,
