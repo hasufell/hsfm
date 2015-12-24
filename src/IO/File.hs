@@ -251,7 +251,7 @@ easyCopy _ _ _ = return ()
 moveFile :: AnchoredFile FileInfo -- ^ file to move
          -> AnchoredFile FileInfo -- ^ base target directory
          -> IO ()
-moveFile from@SymlOrRegFile to@(_ :/ Dir {}) = do
+moveFile from@SARegFile to@(_ :/ Dir {}) = do
   let from' = fullPath from
       to'   = fullPath to </> (name . file $ from)
   throwSameFile from' to'

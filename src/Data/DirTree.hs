@@ -144,7 +144,7 @@ type FileName = String
 -- to that file without the filename.
 data AnchoredFile a =
   (:/) { anchor :: FilePath, file :: File a }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Show)
 
 
 -- |The String in the name field is always a file name, never a full path.
@@ -213,34 +213,92 @@ type UserIO a = FilePath -> IO a
 type Builder a = UserIO a -> FilePath -> IO [File a]
 
 
-symlOrRegFile :: AnchoredFile FileInfo
+
+
+    ------------------------------------
+    --[ ViewPatterns/PatternSynonyms ]--
+    ------------------------------------
+
+
+
+saregfile :: AnchoredFile FileInfo
               -> (Bool, AnchoredFile FileInfo)
-symlOrRegFile f@(_ :/ RegFile {}) = (True, f)
-symlOrRegFile f@(_ :/ SymLink {}) = (True, f)
-symlOrRegFile f = (False, f)
+saregfile f@(bp :/ constr) =
+  let (b, file) = sregfile constr
+  in (b, bp :/ file)
 
 
-sdir :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
-sdir f@(_ :/ SymLink { sdest = (_ :/ Dir {} )}) = (True, f)
-sdir f@(_ :/ Dir {})                     = (True, f)
-sdir f = (False, f)
+sregfile :: File FileInfo -> (Bool, File FileInfo)
+sregfile f@(RegFile {}) = (True, f)
+sregfile f@(SymLink {}) = (True, f)
+sregfile f              = (False, f)
 
 
-pattern SymlOrRegFile <- (symlOrRegFile -> (True, _))
+sadir :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
+sadir f@(bp :/ constr) =
+  let (b, file) = sdir constr
+  in (b, bp :/ file)
 
-pattern SDir f <- (sdir -> (True, f))
+
+sdir :: File FileInfo -> (Bool, File FileInfo)
+sdir f@(SymLink { sdest = (_ :/ s@(SymLink {}) )})
+  -- we have to follow a chain of symlinks here
+  = case (sdir s) of
+      (True, _) -> (True, f)
+      _         -> (False, f)
+sdir f@(SymLink { sdest = (_ :/ Dir {} )})
+  = (True, f)
+sdir f@(Dir {}) = (True, f)
+sdir f          = (False, f)
+
+
+safile :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
+safile f@(bp :/ constr) =
+  let (b, file) = sfile constr
+  in (b, bp :/ file)
+
+
+sfile :: File FileInfo -> (Bool, File FileInfo)
+sfile f@(SymLink { sdest = (_ :/ s@(SymLink {}) )})
+  -- we have to follow a chain of symlinks here
+  = case (sfile s) of
+      (True, _) -> (True, f)
+      _         -> (False, f)
+sfile f@(SymLink { sdest = (_ :/ RegFile {} )})
+  = (True, f)
+sfile f@(RegFile {})   = (True, f)
+sfile f@(BlockDev {})  = (True, f)
+sfile f@(CharDev {})   = (True, f)
+sfile f@(NamedPipe {}) = (True, f)
+sfile f@(Socket {})    = (True, f)
+sfile f                = (False, f)
+
+
+-- |Matches on symlinks (pointing to anything) or regular files.
+pattern SARegFile <- (saregfile -> (True, _))
+pattern SRegFile  <- (sregfile  -> (True, _))
+
+-- |Matches on directories or symlinks pointing to directories.
+pattern SADir f <- (sadir -> (True, f))
+pattern SDir f  <- (sdir  -> (True, f))
+
+-- |Matches on any non-directory kind of files or symlinks pointing to
+-- such.
+pattern SAFile f <- (safile -> (True, f))
+pattern SFile f  <- (sfile  -> (True, f))
 
 
 
-    ----------------------------
+
+    -----------------
     --[ INSTANCES ]--
-    ----------------------------
+    -----------------
 
 
 -- | First compare constructors: Failed < Dir < File...
 -- Then compare `name`...
 -- Then compare free variable parameter of `File` constructors
-instance (Ord a, Eq a) => Ord (File a) where
+instance Ord (File FileInfo) where
     compare (RegFile n a) (RegFile n' a') =
         case compare n n' of
              EQ -> compare a a'
@@ -250,8 +308,15 @@ instance (Ord a, Eq a) => Ord (File a) where
              EQ -> compare b b'
              el -> el
      -- after comparing above we can hand off to shape ord function:
-    compare d d' = comparingShape d d'
+    compare d d' = comparingConstr d d'
 
+
+-- |First compare anchor, then compare File.
+instance Ord (AnchoredFile FileInfo) where
+  compare (bp1 :/ a) (bp2 :/ b) =
+    case compare bp1 bp2 of
+      EQ -> compare a b
+      el -> el
 
 
 
@@ -366,29 +431,14 @@ failures = filter failed
 ---- ORDERING AND EQUALITY ----
 
 
--- | Tests equality of two trees, ignoring their free variable portion. Can be
--- used to check if any files have been added or deleted, for instance.
-equalShape :: File a -> File b -> Bool
-equalShape d d' = comparingShape d d' == EQ
-
--- TODO: we should use equalFilePath here, but how to sort properly?
--- with System.Directory.canonicalizePath, before compare?
-
--- | a compare function that ignores the free "file" type variable:
-comparingShape :: File a -> File b -> Ordering
-comparingShape (Dir n _) (Dir n' _) = compare n n'
--- else simply compare the flat constructors, non-recursively:
-comparingShape t t'  = comparingConstr t t'
-
-
  -- HELPER: a non-recursive comparison
-comparingConstr :: File a -> File b -> Ordering
-comparingConstr (Failed _ _)  (Dir _ _)     = LT
-comparingConstr (Failed _ _)  (RegFile _ _) = LT
-comparingConstr (RegFile _ _) (Failed _ _)  = GT
-comparingConstr (RegFile _ _) (Dir _ _)     = GT
-comparingConstr (Dir _ _)     (Failed _ _)  = GT
-comparingConstr (Dir _ _)     (RegFile _ _) = LT
+comparingConstr :: File FileInfo -> File FileInfo -> Ordering
+comparingConstr (Failed _ _) (SDir _)    = LT
+comparingConstr (Failed _ _) (SFile _)   = LT
+comparingConstr (SFile _)   (Failed _ _) = GT
+comparingConstr (SFile _)   (SDir _)     = GT
+comparingConstr (SDir _)    (Failed _ _) = GT
+comparingConstr (SDir _)    (SFile _)    = LT
  -- else compare on the names of constructors that are the same, without
  -- looking at the contents of Dir constructors:
 comparingConstr t t'  = compare (name t) (name t')
@@ -406,13 +456,42 @@ comparingConstr t t'  = compare (name t) (name t')
 
 
 ---- CONSTRUCTOR IDENTIFIERS ----
+
 isFileC :: File a -> Bool
 isFileC (RegFile _ _) = True
 isFileC _             = False
 
+
 isDirC :: File a -> Bool
 isDirC (Dir _ _) = True
 isDirC _         = False
+
+
+isSymC :: File a -> Bool
+isSymC (SymLink _ _ _) = True
+isSymC _               = False
+
+
+isBlockC :: File a -> Bool
+isBlockC (BlockDev _ _) = True
+isBlockC _              = False
+
+
+isCharC :: File a -> Bool
+isCharC (CharDev _ _) = True
+isCharC _             = False
+
+
+
+isNamedC :: File a -> Bool
+isNamedC (NamedPipe _ _) = True
+isNamedC _               = False
+
+
+isSocketC :: File a -> Bool
+isSocketC (Socket _ _) = True
+isSocketC _            = False
+
 
 
 ---- PATH CONVERSIONS ----
@@ -425,6 +504,7 @@ topDir = last . splitDirectories
 baseDir = joinPath . init . splitDirectories
 
 
+-- |Check whether the given file is a hidden file.
 hiddenFile :: FilePath -> Bool
 hiddenFile "."  = False
 hiddenFile ".." = False
@@ -467,16 +547,18 @@ goUp af@("" :/ _) = return af
 goUp    (bp :/ _) = Data.DirTree.readFile bp
 
 
+-- |Go up one directory in the filesystem hierarchy.
 goUp' :: FilePath -> IO (AnchoredFile FileInfo)
 goUp' fp = do
   cfp <- canonicalizePath' fp
   Data.DirTree.readFile $ baseDir cfp
 
 
+-- |Get the contents of a directory.
 getContents :: AnchoredFile FileInfo
             -> IO [AnchoredFile FileInfo]
-getContents (SDir af) = readDirectory (fullPath af)
-getContents _ = return []
+getContents (SADir af) = readDirectory (fullPath af)
+getContents _         = return []
 
 
 -- |Get all files of a given directory and return them as a List.
@@ -539,9 +621,14 @@ getFileInfo fp = do
 
 -- |Gets the free variable. Returns Nothing if the constructor is of `Failed`.
 getFreeVar :: File a -> Maybe a
-getFreeVar (RegFile _ f)  = Just f
-getFreeVar (Dir _  d)     = Just d
-getFreeVar _              = Nothing
+getFreeVar (Dir _  d)       = Just d
+getFreeVar (RegFile _  d)   = Just d
+getFreeVar (SymLink _  d _) = Just d
+getFreeVar (BlockDev _  d)  = Just d
+getFreeVar (CharDev _  d)   = Just d
+getFreeVar (NamedPipe _  d) = Just d
+getFreeVar (Socket _  d)    = Just d
+getFreeVar _                = Nothing
 
 
 ---- FAILURE HELPERS: ----
@@ -581,10 +668,13 @@ fullPath :: AnchoredFile a -> FilePath
 fullPath (bp :/ f) = bp </> name f
 
 
+-- |Apply a function on the free variable. If there is no free variable
+-- for the given constructor the value from the `Default` class is used.
 fromFreeVar :: (Default d) => (a -> d) -> File a -> d
 fromFreeVar f df = maybeD f $ getFreeVar df
 
 
+-- |A `maybe` flavor using the `Default` class.
 maybeD :: (Default b) => (a -> b) -> Maybe a -> b
 maybeD = maybe def
 
