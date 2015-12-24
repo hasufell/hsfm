@@ -351,7 +351,7 @@ openFile f = spawnProcess "xdg-open" [fullPath f]
 
 -- |Executes a program with the given arguments.
 executeFile :: AnchoredFile FileInfo  -- ^ program
-            -> [String]                        -- ^ arguments
+            -> [String]               -- ^ arguments
             -> IO (Maybe ProcessHandle)
 executeFile prog@(_ :/ RegFile {}) args
   = Just <$> spawnProcess (fullPath prog) args

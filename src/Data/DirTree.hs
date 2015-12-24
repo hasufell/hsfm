@@ -222,7 +222,7 @@ type Builder a = UserIO a -> FilePath -> IO [File a]
 
 
 saregfile :: AnchoredFile FileInfo
-              -> (Bool, AnchoredFile FileInfo)
+          -> (Bool, AnchoredFile FileInfo)
 saregfile f@(bp :/ constr) =
   let (b, file) = sregfile constr
   in (b, bp :/ file)
@@ -242,7 +242,8 @@ sadir f@(bp :/ constr) =
 
 sdir :: File FileInfo -> (Bool, File FileInfo)
 sdir f@(SymLink { sdest = (_ :/ s@(SymLink {}) )})
-  -- we have to follow a chain of symlinks here
+  -- we have to follow a chain of symlinks here, but
+  -- return only the very first level
   = case (sdir s) of
       (True, _) -> (True, f)
       _         -> (False, f)
@@ -260,7 +261,8 @@ safile f@(bp :/ constr) =
 
 sfile :: File FileInfo -> (Bool, File FileInfo)
 sfile f@(SymLink { sdest = (_ :/ s@(SymLink {}) )})
-  -- we have to follow a chain of symlinks here
+  -- we have to follow a chain of symlinks here, but
+  -- return only the very first level
   = case (sfile s) of
       (True, _) -> (True, f)
       _         -> (False, f)
@@ -279,11 +281,17 @@ pattern SARegFile <- (saregfile -> (True, _))
 pattern SRegFile  <- (sregfile  -> (True, _))
 
 -- |Matches on directories or symlinks pointing to directories.
+-- If the symlink is pointing to a symlink pointing to a directory, then
+-- it will return True, but also return the first element in the symlink-
+-- chain, not the last.
 pattern SADir f <- (sadir -> (True, f))
 pattern SDir f  <- (sdir  -> (True, f))
 
 -- |Matches on any non-directory kind of files or symlinks pointing to
 -- such.
+-- If the symlink is pointing to a symlink pointing to such a file, then
+-- it will return True, but also return the first element in the symlink-
+-- chain, not the last.
 pattern SAFile f <- (safile -> (True, f))
 pattern SFile f  <- (sfile  -> (True, f))
 
