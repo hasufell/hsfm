@@ -70,7 +70,7 @@ setCallbacks mygui myview = do
     mcdir <- liftIO $ getFirstRow myview
     liftIO $ modifyTVarIO (settings mygui)
                           (\x -> x { showHidden = not . showHidden $ x})
-             >> refreshTreeView' mygui myview mcdir
+             >> (refreshTreeView' mygui myview =<< goUp mcdir)
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Alt] <- eventModifier
     "Up"  <- fmap glibToString eventKeyName
