@@ -248,4 +248,7 @@ startMainWindow startdir = do
   -- add the treeview to the scroll container
   containerAdd scroll treeView
 
+  -- sets the default icon
+  windowSetDefaultIconFromFile "data/Gtk/icons/hsfm.png"
+
   widgetShowAll rootWin
