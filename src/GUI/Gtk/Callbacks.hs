@@ -110,6 +110,28 @@ setCallbacks mygui myview = do
   _ <- menubarEditCut mygui `on` menuItemActivated $
     liftIO $ withRow mygui myview moveInit
 
+  -- righ-click
+  _ <- treeView mygui `on` buttonPressEvent $ do
+    eb <- eventButton
+    t  <- eventTime
+    case eb of
+      RightButton -> liftIO $ menuPopup (rcMenu mygui) $ Just (RightButton, t)
+      _           -> return ()
+    return False
+  _ <- rcFileOpen mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview open
+  _ <- rcFileExecute mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview execute
+  _ <- rcFileCopy mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview copyInit
+  _ <- rcFilePaste mygui `on` menuItemActivated $
+    liftIO $ operationFinal mygui myview
+  _ <- rcFileDelete mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview del
+  _ <- rcFileCut mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview moveInit
+
+
   return ()
 
 

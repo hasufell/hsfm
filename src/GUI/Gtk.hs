@@ -167,6 +167,20 @@ startMainWindow startdir = do
                        "urlBar"
   statusBar         <- builderGetObject builder castToStatusbar
                        "statusBar"
+  rcMenu            <- builderGetObject builder castToMenu
+                       "rcMenu"
+  rcFileOpen        <- builderGetObject builder castToImageMenuItem
+                       "rcFileOpen"
+  rcFileExecute     <- builderGetObject builder castToImageMenuItem
+                       "rcFileExecute"
+  rcFileCut         <- builderGetObject builder castToImageMenuItem
+                       "rcFileCut"
+  rcFileCopy        <- builderGetObject builder castToImageMenuItem
+                       "rcFileCopy"
+  rcFilePaste       <- builderGetObject builder castToImageMenuItem
+                       "rcFilePaste"
+  rcFileDelete      <- builderGetObject builder castToImageMenuItem
+                       "rcFileDelete"
 
   -- create initial list store model with unsorted data
   rawModel <- newTVarIO =<< listStoreNew

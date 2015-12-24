@@ -34,6 +34,13 @@ data MyGUI = MkMyGUI {
   , menubarEditPaste :: ImageMenuItem
   , menubarEditDelete :: ImageMenuItem
   , menubarHelpAbout :: ImageMenuItem
+  , rcMenu :: Menu
+  , rcFileOpen :: ImageMenuItem
+  , rcFileExecute :: ImageMenuItem
+  , rcFileCut :: ImageMenuItem
+  , rcFileCopy :: ImageMenuItem
+  , rcFilePaste :: ImageMenuItem
+  , rcFileDelete :: ImageMenuItem
   , urlBar :: Entry
   , statusBar :: Statusbar
   , treeView :: TreeView
