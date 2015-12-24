@@ -99,7 +99,7 @@ setCallbacks mygui myview = do
 -- |Go to the url given at the 'urlBar' and visualize it in the given
 -- treeView.
 urlGoTo :: MyGUI -> MyView -> IO ()
-urlGoTo mygui myview = do
+urlGoTo mygui myview = withErrorDialog $ do
   fp <- entryGetText (urlBar mygui)
   let abs = isAbsolute fp
   exists <- (||) <$> doesDirectoryExist fp <*> doesFileExist fp
