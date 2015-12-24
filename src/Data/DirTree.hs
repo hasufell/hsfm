@@ -667,9 +667,32 @@ removeNonexistent = filter isOkConstructor
     isOkError = not . isDoesNotExistErrorType . ioeGetErrorType . err
 
 
+---- SYMLINK HELPERS: ----
+
+
+-- |Follows a chain of symlinks until it finds a non-symlink. Note that
+-- this can be caught in an infinite loop if the symlinks haven't been
+-- constructed properly. This module however ensures that this cannot
+-- happen.
+followSymlink :: File FileInfo -> File FileInfo
+followSymlink (SymLink _ _ (_ :/ b@(SymLink {}))) = followSymlink b
+followSymlink af                                  = af
+
+
+-- |Checks if a symlink is broken by examining the constructor of the
+-- symlink destination. This also follows the symlink chain.
+--
+-- When called on a non-symlink, returns False.
+isBrokenSymlink :: File FileInfo -> Bool
+isBrokenSymlink af@(SymLink {})
+  = case followSymlink af of
+      (Failed {}) -> True
+      _           -> False
+isBrokenSymlink _ = False
 
 
 ---- OTHER: ----
+
 
 
 fullPath :: AnchoredFile a -> FilePath
