@@ -110,6 +110,10 @@ setCallbacks mygui myview = do
   _ <- menubarEditCut mygui `on` menuItemActivated $
     liftIO $ withRow mygui myview moveInit
 
+  -- menubar-help
+  _ <- menubarHelpAbout mygui `on` menuItemActivated $
+    liftIO showAboutDialog
+
   -- righ-click
   _ <- treeView mygui `on` buttonPressEvent $ do
     eb <- eventButton

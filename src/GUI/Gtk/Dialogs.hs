@@ -75,6 +75,28 @@ showCopyModeChooserDialog = do
     ResponseUser 2 -> return Replace
 
 
+-- |Shows the about dialog from the help menu.
+showAboutDialog :: IO ()
+showAboutDialog = do
+  ad <- aboutDialogNew
+  licensestr <- readFile "LICENSE"
+  hsfmicon <- pixbufNewFromFile "data/Gtk/icons/hsfm.png"
+  set ad
+    [ aboutDialogProgramName  := "hsfm"
+    , aboutDialogName         := "hsfm"
+    , aboutDialogVersion      := "0.0.0.1"
+    , aboutDialogCopyright    := "Copyright: (c) 2015 Julian Ospald"
+    , aboutDialogComments     := "A file manager written in Haskell"
+    , aboutDialogLicense      := Just licensestr
+    , aboutDialogWebsite      := "https://github.com/hasufell/hsfm"
+    , aboutDialogAuthors      := ["Julian Ospald <hasufell@hasufell.de>"]
+    , aboutDialogLogo         := Just hsfmicon
+    , aboutDialogWrapLicense  := True
+    ]
+  _ <- dialogRun ad
+  widgetDestroy ad
+
+
 -- |Carry out an IO action with a confirmation dialog.
 -- If the user presses "No", then do nothing.
 withConfirmationDialog :: String -> IO () -> IO ()

@@ -16,6 +16,7 @@ data-files:          data/Gtk/builder.xml
                      data/Gtk/icons/gtk-directory.png
                      data/Gtk/icons/gtk-file.png
                      data/Gtk/icons/hsfm.png
+                     LICENSE
 
 
 library
