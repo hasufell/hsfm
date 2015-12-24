@@ -19,7 +19,7 @@ Hacking Guide
 
 The main data structure is in [DirTree.hs](src/Data/DirTree.hs), which
 should be seen as a library. This is then mapped into the Gtk+ GUI at
-[Gui.hs](src/GUI/Gtk/Gui.hs) and [Utils.hs](src/GUI/Gtk/Utils.hs).
+[Gtk.hs](src/GUI/Gtk.hs) and [Utils.hs](src/GUI/Gtk/Utils.hs).
 
 File operations (like copy, delete etc) are defined at
 [File.hs](src/IO/File.hs).
