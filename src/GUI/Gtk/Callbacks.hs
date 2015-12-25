@@ -267,8 +267,8 @@ upDir mygui myview = withErrorDialog $ do
 -- |Go up one directory and visualize it in the treeView.
 newFile :: MyGUI -> MyView -> IO ()
 newFile mygui myview = withErrorDialog $ do
-  cdir <- getCurrentDir myview
-  mfn   <- fileChooserDialog
+  cdir  <- getCurrentDir myview
+  mfn   <- textInputDialog "Enter file name"
   maybe (return ()) (\fn -> do
     createFile cdir fn
     refreshTreeView' mygui myview cdir
