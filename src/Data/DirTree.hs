@@ -390,7 +390,7 @@ readFileWith ff p = do
 
 
 readFile :: FilePath -> IO (AnchoredFile FileInfo)
-readFile fp = readFileWith getFileInfo =<< canonicalizePath' fp
+readFile fp = readFileWith getFileInfo $ normalize fp
 
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
@@ -398,7 +398,7 @@ readFile fp = readFileWith getFileInfo =<< canonicalizePath' fp
 -- directories.
 readDirectory :: FilePath -> IO [AnchoredFile FileInfo]
 readDirectory fp = readDirectoryWith getAllDirsFiles getFileInfo
-                     =<< canonicalizePath' fp
+                     $ normalize fp
 
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
@@ -406,7 +406,7 @@ readDirectory fp = readDirectoryWith getAllDirsFiles getFileInfo
 -- directories.
 readDirectory' :: FilePath -> IO [AnchoredFile FileInfo]
 readDirectory' fp = readDirectoryWith getDirsFiles getFileInfo
-                      =<< canonicalizePath' fp
+                      $ normalize fp
 
 
 -- | same as readDirectory but allows us to, for example, use
@@ -416,7 +416,7 @@ readDirectoryWith :: (FilePath -> IO [FilePath])
                   -> FilePath
                   -> IO [AnchoredFile a]
 readDirectoryWith getfiles ff p = do
-  contents <- getfiles =<< canonicalizePath' p
+  contents <- getfiles $ normalize p
   cs <- mapM (\x -> readFileWith ff $ p </> x) contents
   return $ removeNonexistent cs
 
@@ -576,7 +576,7 @@ goUp    (bp :/ _) = Data.DirTree.readFile bp
 -- |Go up one directory in the filesystem hierarchy.
 goUp' :: FilePath -> IO (AnchoredFile FileInfo)
 goUp' fp = do
-  cfp <- canonicalizePath' fp
+  let cfp = normalize fp
   Data.DirTree.readFile $ baseDir cfp
 
 
