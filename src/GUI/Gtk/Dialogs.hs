@@ -158,3 +158,26 @@ withErrorDialog io = do
          (\_ -> return ())
          r
 
+
+-- |Asks the user which directory copy mode he wants via dialog popup
+-- and returns 'DirCopyMode'.
+fileChooserDialog :: IO (Maybe String)
+fileChooserDialog = do
+  chooserDialog <- messageDialogNew Nothing
+                                    [DialogDestroyWithParent]
+                                    MessageQuestion
+                                    ButtonsNone
+                                    "Enter filename"
+  entry <- entryNew
+  cbox <- dialogGetActionArea chooserDialog
+  dialogAddButton chooserDialog "Create" (ResponseUser 0)
+  dialogAddButton chooserDialog "Cancel" (ResponseUser 1)
+  boxPackStart (castToBox cbox) entry PackNatural 5
+  widgetShowAll chooserDialog
+  rID <- dialogRun chooserDialog
+  ret <- case rID of
+           -- TODO: make this more safe
+           ResponseUser 0 -> Just <$> entryGetText entry
+           ResponseUser 1 -> return Nothing
+  widgetDestroy chooserDialog
+  return ret

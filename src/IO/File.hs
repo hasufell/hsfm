@@ -75,6 +75,19 @@ import System.Posix.Files
   , readSymbolicLink
   , fileAccess
   , getFileStatus
+  , groupReadMode
+  , groupWriteMode
+  , otherReadMode
+  , otherWriteMode
+  , ownerReadMode
+  , ownerWriteMode
+  , touchFile
+  , unionFileModes
+  )
+import System.Posix.IO
+  (
+    closeFd
+  , createFile
   )
 import System.Process
   (
@@ -374,3 +387,27 @@ executeFile :: AnchoredFile FileInfo  -- ^ program
 executeFile prog@(_ :/ RegFile {}) args
   = Just <$> spawnProcess (fullPath prog) args
 executeFile _ _      = return Nothing
+
+
+
+
+    ---------------------
+    --[ File Creation ]--
+    ---------------------
+
+
+createFile :: AnchoredFile FileInfo -> FileName -> IO ()
+createFile _ "."  = return ()
+createFile _ ".." = return ()
+createFile (SADir td) fn = do
+  let fullp = fullPath td </> fn
+  throwFileDoesExist fullp
+  let uf   = unionFileModes
+      mode =      ownerWriteMode
+             `uf` ownerReadMode
+             `uf` groupWriteMode
+             `uf` groupReadMode
+             `uf` otherWriteMode
+             `uf` otherReadMode
+  fd <- System.Posix.IO.createFile fullp mode
+  closeFd fd

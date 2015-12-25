@@ -63,6 +63,7 @@ data FmIOException = FileDoesNotExist String
                    | NotAFile String
                    | NotADir String
                    | DestinationInSource String String
+                   | FileDoesExist String
                    | DirDoesExist String
                    | IsSymlink String
   deriving (Show, Typeable)
@@ -85,6 +86,11 @@ dirSanityThrow fp = throwNotAbsolute fp >> throwDirDoesNotExist fp
 
 throwNotAbsolute :: FilePath -> IO ()
 throwNotAbsolute fp = unless (isAbsolute fp) (throw $ PathNotAbsolute fp)
+
+
+throwFileDoesExist :: FilePath -> IO ()
+throwFileDoesExist fp =
+  whenM (doesFileExist fp) (throw $ FileDoesExist fp)
 
 
 throwDirDoesExist :: FilePath -> IO ()

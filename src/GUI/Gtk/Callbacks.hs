@@ -85,10 +85,10 @@ setCallbacks mygui myview = do
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
     "h"       <- fmap glibToString eventKeyName
-    mcdir <- liftIO $ getFirstRow myview
+    cdir <- liftIO $ getCurrentDir myview
     liftIO $ modifyTVarIO (settings mygui)
                           (\x -> x { showHidden = not . showHidden $ x})
-             >> (refreshTreeView' mygui myview =<< goUp mcdir)
+             >> (refreshTreeView' mygui myview cdir)
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Alt] <- eventModifier
     "Up"  <- fmap glibToString eventKeyName
@@ -117,10 +117,14 @@ setCallbacks mygui myview = do
     liftIO $ withRow mygui myview open
   _ <- menubarFileExecute mygui `on` menuItemActivated $
     liftIO $ withRow mygui myview execute
+  _ <- menubarFileNew mygui `on` menuItemActivated $
+    liftIO $ newFile mygui myview
 
   -- menubar-edit
   _ <- menubarEditCopy mygui `on` menuItemActivated $
     liftIO $ withRow mygui myview copyInit
+  _ <- menubarEditMove mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview moveInit
   _ <- menubarEditPaste mygui `on` menuItemActivated $
     liftIO $ operationFinal mygui myview
   _ <- menubarEditDelete mygui `on` menuItemActivated $
@@ -144,8 +148,12 @@ setCallbacks mygui myview = do
     liftIO $ withRow mygui myview open
   _ <- rcFileExecute mygui `on` menuItemActivated $
     liftIO $ withRow mygui myview execute
+  _ <- rcFileNew mygui `on` menuItemActivated $
+    liftIO $ newFile mygui myview
   _ <- rcFileCopy mygui `on` menuItemActivated $
     liftIO $ withRow mygui myview copyInit
+  _ <- rcFileMove mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview moveInit
   _ <- rcFilePaste mygui `on` menuItemActivated $
     liftIO $ operationFinal mygui myview
   _ <- rcFileDelete mygui `on` menuItemActivated $
@@ -221,7 +229,7 @@ copyInit row mygui myview =
 operationFinal :: MyGUI -> MyView -> IO ()
 operationFinal mygui myview = withErrorDialog $ do
   op <- readTVarIO (operationBuffer myview)
-  cdir <- goUp =<< getFirstRow myview
+  cdir <- getCurrentDir myview
   case op of
     FMove (MP1 s) -> do
       let cmsg = "Really move \"" ++ fullPath s
@@ -249,8 +257,19 @@ operationFinal mygui myview = withErrorDialog $ do
 -- * 'sortedModel' reads
 upDir :: MyGUI -> MyView -> IO ()
 upDir mygui myview = withErrorDialog $ do
-  cdir <- goUp =<< getFirstRow myview
+  cdir <- getCurrentDir myview
   rawModel'    <- readTVarIO $ rawModel myview
   sortedModel' <- readTVarIO $ sortedModel myview
   nv <- goUp cdir
   refreshTreeView' mygui myview nv
+
+
+-- |Go up one directory and visualize it in the treeView.
+newFile :: MyGUI -> MyView -> IO ()
+newFile mygui myview = withErrorDialog $ do
+  cdir <- getCurrentDir myview
+  mfn   <- fileChooserDialog
+  maybe (return ()) (\fn -> do
+    createFile cdir fn
+    refreshTreeView' mygui myview cdir
+    ) mfn

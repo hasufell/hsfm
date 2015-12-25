@@ -2,6 +2,11 @@
 <!-- Generated with glade 3.19.0 -->
 <interface>
   <requires lib="gtk+" version="3.16"/>
+  <object class="GtkImage" id="image1">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-edit</property>
+  </object>
   <object class="GtkMenu" id="rcMenu">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -17,6 +22,15 @@
     <child>
       <object class="GtkImageMenuItem" id="rcFileExecute">
         <property name="label">gtk-execute</property>
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="use_underline">True</property>
+        <property name="use_stock">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkImageMenuItem" id="rcFileNew">
+        <property name="label">gtk-new</property>
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="use_underline">True</property>
@@ -48,6 +62,15 @@
       </object>
     </child>
     <child>
+      <object class="GtkImageMenuItem" id="rcFileMove">
+        <property name="label">Move</property>
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="image">image1</property>
+        <property name="use_stock">False</property>
+      </object>
+    </child>
+    <child>
       <object class="GtkImageMenuItem" id="rcFilePaste">
         <property name="label">gtk-paste</property>
         <property name="visible">True</property>
@@ -65,6 +88,11 @@
         <property name="use_stock">True</property>
       </object>
     </child>
+  </object>
+  <object class="GtkImage" id="image2">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-edit</property>
   </object>
   <object class="GtkApplicationWindow" id="rootWin">
     <property name="can_focus">False</property>
@@ -99,6 +127,15 @@
                     <child>
                       <object class="GtkImageMenuItem" id="menubarFileExecute">
                         <property name="label">gtk-execute</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="use_underline">True</property>
+                        <property name="use_stock">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkImageMenuItem" id="menubarFileNew">
+                        <property name="label">gtk-new</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
@@ -150,6 +187,15 @@
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkImageMenuItem" id="menubarEditMove">
+                        <property name="label">Move</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="image">image2</property>
+                        <property name="use_stock">False</property>
                       </object>
                     </child>
                     <child>

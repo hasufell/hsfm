@@ -125,6 +125,12 @@ getFirstRow myview = do
   treeModelGetRow rawModel' iter
 
 
+-- |Currently unsafe. Gets the current directory via `getFirstRow` and `goUp`.
+getCurrentDir :: MyView
+              -> IO (AnchoredFile FileInfo)
+getCurrentDir myview = getFirstRow myview >>= goUp
+
+
 -- |Re-reads the current directory or the given one and updates the TreeView.
 --
 -- The operation may fail with:

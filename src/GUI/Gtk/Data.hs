@@ -47,16 +47,20 @@ data MyGUI = MkMyGUI {
   , menubarFileQuit :: ImageMenuItem
   , menubarFileOpen :: ImageMenuItem
   , menubarFileExecute :: ImageMenuItem
+  , menubarFileNew :: ImageMenuItem
   , menubarEditCut :: ImageMenuItem
   , menubarEditCopy :: ImageMenuItem
+  , menubarEditMove :: ImageMenuItem
   , menubarEditPaste :: ImageMenuItem
   , menubarEditDelete :: ImageMenuItem
   , menubarHelpAbout :: ImageMenuItem
   , rcMenu :: Menu
   , rcFileOpen :: ImageMenuItem
   , rcFileExecute :: ImageMenuItem
+  , rcFileNew :: ImageMenuItem
   , rcFileCut :: ImageMenuItem
   , rcFileCopy :: ImageMenuItem
+  , rcFileMove :: ImageMenuItem
   , rcFilePaste :: ImageMenuItem
   , rcFileDelete :: ImageMenuItem
   , urlBar :: Entry
