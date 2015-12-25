@@ -111,6 +111,10 @@ setCallbacks mygui myview = do
     "v"       <- fmap glibToString eventKeyName
     liftIO $ operationFinal mygui myview
 
+  _ <- refreshView mygui `on` buttonActivated $ do
+       cdir <- liftIO $ getCurrentDir myview
+       refreshTreeView' mygui myview cdir
+
   -- menubar-file
   _ <- menubarFileQuit mygui `on` menuItemActivated $ mainQuit
   _ <- menubarFileOpen mygui `on` menuItemActivated $

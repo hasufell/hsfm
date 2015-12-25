@@ -207,6 +207,8 @@ startMainWindow startdir = do
                        "rcFilePaste"
   rcFileDelete      <- builderGetObject builder castToImageMenuItem
                        "rcFileDelete"
+  refreshView       <- builderGetObject builder castToButton
+                       "refreshView"
 
   -- create initial list store model with unsorted data
   rawModel <- newTVarIO =<< listStoreNew
