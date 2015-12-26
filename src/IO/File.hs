@@ -35,7 +35,9 @@ import Control.Applicative
   )
 import Control.Exception
   (
-    throw
+    handle
+  , throw
+  , SomeException(..)
   )
 import Control.Monad
   (
@@ -396,7 +398,6 @@ renameFile af (ValFN fn) = do
 renameFile _ _ = return ()
 
 
--- TODO: this is not portable for cross-device links!
 -- |Move a given file to the given target directory.
 moveFile :: AnchoredFile FileInfo -- ^ file to move
          -> AnchoredFile FileInfo -- ^ base target directory
@@ -406,7 +407,10 @@ moveFile from to@(_ :/ Dir {}) = do
       to'   = fullPath to </> (name . file $ from)
   throwFileDoesExist to'
   throwSameFile from' to'
-  rename from' to'
+  handle (\(SomeException e) -> do
+    easyCopy Strict from to
+    easyDelete from
+    ) $ rename from' to'
 moveFile _ _ = return ()
 
 
