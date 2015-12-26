@@ -50,7 +50,7 @@ data MyGUI = MkMyGUI {
   , menubarFileNew :: ImageMenuItem
   , menubarEditCut :: ImageMenuItem
   , menubarEditCopy :: ImageMenuItem
-  , menubarEditMove :: ImageMenuItem
+  , menubarEditRename :: ImageMenuItem
   , menubarEditPaste :: ImageMenuItem
   , menubarEditDelete :: ImageMenuItem
   , menubarHelpAbout :: ImageMenuItem
@@ -60,7 +60,7 @@ data MyGUI = MkMyGUI {
   , rcFileNew :: ImageMenuItem
   , rcFileCut :: ImageMenuItem
   , rcFileCopy :: ImageMenuItem
-  , rcFileMove :: ImageMenuItem
+  , rcFileRename :: ImageMenuItem
   , rcFilePaste :: ImageMenuItem
   , rcFileDelete :: ImageMenuItem
   , refreshView :: Button

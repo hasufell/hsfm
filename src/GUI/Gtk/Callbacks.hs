@@ -41,6 +41,10 @@ import Control.Monad.IO.Class
     liftIO
   )
 import Data.DirTree
+import Data.Foldable
+  (
+    for_
+  )
 import Graphics.UI.Gtk
 import GUI.Gtk.Data
 import GUI.Gtk.Dialogs
@@ -125,16 +129,16 @@ setCallbacks mygui myview = do
     liftIO $ newFile mygui myview
 
   -- menubar-edit
+  _ <- menubarEditCut mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview moveInit
   _ <- menubarEditCopy mygui `on` menuItemActivated $
     liftIO $ withRow mygui myview copyInit
-  _ <- menubarEditMove mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview moveInit
+  _ <- menubarEditRename mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview renameF
   _ <- menubarEditPaste mygui `on` menuItemActivated $
     liftIO $ operationFinal mygui myview
   _ <- menubarEditDelete mygui `on` menuItemActivated $
     liftIO $ withRow mygui myview del
-  _ <- menubarEditCut mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview moveInit
 
   -- menubar-help
   _ <- menubarHelpAbout mygui `on` menuItemActivated $
@@ -156,8 +160,8 @@ setCallbacks mygui myview = do
     liftIO $ newFile mygui myview
   _ <- rcFileCopy mygui `on` menuItemActivated $
     liftIO $ withRow mygui myview copyInit
-  _ <- rcFileMove mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview moveInit
+  _ <- rcFileRename mygui `on` menuItemActivated $
+    liftIO $ withRow mygui myview renameF
   _ <- rcFilePaste mygui `on` menuItemActivated $
     liftIO $ operationFinal mygui myview
   _ <- rcFileDelete mygui `on` menuItemActivated $
@@ -271,9 +275,19 @@ upDir mygui myview = withErrorDialog $ do
 -- |Go up one directory and visualize it in the treeView.
 newFile :: MyGUI -> MyView -> IO ()
 newFile mygui myview = withErrorDialog $ do
-  cdir  <- getCurrentDir myview
   mfn   <- textInputDialog "Enter file name"
-  maybe (return ()) (\fn -> do
+  for_ mfn $ \fn -> do
+    cdir  <- getCurrentDir myview
     createFile cdir fn
     refreshTreeView' mygui myview cdir
-    ) mfn
+
+
+renameF :: Row -> MyGUI -> MyView -> IO ()
+renameF row mygui myview = withErrorDialog $ do
+  mfn   <- textInputDialog "Enter new file name"
+  for_ mfn $ \fn -> do
+    let cmsg = "Really rename \"" ++ fullPath row
+               ++ "\"" ++ " to \"" ++ anchor row </> fn ++ "\"?"
+    withConfirmationDialog cmsg $ IO.File.renameFile row fn
+    cdir  <- getCurrentDir myview
+    refreshTreeView' mygui myview cdir

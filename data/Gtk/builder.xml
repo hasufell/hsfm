@@ -62,8 +62,8 @@
       </object>
     </child>
     <child>
-      <object class="GtkImageMenuItem" id="rcFileMove">
-        <property name="label">Move</property>
+      <object class="GtkImageMenuItem" id="rcFileRename">
+        <property name="label">Rename</property>
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="image">image1</property>
@@ -190,7 +190,7 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkImageMenuItem" id="menubarEditMove">
+                      <object class="GtkImageMenuItem" id="menubarEditRename">
                         <property name="label">Move</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>

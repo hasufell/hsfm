@@ -177,8 +177,8 @@ startMainWindow startdir = do
                        "menubarEditCut"
   menubarEditCopy   <- builderGetObject builder castToImageMenuItem
                        "menubarEditCopy"
-  menubarEditMove   <- builderGetObject builder castToImageMenuItem
-                       "menubarEditMove"
+  menubarEditRename <- builderGetObject builder castToImageMenuItem
+                       "menubarEditRename"
   menubarEditPaste  <- builderGetObject builder castToImageMenuItem
                        "menubarEditPaste"
   menubarEditDelete <- builderGetObject builder castToImageMenuItem
@@ -201,8 +201,8 @@ startMainWindow startdir = do
                        "rcFileCut"
   rcFileCopy        <- builderGetObject builder castToImageMenuItem
                        "rcFileCopy"
-  rcFileMove        <- builderGetObject builder castToImageMenuItem
-                       "rcFileMove"
+  rcFileRename      <- builderGetObject builder castToImageMenuItem
+                       "rcFileRename"
   rcFilePaste       <- builderGetObject builder castToImageMenuItem
                        "rcFilePaste"
   rcFileDelete      <- builderGetObject builder castToImageMenuItem

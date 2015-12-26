@@ -81,6 +81,7 @@ import System.Posix.Files
   , otherWriteMode
   , ownerReadMode
   , ownerWriteMode
+  , rename
   , touchFile
   , unionFileModes
   )
@@ -411,3 +412,22 @@ createFile (SADir td) fn = do
              `uf` otherReadMode
   fd <- System.Posix.IO.createFile fullp mode
   closeFd fd
+
+
+
+
+    ---------------------
+    --[ File Renaming ]--
+    ---------------------
+
+
+renameFile :: AnchoredFile FileInfo -> FileName -> IO ()
+renameFile (_ :/ Failed {}) _ = return ()
+renameFile _ "."              = return ()
+renameFile _ ".."             = return ()
+renameFile af fn = do
+  let fromf = fullPath af
+      tof   = anchor af </> fn
+  throwFileDoesExist tof
+  throwSameFile fromf tof
+  rename fromf tof
