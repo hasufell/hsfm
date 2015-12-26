@@ -150,7 +150,7 @@ data DirCopyMode = Strict  -- ^ fail if the target directory already exists
 runFileOp :: FileOperation -> IO (Maybe FileOperation)
 runFileOp (FCopy (CC from to cm)) = easyCopy cm from to >> return Nothing
 runFileOp (FCopy fo)              = return              $ Just $ FCopy fo
-runFileOp (FMove (MC from to))    = easyMove from to    >> return Nothing
+runFileOp (FMove (MC from to))    = moveFile from to    >> return Nothing
 runFileOp (FMove fo)              = return              $ Just $ FMove fo
 runFileOp (FDelete fp)            = easyDelete fp       >> return Nothing
 runFileOp (FOpen fp)              = openFile fp         >> return Nothing
@@ -280,50 +280,6 @@ easyCopy _ _ _ = return ()
 
 
 
-    -------------------
-    --[ File Moving ]--
-    -------------------
-
-
--- |Move a given file to the given target directory.
--- Includes symlinks, which are treated as files and the symlink is not
--- followed.
-moveFile :: AnchoredFile FileInfo -- ^ file to move
-         -> AnchoredFile FileInfo -- ^ base target directory
-         -> IO ()
-moveFile from@SARegFile to@(_ :/ Dir {}) = do
-  let from' = fullPath from
-      to'   = fullPath to </> (name . file $ from)
-  throwSameFile from' to'
-  SD.renameFile from' to'
-moveFile _ _ = return ()
-
-
--- |Move a given directory to the given target directory.
--- Excludes symlinks.
-moveDir :: AnchoredFile FileInfo -- ^ dir to move
-        -> AnchoredFile FileInfo -- ^ base target directory
-        -> IO ()
-moveDir (_ :/ SymLink {}) _ = return ()
-moveDir from@(_ :/ Dir n _) to@(_ :/ Dir {}) = do
-  let from' = fullPath from
-      to'   = fullPath to </> n
-  throwSameFile from' to'
-  SD.renameDirectory from' to'
-moveDir _ _ = return ()
-
-
--- |Moves a file, directory or symlink. In case of a symlink, it is
--- treated as a file and the symlink is not being followed.
-easyMove :: AnchoredFile FileInfo    -- ^ source
-         -> AnchoredFile FileInfo    -- ^ base target directory
-         -> IO ()
-easyMove from@(_ :/ SymLink {}) to@(_ :/ Dir {})       = moveFile from to
-easyMove from@(_ :/ RegFile _ _) to@(_ :/ Dir {}) = moveFile from to
-easyMove from@(_ :/ Dir _ _) to@(_ :/ Dir {})     = moveDir from to
-easyMove _ _ = return ()
-
-
 
     ---------------------
     --[ File Deletion ]--
@@ -406,12 +362,12 @@ executeFile _ _      = return Nothing
 
 
 createFile :: AnchoredFile FileInfo -> FileName -> IO ()
-createFile _ InvFN = return ()
-createFile (SADir td) fn = do
+createFile (SADir td) (ValFN fn) = do
   let fullp = fullPath td </> fn
   throwFileDoesExist fullp
   fd <- System.Posix.IO.createFile fullp newFilePerms
   closeFd fd
+createFile _ _ = return ()
 
 
 createDir :: AnchoredFile FileInfo -> FileName -> IO ()
@@ -424,9 +380,9 @@ createDir _ _ = return ()
 
 
 
-    ---------------------
-    --[ File Renaming ]--
-    ---------------------
+    ----------------------------
+    --[ File Renaming/Moving ]--
+    ----------------------------
 
 
 renameFile :: AnchoredFile FileInfo -> FileName -> IO ()
@@ -438,6 +394,22 @@ renameFile af (ValFN fn) = do
   throwSameFile fromf tof
   rename fromf tof
 renameFile _ _ = return ()
+
+
+-- TODO: this is not portable for cross-device links!
+-- |Move a given file to the given target directory.
+moveFile :: AnchoredFile FileInfo -- ^ file to move
+         -> AnchoredFile FileInfo -- ^ base target directory
+         -> IO ()
+moveFile from to@(_ :/ Dir {}) = do
+  let from' = fullPath from
+      to'   = fullPath to </> (name . file $ from)
+  throwFileDoesExist to'
+  throwSameFile from' to'
+  rename from' to'
+moveFile _ _ = return ()
+
+
 
 
 
