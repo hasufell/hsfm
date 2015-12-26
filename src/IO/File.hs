@@ -404,15 +404,18 @@ createFile _ ".." = return ()
 createFile (SADir td) fn = do
   let fullp = fullPath td </> fn
   throwFileDoesExist fullp
-  let uf   = unionFileModes
-      mode =      ownerWriteMode
-             `uf` ownerReadMode
-             `uf` groupWriteMode
-             `uf` groupReadMode
-             `uf` otherWriteMode
-             `uf` otherReadMode
-  fd <- System.Posix.IO.createFile fullp mode
+  fd <- System.Posix.IO.createFile fullp newFilePerms
   closeFd fd
+
+
+createDir :: AnchoredFile FileInfo -> FileName -> IO ()
+createDir _ ""   = return ()
+createDir _ "."  = return ()
+createDir _ ".." = return ()
+createDir (SADir td) fn = do
+  let fullp = fullPath td </> fn
+  throwDirDoesExist fullp
+  createDirectory fullp newFilePerms
 
 
 
@@ -433,3 +436,29 @@ renameFile af fn = do
   throwFileDoesExist tof
   throwSameFile fromf tof
   rename fromf tof
+
+
+
+    -----------------------
+    --[ File Permissions]--
+    -----------------------
+
+
+newFilePerms :: FileMode
+newFilePerms
+  =                  ownerWriteMode
+    `unionFileModes` ownerReadMode
+    `unionFileModes` groupWriteMode
+    `unionFileModes` groupReadMode
+    `unionFileModes` otherWriteMode
+    `unionFileModes` otherReadMode
+
+
+newDirPerms :: FileMode
+newDirPerms
+  =                  ownerModes
+    `unionFileModes` groupExecuteMode
+    `unionFileModes` groupReadMode
+    `unionFileModes` otherExecuteMode
+    `unionFileModes` otherReadMode
+
