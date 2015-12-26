@@ -82,7 +82,9 @@ data MyGUI = MkMyGUI {
   , renderPix :: CellRendererPixbuf
   , settings :: TVar FMSettings
   , folderPix :: Pixbuf
+  , folderSymPix :: Pixbuf
   , filePix :: Pixbuf
+  , fileSymPix :: Pixbuf
   , errorPix :: Pixbuf
 }
 

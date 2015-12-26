@@ -28,6 +28,7 @@ import Graphics.UI.Gtk.Gdk.Pixbuf
 
 -- |Icon type we use in our GUI.
 data GtkIcon = IFolder
+             | SymL
              | IFile
              | IError
 
@@ -35,12 +36,12 @@ data GtkIcon = IFolder
 -- |Gets an icon from the default icon theme and falls back to project-icons
 -- if not found. The requested icon size is not guaranteed.
 getIcon :: GtkIcon    -- ^ icon we want
+        -> IconTheme  -- ^ which icon theme to get the icon from
         -> Int        -- ^ requested icon size
         -> IO Pixbuf
-getIcon icon isize = do
+getIcon icon itheme isize = do
   let iname = iconToStr icon
-  iT <- iconThemeGetDefault
-  mpix <- iconThemeLoadIcon iT iname isize IconLookupUseBuiltin
+  mpix <- iconThemeLoadIcon itheme iname isize IconLookupUseBuiltin
   case mpix of
     Just pix -> return pix
     Nothing  -> pixbufNewFromFile ("data/Gtk/icons/" ++ iname)
@@ -48,3 +49,14 @@ getIcon icon isize = do
     iconToStr IFolder = "gtk-directory"
     iconToStr IFile   = "gtk-file"
     iconToStr IError  = "error"
+    iconToStr SymL    = "emblem-symbolic-link"
+
+
+getSymlinkIcon :: GtkIcon -> IconTheme -> Int -> IO Pixbuf
+getSymlinkIcon icon itheme isize = do
+  pix    <- pixbufCopy =<< getIcon icon itheme isize
+  sympix <- getIcon SymL itheme isize
+
+  pixbufScale sympix pix 0 0 12 12 0 0 0.5 0.5 InterpNearest
+
+  return pix

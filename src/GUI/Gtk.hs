@@ -155,10 +155,12 @@ startMainWindow startdir = do
   inotify  <- newEmptyMVar
 
   -- get the icons
-  iT        <- iconThemeGetDefault
-  folderPix <- getIcon IFolder 24
-  filePix   <- getIcon IFile 24
-  errorPix  <- getIcon IError 24
+  iT           <- iconThemeGetDefault
+  folderPix    <- getIcon IFolder iT 24
+  folderSymPix <- getSymlinkIcon IFolder iT 24
+  filePix      <- getIcon IFile iT 24
+  fileSymPix   <- getSymlinkIcon IFile iT 24
+  errorPix     <- getIcon IError iT 24
 
   operationBuffer <- newTVarIO None
 

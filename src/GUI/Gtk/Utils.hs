@@ -276,10 +276,12 @@ constructTreeView mygui myview = do
 
   return ()
   where
-    dirtreePix (Dir {})     = folderPix mygui
-    dirtreePix (RegFile {}) = filePix mygui
-    dirtreePix (Failed {})  = errorPix mygui
-    dirtreePix _            = errorPix mygui
+    dirtreePix (Dir {})      = folderPix mygui
+    dirtreePix (RegFile {})  = filePix mygui
+    dirtreePix (SDir _)      = folderSymPix mygui
+    dirtreePix (SRegFile {}) = fileSymPix mygui
+    dirtreePix (Failed {})   = errorPix mygui
+    dirtreePix _             = errorPix mygui
 
 
 -- |Push a message to the status bar.
