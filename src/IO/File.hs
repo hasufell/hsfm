@@ -398,6 +398,7 @@ executeFile _ _      = return Nothing
 
 
 createFile :: AnchoredFile FileInfo -> FileName -> IO ()
+createFile _ ""   = return ()
 createFile _ "."  = return ()
 createFile _ ".." = return ()
 createFile (SADir td) fn = do
@@ -423,6 +424,7 @@ createFile (SADir td) fn = do
 
 renameFile :: AnchoredFile FileInfo -> FileName -> IO ()
 renameFile (_ :/ Failed {}) _ = return ()
+renameFile _ ""               = return ()
 renameFile _ "."              = return ()
 renameFile _ ".."             = return ()
 renameFile af fn = do
