@@ -218,9 +218,13 @@ startMainWindow startdir = do
                        "refreshView"
 
   -- create initial list store model with unsorted data
+  -- we check that the startdir passed by the user is valid
+  -- TODO: maybe move this to a separate function
+  sd <- (\x -> if (failed . file $ x) || (not . isAbsolute . anchor $ x)
+                 then Data.DirTree.readFile "/"
+                 else return x) =<< Data.DirTree.readFile startdir
   rawModel <- newTVarIO =<< listStoreNew
-                        =<< Data.DirTree.getContents
-                        =<< Data.DirTree.readFile startdir
+                        =<< Data.DirTree.getContents sd
 
   filteredModel <- newTVarIO =<< (\x -> treeModelFilterNew x [])
                            =<< readTVarIO rawModel
