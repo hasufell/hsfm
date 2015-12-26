@@ -232,25 +232,29 @@ type Builder a = UserIO a -> FilePath -> IO [File a]
     ------------------------------------
 
 
-
-saregfile :: AnchoredFile FileInfo
-          -> (Bool, AnchoredFile FileInfo)
-saregfile f@(bp :/ constr) =
-  let (b, file) = sregfile constr
+convertViewP :: (File FileInfo -> (Bool, File FileInfo))
+             -> AnchoredFile FileInfo
+             -> (Bool, AnchoredFile FileInfo)
+convertViewP f af@(bp :/ constr) =
+  let (b, file) = f constr
   in (b, bp :/ file)
 
 
-sregfile :: File FileInfo -> (Bool, File FileInfo)
-sregfile f@(RegFile {}) = (True, f)
-sregfile f@(SymLink {}) = (True, f)
-sregfile f              = (False, f)
+
+afileLike :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
+afileLike f@(bp :/ constr) = convertViewP fileLike f
+
+fileLike :: File FileInfo -> (Bool, File FileInfo)
+fileLike f@(RegFile {})   = (True, f)
+fileLike f@(BlockDev {})  = (True, f)
+fileLike f@(CharDev {})   = (True, f)
+fileLike f@(NamedPipe {}) = (True, f)
+fileLike f@(Socket {})    = (True, f)
+fileLike f                = (False, f)
 
 
 sadir :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
-sadir f@(bp :/ constr) =
-  let (b, file) = sdir constr
-  in (b, bp :/ file)
-
+sadir f = convertViewP sdir f
 
 sdir :: File FileInfo -> (Bool, File FileInfo)
 sdir f@(SymLink { sdest = (_ :/ s@(SymLink {}) )})
@@ -265,27 +269,44 @@ sdir f@(Dir {}) = (True, f)
 sdir f          = (False, f)
 
 
-safile :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
-safile f@(bp :/ constr) =
-  let (b, file) = sfile constr
-  in (b, bp :/ file)
+safileLike :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
+safileLike f = convertViewP sfileLike f
+
+sfileLike :: File FileInfo -> (Bool, File FileInfo)
+sfileLike f@(RegFile {})   = (True, f)
+sfileLike f@(BlockDev {})  = (True, f)
+sfileLike f@(CharDev {})   = (True, f)
+sfileLike f@(NamedPipe {}) = (True, f)
+sfileLike f@(Socket {})    = (True, f)
+sfileLike f                = fileLikeSym f
 
 
-sfile :: File FileInfo -> (Bool, File FileInfo)
-sfile f@(SymLink { sdest = (_ :/ s@(SymLink {}) )})
-  -- we have to follow a chain of symlinks here, but
-  -- return only the very first level
-  = case (sfile s) of
+afileLikeSym :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
+afileLikeSym f = convertViewP fileLikeSym f
+
+fileLikeSym :: File FileInfo -> (Bool, File FileInfo)
+fileLikeSym f@(SymLink { sdest = (_ :/ s@(SymLink {}) )})
+  = case (fileLikeSym s) of
       (True, _) -> (True, f)
       _         -> (False, f)
-sfile f@(SymLink { sdest = (_ :/ RegFile {} )})
-  = (True, f)
-sfile f@(RegFile {})   = (True, f)
-sfile f@(BlockDev {})  = (True, f)
-sfile f@(CharDev {})   = (True, f)
-sfile f@(NamedPipe {}) = (True, f)
-sfile f@(Socket {})    = (True, f)
-sfile f                = (False, f)
+fileLikeSym f@(SymLink { sdest = (_ :/ RegFile {} )}) = (True, f)
+fileLikeSym f@(SymLink { sdest = (_ :/ BlockDev {} )}) = (True, f)
+fileLikeSym f@(SymLink { sdest = (_ :/ CharDev {} )}) = (True, f)
+fileLikeSym f@(SymLink { sdest = (_ :/ NamedPipe {} )}) = (True, f)
+fileLikeSym f@(SymLink { sdest = (_ :/ Socket {} )}) = (True, f)
+fileLikeSym f = (False, f)
+
+
+adirSym :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
+adirSym f = convertViewP dirSym f
+
+dirSym :: File FileInfo -> (Bool, File FileInfo)
+dirSym f@(SymLink { sdest = (_ :/ s@(SymLink {}) )})
+  = case (dirSym s) of
+      (True, _) -> (True, f)
+      _         -> (False, f)
+dirSym f@(SymLink { sdest = (_ :/ Dir {} )}) = (True, f)
+dirSym f = (False, f)
 
 
 invalidFileName :: FileName -> (Bool, FileName)
@@ -295,31 +316,50 @@ invalidFileName ".." = (True, "..")
 invalidFileName fn   = (elem pathSeparator fn, fn)
 
 
+abrokenSymlink :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
+abrokenSymlink f = convertViewP brokenSymlink f
+
+brokenSymlink :: File FileInfo -> (Bool, File FileInfo)
+brokenSymlink f = (isBrokenSymlink f, f)
+
+
 -- |Matches on invalid filesnames, such as ".", ".." and anything
 -- that contains a path separator.
 pattern InvFN   <- (invalidFileName -> (True,_))
 -- |Opposite of `InvFN`.
 pattern ValFN f <- (invalidFileName -> (False, f))
 
--- |Matches on symlinks (pointing to anything) or regular files.
-pattern SARegFile <- (saregfile -> (True, _))
-pattern SRegFile  <- (sregfile  -> (True, _))
 
 -- |Matches on directories or symlinks pointing to directories.
 -- If the symlink is pointing to a symlink pointing to a directory, then
 -- it will return True, but also return the first element in the symlink-
 -- chain, not the last.
-pattern SADir f <- (sadir -> (True, f))
-pattern SDir f  <- (sdir  -> (True, f))
+pattern ADirOrSym f <- (sadir -> (True, f))
+pattern DirOrSym  f <- (sdir  -> (True, f))
+
+-- |Matches on symlinks pointing to directories only.
+pattern ADirSym  f <- (adirSym -> (True, f))
+pattern DirSym   f <- (dirSym  -> (True, f))
 
 -- |Matches on any non-directory kind of files or symlinks pointing to
 -- such.
 -- If the symlink is pointing to a symlink pointing to such a file, then
 -- it will return True, but also return the first element in the symlink-
 -- chain, not the last.
-pattern SAFile f <- (safile -> (True, f))
-pattern SFile f  <- (sfile  -> (True, f))
+pattern AFileLikeOrSym f <- (safileLike -> (True, f))
+pattern FileLikeOrSym  f <- (sfileLike  -> (True, f))
 
+-- |Matches on any non-directory kind of files, excluding symlinks.
+pattern AFileLike f <- (afileLike -> (True, f))
+pattern FileLike  f <- (fileLike  -> (True, f))
+
+-- |Matches on symlinks pointing to file-like files only.
+pattern AFileLikeSym f <- (afileLikeSym -> (True, f))
+pattern FileLikeSym  f <- (fileLikeSym  -> (True, f))
+
+-- |Matches on broken symbolic links.
+pattern ABrokenSymlink f <- (abrokenSymlink -> (True, f))
+pattern BrokenSymlink  f <- (brokenSymlink  -> (True, f))
 
 
 
@@ -466,12 +506,12 @@ failures = filter failed
 
  -- HELPER: a non-recursive comparison
 comparingConstr :: File FileInfo -> File FileInfo -> Ordering
-comparingConstr (Failed _ _) (SDir _)    = LT
-comparingConstr (Failed _ _) (SFile _)   = LT
-comparingConstr (SFile _)   (Failed _ _) = GT
-comparingConstr (SFile _)   (SDir _)     = GT
-comparingConstr (SDir _)    (Failed _ _) = GT
-comparingConstr (SDir _)    (SFile _)    = LT
+comparingConstr (Failed _ _)      (DirOrSym _)      = LT
+comparingConstr (Failed _ _)      (FileLikeOrSym _) = LT
+comparingConstr (FileLikeOrSym _) (Failed _ _)      = GT
+comparingConstr (FileLikeOrSym _) (DirOrSym _)      = GT
+comparingConstr (DirOrSym _)      (Failed _ _)      = GT
+comparingConstr (DirOrSym _)      (FileLikeOrSym _) = LT
  -- else compare on the names of constructors that are the same, without
  -- looking at the contents of Dir constructors:
 comparingConstr t t'  = compare (name t) (name t')
@@ -590,8 +630,8 @@ goUp' fp = do
 -- |Get the contents of a directory.
 getContents :: AnchoredFile FileInfo
             -> IO [AnchoredFile FileInfo]
-getContents (SADir af) = readDirectory (fullPath af)
-getContents _         = return []
+getContents (ADirOrSym af) = readDirectory (fullPath af)
+getContents _              = return []
 
 
 -- |Get all files of a given directory and return them as a List.

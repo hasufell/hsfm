@@ -188,7 +188,7 @@ urlGoTo mygui myview = withErrorDialog $ do
 open :: Row -> MyGUI -> MyView -> IO ()
 open row mygui myview = withErrorDialog $
   case row of
-    SADir r -> do
+    ADirOrSym r -> do
       nv <- Data.DirTree.readFile $ fullPath r
       refreshTreeView' mygui myview nv
     r ->

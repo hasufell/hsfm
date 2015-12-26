@@ -362,7 +362,7 @@ executeFile _ _      = return Nothing
 
 
 createFile :: AnchoredFile FileInfo -> FileName -> IO ()
-createFile (SADir td) (ValFN fn) = do
+createFile (ADirOrSym td) (ValFN fn) = do
   let fullp = fullPath td </> fn
   throwFileDoesExist fullp
   fd <- System.Posix.IO.createFile fullp newFilePerms
@@ -371,7 +371,7 @@ createFile _ _ = return ()
 
 
 createDir :: AnchoredFile FileInfo -> FileName -> IO ()
-createDir (SADir td) (ValFN fn) = do
+createDir (ADirOrSym td) (ValFN fn) = do
   let fullp = fullPath td </> fn
   throwDirDoesExist fullp
   createDirectory fullp newFilePerms
