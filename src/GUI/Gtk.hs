@@ -29,6 +29,10 @@ import Control.Concurrent
   (
     forkIO
   )
+import Control.Concurrent.MVar
+  (
+    newEmptyMVar
+  )
 import Control.Concurrent.STM
   (
     TVar
@@ -147,6 +151,8 @@ startMainWindow :: FilePath -> IO ()
 startMainWindow startdir = do
 
   settings <- newTVarIO (MkFMSettings False True)
+
+  inotify  <- newEmptyMVar
 
   -- get the icons
   iT        <- iconThemeGetDefault

@@ -206,7 +206,7 @@ del :: Row -> MyGUI -> MyView -> IO ()
 del row mygui myview = withErrorDialog $ do
   let cmsg  = "Really delete \"" ++ fullPath row ++ "\"?"
   withConfirmationDialog cmsg
-    $ easyDelete row >> refreshTreeView mygui myview Nothing
+    $ easyDelete row
 
 
 -- |Initializes a file move operation.
@@ -243,16 +243,14 @@ operationFinal mygui myview = withErrorDialog $ do
       let cmsg = "Really move \"" ++ fullPath s
                   ++ "\"" ++ " to \"" ++ fullPath cdir ++ "\"?"
       withConfirmationDialog cmsg
-        (runFileOp (FMove . MC s $ cdir)
-         >> refreshTreeView mygui myview Nothing)
+        $ void $ runFileOp (FMove . MC s $ cdir)
       return ()
     FCopy (CP1 s) -> do
       let cmsg = "Really copy \"" ++ fullPath s
                  ++ "\"" ++ " to \"" ++ fullPath cdir ++ "\"?"
       cm <- showCopyModeChooserDialog
       withConfirmationDialog cmsg
-        (runFileOp (FCopy . CC s cdir $ cm)
-         >> refreshTreeView mygui myview Nothing)
+        $ void $ runFileOp (FCopy . CC s cdir $ cm)
       return ()
     _ -> return ()
 
@@ -279,7 +277,6 @@ newFile mygui myview = withErrorDialog $ do
   for_ mfn $ \fn -> do
     cdir  <- getCurrentDir myview
     createFile cdir fn
-    refreshTreeView' mygui myview cdir
 
 
 renameF :: Row -> MyGUI -> MyView -> IO ()
@@ -289,5 +286,3 @@ renameF row mygui myview = withErrorDialog $ do
     let cmsg = "Really rename \"" ++ fullPath row
                ++ "\"" ++ " to \"" ++ anchor row </> fn ++ "\"?"
     withConfirmationDialog cmsg $ IO.File.renameFile row fn
-    cdir  <- getCurrentDir myview
-    refreshTreeView' mygui myview cdir

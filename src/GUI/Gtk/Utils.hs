@@ -25,6 +25,11 @@ import Control.Applicative
   (
     (<$>)
   )
+import Control.Concurrent.MVar
+  (
+    putMVar
+  , tryTakeMVar
+  )
 import Control.Concurrent.STM
   (
     TVar
@@ -54,6 +59,14 @@ import GUI.Gtk.Data
 import IO.Error
 import IO.Utils
 import MyPrelude
+import System.INotify
+  (
+    addWatch
+  , initINotify
+  , killINotify
+  , EventVariety(..)
+  , Event(..)
+  )
 
 
 
@@ -149,13 +162,21 @@ refreshTreeView mygui myview mfp = do
   mcdir <- getFirstRow myview
   let fp  = fromMaybe (anchor mcdir) mfp
 
+  -- get selected rows
+  tvs   <- treeViewGetSelection (treeView mygui)
+  srows <- treeSelectionGetSelectedRows tvs
+
   -- TODO catch exceptions
   dirSanityThrow fp
 
   newFsState  <- Data.DirTree.readFile fp
   newRawModel <- fileListStore newFsState myview
   writeTVarIO (rawModel myview) newRawModel
+
   constructTreeView mygui myview
+
+  -- reselect selected rows
+  mapM_ (treeSelectionSelectPath tvs) srows
 
 
 -- |Refreshes the TreeView based on the given directory.
@@ -170,7 +191,15 @@ refreshTreeView' :: MyGUI
 refreshTreeView' mygui myview dt = do
   newRawModel  <- fileListStore dt myview
   writeTVarIO (rawModel myview) newRawModel
+
+  -- get selected rows
+  tvs   <- treeViewGetSelection (treeView mygui)
+  srows <- treeSelectionGetSelectedRows tvs
+
   constructTreeView mygui myview
+
+  -- reselect selected rows
+  mapM_ (treeSelectionSelectPath tvs) srows
 
 
 -- TODO: make this function more slim so only the most necessary parts are
@@ -189,14 +218,14 @@ constructTreeView :: MyGUI
                   -> IO ()
 constructTreeView mygui myview = do
   let treeView' = treeView mygui
-      cF' = cF mygui
-      cMD' = cMD mygui
-      render' = renderTxt mygui
+      cF'       = cF mygui
+      cMD'      = cMD mygui
+      render'   = renderTxt mygui
 
-  mcdir <- getFirstRow myview
+  cdirp <- anchor <$> getFirstRow myview
 
   -- update urlBar
-  entrySetText (urlBar mygui) (anchor mcdir)
+  entrySetText (urlBar mygui) cdirp
 
   rawModel' <- readTVarIO $ rawModel myview
 
@@ -234,12 +263,23 @@ constructTreeView mygui myview = do
   -- update treeview model
   treeViewSetModel treeView' sortedModel'
 
+  -- add watcher
+  mi <- tryTakeMVar (inotify myview)
+  for_ mi $ \i -> killINotify i
+  newi <- initINotify
+  w <- addWatch
+         newi
+         [Move, MoveIn, MoveOut, MoveSelf, Create, Delete, DeleteSelf]
+         cdirp
+         (\_ -> postGUIAsync $ refreshTreeView mygui myview (Just cdirp))
+  putMVar (inotify myview) newi
+
   return ()
   where
     dirtreePix (Dir {})     = folderPix mygui
     dirtreePix (RegFile {}) = filePix mygui
     dirtreePix (Failed {})  = errorPix mygui
-    dirtreePix _  = errorPix mygui
+    dirtreePix _            = errorPix mygui
 
 
 -- |Push a message to the status bar.

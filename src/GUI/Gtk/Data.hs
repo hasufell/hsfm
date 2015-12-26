@@ -21,6 +21,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module GUI.Gtk.Data where
 
 
+import Control.Concurrent.MVar
+  (
+    MVar
+  )
 import Control.Concurrent.STM
   (
     TVar
@@ -28,7 +32,10 @@ import Control.Concurrent.STM
 import Data.DirTree
 import Graphics.UI.Gtk
 import IO.File
-
+import System.INotify
+  (
+    INotify
+  )
 
 
 
@@ -97,5 +104,6 @@ data MyView = MkMyView {
   , sortedModel :: TVar (TypedTreeModelSort Row)
   , filteredModel :: TVar (TypedTreeModelFilter Row)
   , operationBuffer :: TVar FileOperation
+  , inotify :: MVar INotify
 }
 
