@@ -709,6 +709,7 @@ followSymlink af                                  = af
 --
 -- When called on a non-symlink, returns False.
 isBrokenSymlink :: File FileInfo -> Bool
+isBrokenSymlink af@(SymLink _ _ (_ :/ Failed {})) = True
 isBrokenSymlink af@(SymLink {})
   = case followSymlink af of
       (Failed {}) -> True
