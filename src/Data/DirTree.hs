@@ -88,13 +88,6 @@ import Safe
 import System.Directory
   (
     canonicalizePath
-  , doesFileExist
-  , executable
-  , getPermissions
-  , readable
-  , searchable
-  , writable
-  , Permissions
   )
 import System.FilePath
   (

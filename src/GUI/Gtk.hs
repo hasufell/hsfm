@@ -86,8 +86,7 @@ import Safe
   )
 import System.Directory
   (
-    executable
-  , doesFileExist
+    doesFileExist
   , doesDirectoryExist
   )
 import System.Environment

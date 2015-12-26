@@ -51,15 +51,9 @@ import IO.Error
 import IO.Utils
 import System.Directory
   (
-    canonicalizePath
-  , createDirectory
-  , createDirectoryIfMissing
-  , doesDirectoryExist
+    doesDirectoryExist
   , doesFileExist
-  , executable
-  , removeDirectory
   , removeDirectoryRecursive
-  , removeFile
   )
 import System.FilePath
   (
@@ -69,26 +63,39 @@ import System.FilePath
   , takeDirectory
   , (</>)
   )
+import System.Posix.Directory
+  (
+    createDirectory
+  , removeDirectory
+  )
 import System.Posix.Files
   (
     createSymbolicLink
   , readSymbolicLink
   , fileAccess
   , getFileStatus
+  , groupExecuteMode
   , groupReadMode
   , groupWriteMode
+  , otherExecuteMode
   , otherReadMode
   , otherWriteMode
+  , ownerModes
   , ownerReadMode
   , ownerWriteMode
   , rename
   , touchFile
   , unionFileModes
+  , removeLink
   )
 import System.Posix.IO
   (
     closeFd
   , createFile
+  )
+import System.Posix.Types
+  (
+    FileMode
   )
 import System.Process
   (
@@ -170,7 +177,7 @@ copyDir cm from@(_ :/ Dir fromn _)
   = do
     let fromp    = fullPath from
         top      = fullPath to
-        destdirp = fullPath to </> fromn
+        destdirp = top </> fromn
     throwDestinationInSource fromp destdirp
     throwSameFile fromp destdirp
 
@@ -189,13 +196,14 @@ copyDir cm from@(_ :/ Dir fromn _)
     createDestdir destdir =
       case cm of
         Merge   ->
-          createDirectoryIfMissing False destdir
+          unlessM (doesDirectoryExist destdir)
+                  (createDirectory destdir newDirPerms)
         Strict  -> do
           throwDirDoesExist destdir
-          createDirectory destdir
+          createDirectory destdir newDirPerms
         Replace -> do
           whenM (doesDirectoryExist destdir) (removeDirectoryRecursive destdir)
-          createDirectory destdir
+          createDirectory destdir newDirPerms
     recreateSymlink' f destdir = do
       let destfilep = fullPath destdir </> (name . file $ f)
       destfile <- Data.DirTree.readFile destfilep
@@ -325,7 +333,7 @@ easyMove _ _ = return ()
 -- |Deletes a symlink, which can either point to a file or directory.
 deleteSymlink :: AnchoredFile FileInfo -> IO ()
 deleteSymlink f@(_ :/ SymLink {})
-  = removeFile (fullPath f)
+  = removeLink (fullPath f)
 deleteSymlink _
   = return ()
 
@@ -334,7 +342,7 @@ deleteSymlink _
 deleteFile :: AnchoredFile FileInfo -> IO ()
 deleteFile   (_ :/ SymLink {}) = return ()
 deleteFile f@(_ :/ RegFile {})
-  = removeFile (fullPath f)
+  = removeLink (fullPath f)
 deleteFile _
   = return ()
 
