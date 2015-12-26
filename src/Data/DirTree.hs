@@ -96,6 +96,7 @@ import System.FilePath
   , equalFilePath
   , isAbsolute
   , joinPath
+  , pathSeparator
   , splitDirectories
   , takeFileName
   , (</>)
@@ -286,6 +287,19 @@ sfile f@(NamedPipe {}) = (True, f)
 sfile f@(Socket {})    = (True, f)
 sfile f                = (False, f)
 
+
+invalidFileName :: FileName -> (Bool, FileName)
+invalidFileName ""   = (True, "")
+invalidFileName "."  = (True, ".")
+invalidFileName ".." = (True, "..")
+invalidFileName fn   = (elem pathSeparator fn, fn)
+
+
+-- |Matches on invalid filesnames, such as ".", ".." and anything
+-- that contains a path separator.
+pattern InvFN   <- (invalidFileName -> (True,_))
+-- |Opposite of `InvFN`.
+pattern ValFN f <- (invalidFileName -> (False, f))
 
 -- |Matches on symlinks (pointing to anything) or regular files.
 pattern SARegFile <- (saregfile -> (True, _))

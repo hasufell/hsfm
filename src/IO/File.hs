@@ -406,9 +406,7 @@ executeFile _ _      = return Nothing
 
 
 createFile :: AnchoredFile FileInfo -> FileName -> IO ()
-createFile _ ""   = return ()
-createFile _ "."  = return ()
-createFile _ ".." = return ()
+createFile _ InvFN = return ()
 createFile (SADir td) fn = do
   let fullp = fullPath td </> fn
   throwFileDoesExist fullp
@@ -417,13 +415,11 @@ createFile (SADir td) fn = do
 
 
 createDir :: AnchoredFile FileInfo -> FileName -> IO ()
-createDir _ ""   = return ()
-createDir _ "."  = return ()
-createDir _ ".." = return ()
-createDir (SADir td) fn = do
+createDir (SADir td) (ValFN fn) = do
   let fullp = fullPath td </> fn
   throwDirDoesExist fullp
   createDirectory fullp newFilePerms
+createDir _ _ = return ()
 
 
 
@@ -435,15 +431,13 @@ createDir (SADir td) fn = do
 
 renameFile :: AnchoredFile FileInfo -> FileName -> IO ()
 renameFile (_ :/ Failed {}) _ = return ()
-renameFile _ ""               = return ()
-renameFile _ "."              = return ()
-renameFile _ ".."             = return ()
-renameFile af fn = do
+renameFile af (ValFN fn) = do
   let fromf = fullPath af
       tof   = anchor af </> fn
   throwFileDoesExist tof
   throwSameFile fromf tof
   rename fromf tof
+renameFile _ _ = return ()
 
 
 
