@@ -83,6 +83,11 @@ import System.Glib.UTFString
 -- * 'settings mygui' modifies
 setCallbacks :: MyGUI -> MyView -> IO ()
 setCallbacks mygui myview = do
+  -- GUI events
+  _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
+  _ <- treeView mygui `on` rowActivated $ (\_ _ -> withRows mygui myview open)
+
+  -- key events
   _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
     "q"       <- fmap glibToString eventKeyName
@@ -105,7 +110,6 @@ setCallbacks mygui myview = do
     []            <- eventModifier
     "Return"      <- fmap glibToString eventKeyName
     liftIO $ withRows mygui myview open
-  _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
     "c"       <- fmap glibToString eventKeyName
