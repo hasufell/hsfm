@@ -73,6 +73,10 @@ import Data.Time.Clock.POSIX
     POSIXTime
   , posixSecondsToUTCTime
   )
+import Data.Time
+  (
+    UTCTime(..)
+  )
 import Data.Traversable
   (
     for
