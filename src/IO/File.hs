@@ -159,7 +159,7 @@ copyDir :: DirCopyMode
         -> IO ()
 copyDir _ AFileInvFN _ = throw InvalidFileName
 copyDir _ _ AFileInvFN = throw InvalidFileName
-copyDir cm from@(_ :/ Dir fromn _)
+copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
              to@(_ :/ Dir {})
   = do
     let fromp    = fullPath from
@@ -168,7 +168,7 @@ copyDir cm from@(_ :/ Dir fromn _)
     throwDestinationInSource fromp destdirp
     throwSameFile fromp destdirp
 
-    createDestdir destdirp
+    createDestdir destdirp fmode
     destdir <- Data.DirTree.readFile destdirp
 
     contents <- readDirectory' (fullPath from)
@@ -180,18 +180,18 @@ copyDir cm from@(_ :/ Dir fromn _)
         (_ :/ RegFile {}) -> copyFileToDir f destdir
         _                 -> return ()
   where
-    createDestdir destdir =
+    createDestdir destdir fmode =
       case cm of
         Merge   ->
           unlessM (doesDirectoryExist destdir)
-                  (createDirectory destdir newDirPerms)
+                  (createDirectory destdir fmode)
         Strict  -> do
           throwDirDoesExist destdir
-          createDirectory destdir newDirPerms
+          createDirectory destdir fmode
         Replace -> do
           whenM (doesDirectoryExist destdir)
                 (deleteDirRecursive =<< Data.DirTree.readFile destdir)
-          createDirectory destdir newDirPerms
+          createDirectory destdir fmode
     recreateSymlink' f destdir = do
       let destfilep = fullPath destdir </> (name . file $ f)
       destfile <- Data.DirTree.readFile destfilep
