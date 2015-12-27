@@ -356,8 +356,11 @@ pattern FileLikeSym  f <- (fileLikeSym  -> (True, f))
 pattern ABrokenSymlink f <- (abrokenSymlink -> (True, f))
 pattern BrokenSymlink  f <- (brokenSymlink  -> (True, f))
 
+-- |Matches a list of directories or symlinks pointing to directories.
 pattern DirList fs <- (\fs -> (foldr (&&) True . fmap (fst . sadir) $ fs, fs)
                                 -> (True, fs))
+-- |Matches a list of any non-directory kind of files or symlinks
+-- pointing to such.
 pattern FileLikeList fs <- (\fs -> (foldr (&&) True
                                      . fmap (fst . safileLike)
                                      $ fs, fs) -> (True, fs))
