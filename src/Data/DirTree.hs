@@ -85,10 +85,6 @@ import Safe
     atDef
   , initDef
   )
-import System.Directory
-  (
-    canonicalizePath
-  )
 import System.FilePath
   (
     combine
@@ -597,18 +593,6 @@ normalize fp =
     ff x ".."     = initDef [] x
     ff x y        = x ++ [y]
 
-
--- |Like `canonicalizePath` from System.Directory, but preserves the last
--- component if it's a symlink.
-canonicalizePath' :: FilePath -> IO FilePath
-canonicalizePath' fp = do
-  -- TODO: throw fileDoesNotExist error earlier
-  isSymlink <- PF.isSymbolicLink <$> PF.getSymbolicLinkStatus fp
-  if isSymlink
-    then do
-         cbase <- canonicalizePath (baseDir fp)
-         return $ cbase </> topDir fp
-    else canonicalizePath fp
 
 
 ---- IO HELPERS: ----
