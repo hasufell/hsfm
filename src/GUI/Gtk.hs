@@ -88,11 +88,6 @@ import Safe
   (
     headDef
   )
-import System.Directory
-  (
-    doesFileExist
-  , doesDirectoryExist
-  )
 import System.Environment
   (
     getArgs

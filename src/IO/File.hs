@@ -48,11 +48,6 @@ import Foreign.C.Error
   )
 import IO.Error
 import IO.Utils
-import System.Directory
-  (
-    doesDirectoryExist
-  , removeDirectoryRecursive
-  )
 import System.FilePath
   (
     (</>)
@@ -65,7 +60,9 @@ import System.Posix.Directory
 import System.Posix.Files
   (
     createSymbolicLink
+  , fileMode
   , readSymbolicLink
+  , getSymbolicLinkStatus
   , groupExecuteMode
   , groupReadMode
   , groupWriteMode
@@ -94,7 +91,7 @@ import System.Process
   , ProcessHandle
   )
 
-import qualified System.Directory as SD
+import qualified Data.ByteString  as BS
 
 
 
@@ -191,7 +188,8 @@ copyDir cm from@(_ :/ Dir fromn _)
           throwDirDoesExist destdir
           createDirectory destdir newDirPerms
         Replace -> do
-          whenM (doesDirectoryExist destdir) (removeDirectoryRecursive destdir)
+          whenM (doesDirectoryExist destdir)
+                (deleteDirRecursive =<< Data.DirTree.readFile destdir)
           createDirectory destdir newDirPerms
     recreateSymlink' f destdir = do
       let destfilep = fullPath destdir </> (name . file $ f)
@@ -219,6 +217,19 @@ recreateSymlink symf@(_ :/ SymLink {})
 recreateSymlink _ _ = throw $ InvalidOperation "wrong input type"
 
 
+-- |TODO: handle EAGAIN exception for non-blocking IO
+-- |Low-level function to copy a given file to the given path. The fileMode
+-- is preserved.
+copyFile' :: FilePath -> FilePath -> IO ()
+copyFile' from to = do
+  fromFstatus <- getSymbolicLinkStatus from
+  fromContent <- BS.readFile from
+  fd          <- System.Posix.IO.createFile to
+                   (System.Posix.Files.fileMode fromFstatus)
+  closeFd fd
+  BS.writeFile to fromContent
+
+
 -- |Copies the given file to the given file destination.
 -- Excludes symlinks.
 copyFile :: AnchoredFile FileInfo  -- ^ source file
@@ -229,7 +240,7 @@ copyFile from@(_ :/ RegFile {}) to@(_ :/ RegFile {}) = do
   let from' = fullPath from
       to'   = fullPath to
   throwSameFile from' to'
-  SD.copyFile from' to'
+  copyFile' from' to'
 copyFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -244,7 +255,7 @@ copyFileToDir from@(_ :/ RegFile fn _)
   do
     let from' = fullPath from
         to'   = fullPath to </> fn
-    SD.copyFile from' to'
+    copyFile' from' to'
 copyFileToDir _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -298,11 +309,17 @@ deleteDir f@(_ :/ Dir {})
 deleteDir _ = throw $ InvalidOperation "wrong input type"
 
 
--- |Deletes the given directory recursively, never symlinks.
+-- |Deletes the given directory recursively.
 deleteDirRecursive :: AnchoredFile FileInfo -> IO ()
-deleteDirRecursive   (_ :/ SymLink {}) = return ()
-deleteDirRecursive f@(_ :/ Dir {})
-  = removeDirectoryRecursive (fullPath f)
+deleteDirRecursive f@(_ :/ Dir {}) = do
+  let fp = fullPath f
+  files <- readDirectory' fp
+  for_ files $ \file ->
+    case file of
+      (_ :/ SymLink {}) -> deleteSymlink file
+      (_ :/ Dir {})     -> deleteDirRecursive file
+      (_ :/ f)          -> removeLink (fullPath file)
+  removeDirectory fp
 deleteDirRecursive _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -422,4 +439,3 @@ newDirPerms
     `unionFileModes` groupReadMode
     `unionFileModes` otherExecuteMode
     `unionFileModes` otherReadMode
-

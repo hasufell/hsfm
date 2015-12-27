@@ -45,11 +45,6 @@ import Foreign.C.Error
   , Errno
   )
 import IO.Utils
-import System.Directory
-  (
-    doesDirectoryExist
-  , doesFileExist
-  )
 import System.FilePath
   (
     equalFilePath
@@ -151,3 +146,26 @@ catchErrno en a1 a2 =
     if errno == en
       then a2
       else ioError e
+
+
+handleIOError :: (IOError -> IO a) -> IO a -> IO a
+handleIOError a1 a2 = catchIOError a2 a1
+
+
+-- |Checks if the given file exists and is not a directory. This follows
+-- symlinks, but will return True if the symlink is broken.
+doesFileExist :: FilePath -> IO Bool
+doesFileExist fp =
+  handleIOError (\_ -> return False) $ do
+    fs <- catchIOError (PF.getFileStatus fp) $ \_ ->
+      PF.getSymbolicLinkStatus fp
+    return $ not . PF.isDirectory $ fs
+
+
+-- |Checks if the given file exists and is a directory. This follows
+-- symlinks, but will return False if the symlink is broken.
+doesDirectoryExist :: FilePath -> IO Bool
+doesDirectoryExist fp =
+  handleIOError (\_ -> return False) $ do
+    fs <- PF.getFileStatus fp
+    return $ PF.isDirectory fs

@@ -28,10 +28,10 @@ library
                        MyPrelude
 
   build-depends:       base >= 4.7,
+                       bytestring,
                        data-default,
                        bifunctors >= 5,
                        containers,
-                       directory >= 1.1.0.0 && < 1.2.3.0,
                        filepath >= 1.3.0.0,
                        hinotify,
                        mtl >= 2.2,
@@ -63,13 +63,13 @@ executable hsfm-gtk
 
   build-depends:       hsfm,
                        base >= 4.7,
+                       bytestring,
                        Cabal >= 1.22.0.0,
                        containers,
                        data-default,
                        gtk3 >= 0.14.1,
                        glib >= 0.13,
                        bifunctors >= 5,
-                       directory >= 1.1.0.0 && < 1.2.3.0,
                        filepath >= 1.3.0.0,
                        hinotify,
                        mtl >= 2.2,

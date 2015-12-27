@@ -57,11 +57,6 @@ import GUI.Gtk.Utils
 import IO.Error
 import IO.File
 import IO.Utils
-import System.Directory
-  (
-    doesFileExist
-  , doesDirectoryExist
-  )
 import System.FilePath
   (
     isAbsolute
