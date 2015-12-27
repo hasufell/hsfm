@@ -32,9 +32,14 @@ import Control.Concurrent.STM
   , newTVarIO
   , readTVarIO
   )
+import Control.Exception
+  (
+    throw
+  )
 import Control.Monad
   (
     void
+  , forM_
   )
 import Control.Monad.IO.Class
   (
@@ -49,6 +54,7 @@ import Graphics.UI.Gtk
 import GUI.Gtk.Data
 import GUI.Gtk.Dialogs
 import GUI.Gtk.Utils
+import IO.Error
 import IO.File
 import IO.Utils
 import System.Directory
@@ -99,17 +105,20 @@ setCallbacks mygui myview = do
     liftIO $ upDir mygui myview
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     "Delete"  <- fmap glibToString eventKeyName
-    liftIO $ withRow mygui myview del
-  _ <- treeView mygui `on` rowActivated $ (\_ _ -> withRow mygui myview open)
+    liftIO $ withRows mygui myview del
+  _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
+    []            <- eventModifier
+    "Return"      <- fmap glibToString eventKeyName
+    liftIO $ withRows mygui myview open
   _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
     "c"       <- fmap glibToString eventKeyName
-    liftIO $ withRow mygui myview copyInit
+    liftIO $ withRows mygui myview copyInit
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
     "x"       <- fmap glibToString eventKeyName
-    liftIO $ withRow mygui myview moveInit
+    liftIO $ withRows mygui myview moveInit
   _ <- treeView mygui `on` keyPressEvent $ tryEvent $ do
     [Control] <- eventModifier
     "v"       <- fmap glibToString eventKeyName
@@ -122,23 +131,23 @@ setCallbacks mygui myview = do
   -- menubar-file
   _ <- menubarFileQuit mygui `on` menuItemActivated $ mainQuit
   _ <- menubarFileOpen mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview open
+    liftIO $ withRows mygui myview open
   _ <- menubarFileExecute mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview execute
+    liftIO $ withRows mygui myview execute
   _ <- menubarFileNew mygui `on` menuItemActivated $
     liftIO $ newFile mygui myview
 
   -- menubar-edit
   _ <- menubarEditCut mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview moveInit
+    liftIO $ withRows mygui myview moveInit
   _ <- menubarEditCopy mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview copyInit
+    liftIO $ withRows mygui myview copyInit
   _ <- menubarEditRename mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview renameF
+    liftIO $ withRows mygui myview renameF
   _ <- menubarEditPaste mygui `on` menuItemActivated $
     liftIO $ operationFinal mygui myview
   _ <- menubarEditDelete mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview del
+    liftIO $ withRows mygui myview del
 
   -- menubar-help
   _ <- menubarHelpAbout mygui `on` menuItemActivated $
@@ -153,21 +162,21 @@ setCallbacks mygui myview = do
       _           -> return ()
     return False
   _ <- rcFileOpen mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview open
+    liftIO $ withRows mygui myview open
   _ <- rcFileExecute mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview execute
+    liftIO $ withRows mygui myview execute
   _ <- rcFileNew mygui `on` menuItemActivated $
     liftIO $ newFile mygui myview
   _ <- rcFileCopy mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview copyInit
+    liftIO $ withRows mygui myview copyInit
   _ <- rcFileRename mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview renameF
+    liftIO $ withRows mygui myview renameF
   _ <- rcFilePaste mygui `on` menuItemActivated $
     liftIO $ operationFinal mygui myview
   _ <- rcFileDelete mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview del
+    liftIO $ withRows mygui myview del
   _ <- rcFileCut mygui `on` menuItemActivated $
-    liftIO $ withRow mygui myview moveInit
+    liftIO $ withRows mygui myview moveInit
 
 
   return ()
@@ -184,29 +193,46 @@ urlGoTo mygui myview = withErrorDialog $ do
   refreshTreeView mygui myview (Just fp)
 
 
--- |Supposed to be used with 'withRow'. Opens a file or directory.
-open :: Row -> MyGUI -> MyView -> IO ()
-open row mygui myview = withErrorDialog $
+-- |Supposed to be used with 'withRows'. Opens a file or directory.
+open :: [Row] -> MyGUI -> MyView -> IO ()
+open [row] mygui myview = withErrorDialog $
   case row of
     ADirOrSym r -> do
       nv <- Data.DirTree.readFile $ fullPath r
       refreshTreeView' mygui myview nv
     r ->
       void $ openFile r
+-- this throws on the first error that occurs
+open (FileLikeList fs) mygui myview = withErrorDialog $
+  forM_ fs $ \f -> void $ openFile f
+open _ _ _ = withErrorDialog
+               . throw $ InvalidOperation
+                         "Operation not supported on multiple files"
 
 
 -- |Execute a given file.
-execute :: Row -> MyGUI -> MyView -> IO ()
-execute row mygui myview = withErrorDialog $
+execute :: [Row] -> MyGUI -> MyView -> IO ()
+execute [row] mygui myview = withErrorDialog $
   void $ executeFile row []
+execute _ _ _ = withErrorDialog
+                  . throw $ InvalidOperation
+                            "Operation not supported on multiple files"
 
 
--- |Supposed to be used with 'withRow'. Deletes a file or directory.
-del :: Row -> MyGUI -> MyView -> IO ()
-del row mygui myview = withErrorDialog $ do
+-- |Supposed to be used with 'withRows'. Deletes a file or directory.
+del :: [Row] -> MyGUI -> MyView -> IO ()
+del [row] mygui myview = withErrorDialog $ do
   let cmsg  = "Really delete \"" ++ fullPath row ++ "\"?"
   withConfirmationDialog cmsg
     $ easyDelete row
+-- this throws on the first error that occurs
+del rows@(_:_) mygui myview = withErrorDialog $ do
+  let cmsg  = "Really delete " ++ show (length rows) ++ " files?"
+  withConfirmationDialog cmsg
+    $ forM_ rows $ \row -> easyDelete row
+del _ _ _ = withErrorDialog
+              . throw $ InvalidOperation
+                        "Operation not supported on multiple files"
 
 
 -- |Initializes a file move operation.
@@ -214,19 +240,24 @@ del row mygui myview = withErrorDialog $ do
 -- Interaction with mutable references:
 --
 -- * 'operationBuffer' writes
-moveInit :: Row -> MyGUI -> MyView -> IO ()
-moveInit row mygui myview =
+moveInit :: [Row] -> MyGUI -> MyView -> IO ()
+moveInit [row] mygui myview =
   writeTVarIO (operationBuffer myview) (FMove . MP1 $ row)
+moveInit _ _ _ = withErrorDialog
+                   . throw $ InvalidOperation
+                             "Operation not supported on multiple files"
 
-
--- |Supposed to be used with 'withRow'. Initializes a file copy operation.
+-- |Supposed to be used with 'withRows'. Initializes a file copy operation.
 --
 -- Interaction with mutable references:
 --
 -- * 'operationBuffer' writes
-copyInit :: Row -> MyGUI -> MyView -> IO ()
-copyInit row mygui myview =
+copyInit :: [Row] -> MyGUI -> MyView -> IO ()
+copyInit [row] mygui myview =
   writeTVarIO (operationBuffer myview) (FCopy . CP1 $ row)
+copyInit _ _ _ = withErrorDialog
+                   . throw $ InvalidOperation
+                             "Operation not supported on multiple files"
 
 
 -- |Finalizes a file operation, such as copy or move.
@@ -279,10 +310,13 @@ newFile mygui myview = withErrorDialog $ do
     createFile cdir fn
 
 
-renameF :: Row -> MyGUI -> MyView -> IO ()
-renameF row mygui myview = withErrorDialog $ do
+renameF :: [Row] -> MyGUI -> MyView -> IO ()
+renameF [row] mygui myview = withErrorDialog $ do
   mfn   <- textInputDialog "Enter new file name"
   for_ mfn $ \fn -> do
     let cmsg = "Really rename \"" ++ fullPath row
                ++ "\"" ++ " to \"" ++ anchor row </> fn ++ "\"?"
     withConfirmationDialog cmsg $ IO.File.renameFile row fn
+renameF _ _ _ = withErrorDialog
+                  . throw $ InvalidOperation
+                            "Operation not supported on multiple files"

@@ -235,6 +235,9 @@ startMainWindow startdir = do
 
   -- create the final view
   treeView <- treeViewNew
+  -- set selection mode
+  tvs <- treeViewGetSelection treeView
+  treeSelectionSetMode tvs SelectionMultiple
 
   -- create final tree model columns
   renderTxt <- cellRendererTextNew

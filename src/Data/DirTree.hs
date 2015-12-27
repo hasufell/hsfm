@@ -361,6 +361,13 @@ pattern FileLikeSym  f <- (fileLikeSym  -> (True, f))
 pattern ABrokenSymlink f <- (abrokenSymlink -> (True, f))
 pattern BrokenSymlink  f <- (brokenSymlink  -> (True, f))
 
+pattern DirList fs <- (\fs -> (foldr (&&) True . fmap (fst . sadir) $ fs, fs)
+                                -> (True, fs))
+pattern FileLikeList fs <- (\fs -> (foldr (&&) True
+                                     . fmap (fst . safileLike)
+                                     $ fs, fs) -> (True, fs))
+
+
 
 
     -----------------

@@ -47,7 +47,8 @@ import Data.List
   )
 import Data.Maybe
   (
-    fromMaybe
+    catMaybes
+  , fromMaybe
   , fromJust
   )
 import Data.Traversable
@@ -83,16 +84,17 @@ import System.INotify
 -- * 'rawModel' reads
 -- * 'sortedModel' reads
 -- * 'filteredModel' reads
-getSelectedRow :: MyGUI
-               -> MyView
-               -> IO (Maybe Row)
-getSelectedRow mygui myview = do
-  (tp, _)        <- treeViewGetCursor $ treeView mygui
-  rawModel'      <- readTVarIO $ rawModel myview
+getSelectedRows :: MyGUI
+                -> MyView
+                -> IO [Row]
+getSelectedRows mygui myview = do
+  tvs   <- treeViewGetSelection (treeView mygui)
+  tps   <- treeSelectionGetSelectedRows tvs
   sortedModel'   <- readTVarIO $ sortedModel myview
   filteredModel' <- readTVarIO $ filteredModel myview
-  miter          <- treeModelGetIter sortedModel' tp
-  forM miter $ \iter -> do
+  rawModel'      <- readTVarIO $ rawModel myview
+  iters <- catMaybes <$> mapM (treeModelGetIter sortedModel') tps
+  forM iters $ \iter -> do
     cIter' <- treeModelSortConvertIterToChildIter sortedModel' iter
     cIter  <- treeModelFilterConvertIterToChildIter filteredModel' cIter'
     treeModelGetRow rawModel' cIter
@@ -101,16 +103,16 @@ getSelectedRow mygui myview = do
 -- |Carry out an action on the currently selected row.
 --
 -- If there is no row selected, does nothing.
-withRow :: MyGUI
-        -> MyView
-        -> (   Row
-            -> MyGUI
-            -> MyView
-            -> IO ()) -- ^ action to carry out
-        -> IO ()
-withRow mygui myview io = do
-  mrow <- getSelectedRow mygui myview
-  for_ mrow $ \row -> io row mygui myview
+withRows :: MyGUI
+         -> MyView
+         -> (   [Row]
+             -> MyGUI
+             -> MyView
+             -> IO ()) -- ^ action to carry out
+         -> IO ()
+withRows mygui myview io = do
+  rows <- getSelectedRows mygui myview
+  io rows mygui myview
 
 
 -- |Create the 'ListStore' of files/directories from the current directory.
