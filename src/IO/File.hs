@@ -407,6 +407,7 @@ moveFile from to@(_ :/ Dir {}) = do
       to'   = fullPath to </> (name . file $ from)
   throwFileDoesExist to'
   throwSameFile from' to'
+  -- TODO: don't catch all exceptions!
   handle (\(SomeException e) -> do
     easyCopy Strict from to
     easyDelete from
