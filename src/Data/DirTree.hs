@@ -324,6 +324,9 @@ pattern InvFN   <- (invalidFileName -> (True,_))
 -- |Opposite of `InvFN`.
 pattern ValFN f <- (invalidFileName -> (False, f))
 
+pattern AFileInvFN  <- (fst . invalidFileName . name . file -> True)
+pattern FileInvFN   <- (fst . invalidFileName . name        -> True)
+
 
 -- |Matches on directories or symlinks pointing to directories.
 -- If the symlink is pointing to a symlink pointing to a directory, then

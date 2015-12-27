@@ -157,7 +157,8 @@ copyDir :: DirCopyMode
         -> AnchoredFile FileInfo  -- ^ source dir
         -> AnchoredFile FileInfo  -- ^ destination dir
         -> IO ()
-copyDir cm (_ :/ SymLink {}) _ = return ()
+copyDir _ AFileInvFN _ = throw InvalidFileName
+copyDir _ _ AFileInvFN = throw InvalidFileName
 copyDir cm from@(_ :/ Dir fromn _)
              to@(_ :/ Dir {})
   = do
@@ -209,6 +210,8 @@ recreateSymlink :: AnchoredFile FileInfo  -- ^ the old symlink file
                 -> AnchoredFile FileInfo  -- ^ destination dir of the
                                                    --   new symlink file
                 -> IO ()
+recreateSymlink AFileInvFN _ = throw InvalidFileName
+recreateSymlink _ AFileInvFN = throw InvalidFileName
 recreateSymlink symf@(_ :/ SymLink {})
                 symdest@(_ :/ Dir {})
   = do
@@ -221,6 +224,8 @@ recreateSymlink _ _ = throw $ InvalidOperation "wrong input type"
 -- |Low-level function to copy a given file to the given path. The fileMode
 -- is preserved.
 copyFile' :: FilePath -> FilePath -> IO ()
+copyFile' InvFN _ = throw InvalidFileName
+copyFile' _ InvFN = throw InvalidFileName
 copyFile' from to = do
   fromFstatus <- getSymbolicLinkStatus from
   fromContent <- BS.readFile from
@@ -235,6 +240,8 @@ copyFile' from to = do
 copyFile :: AnchoredFile FileInfo  -- ^ source file
          -> AnchoredFile FileInfo  -- ^ destination file
          -> IO ()
+copyFile AFileInvFN _ = throw InvalidFileName
+copyFile _ AFileInvFN = throw InvalidFileName
 copyFile (_ :/ SymLink {}) _ = return ()
 copyFile from@(_ :/ RegFile {}) to@(_ :/ RegFile {}) = do
   let from' = fullPath from
@@ -249,6 +256,8 @@ copyFile _ _ = throw $ InvalidOperation "wrong input type"
 copyFileToDir :: AnchoredFile FileInfo
               -> AnchoredFile FileInfo
               -> IO ()
+copyFileToDir AFileInvFN _ = throw InvalidFileName
+copyFileToDir _ AFileInvFN = throw InvalidFileName
 copyFileToDir (_ :/ SymLink {}) _ = return ()
 copyFileToDir from@(_ :/ RegFile fn _)
                 to@(_ :/ Dir {}) =
@@ -288,6 +297,7 @@ easyCopy _ _ _ = throw $ InvalidOperation "wrong input type"
 
 -- |Deletes a symlink, which can either point to a file or directory.
 deleteSymlink :: AnchoredFile FileInfo -> IO ()
+deleteSymlink AFileInvFN = throw InvalidFileName
 deleteSymlink f@(_ :/ SymLink {})
   = removeLink (fullPath f)
 deleteSymlink _ = throw $ InvalidOperation "wrong input type"
@@ -295,6 +305,7 @@ deleteSymlink _ = throw $ InvalidOperation "wrong input type"
 
 -- |Deletes the given file, never symlinks.
 deleteFile :: AnchoredFile FileInfo -> IO ()
+deleteFile AFileInvFN = throw InvalidFileName
 deleteFile   (_ :/ SymLink {}) = return ()
 deleteFile f@(_ :/ RegFile {})
   = removeLink (fullPath f)
@@ -303,6 +314,7 @@ deleteFile _ = throw $ InvalidOperation "wrong input type"
 
 -- |Deletes the given directory, never symlinks.
 deleteDir :: AnchoredFile FileInfo -> IO ()
+deleteDir AFileInvFN = throw InvalidFileName
 deleteDir   (_ :/ SymLink {}) = return ()
 deleteDir f@(_ :/ Dir {})
   = removeDirectory (fullPath f)
@@ -311,6 +323,7 @@ deleteDir _ = throw $ InvalidOperation "wrong input type"
 
 -- |Deletes the given directory recursively.
 deleteDirRecursive :: AnchoredFile FileInfo -> IO ()
+deleteDirRecursive AFileInvFN = throw InvalidFileName
 deleteDirRecursive f@(_ :/ Dir {}) = do
   let fp = fullPath f
   files <- readDirectory' fp
@@ -346,6 +359,7 @@ easyDelete _ = throw $ InvalidOperation "wrong input type"
 -- |Opens a file appropriately by invoking xdg-open.
 openFile :: AnchoredFile a
          -> IO ProcessHandle
+openFile AFileInvFN = throw InvalidFileName
 openFile f = spawnProcess "xdg-open" [fullPath f]
 
 
@@ -353,6 +367,7 @@ openFile f = spawnProcess "xdg-open" [fullPath f]
 executeFile :: AnchoredFile FileInfo  -- ^ program
             -> [String]               -- ^ arguments
             -> IO ProcessHandle
+executeFile AFileInvFN _ = throw InvalidFileName
 executeFile prog@(_ :/ RegFile {}) args
   = spawnProcess (fullPath prog) args
 executeFile _ _ = throw $ InvalidOperation "wrong input type"
@@ -366,6 +381,8 @@ executeFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 createFile :: AnchoredFile FileInfo -> FileName -> IO ()
+createFile AFileInvFN _ = throw InvalidFileName
+createFile _ InvFN      = throw InvalidFileName
 createFile (ADirOrSym td) (ValFN fn) = do
   let fullp = fullPath td </> fn
   throwFileDoesExist fullp
@@ -375,6 +392,8 @@ createFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 createDir :: AnchoredFile FileInfo -> FileName -> IO ()
+createDir AFileInvFN _ = throw InvalidFileName
+createDir _ InvFN      = throw InvalidFileName
 createDir (ADirOrSym td) (ValFN fn) = do
   let fullp = fullPath td </> fn
   throwDirDoesExist fullp
@@ -390,6 +409,8 @@ createDir _ _ = throw $ InvalidOperation "wrong input type"
 
 
 renameFile :: AnchoredFile FileInfo -> FileName -> IO ()
+renameFile AFileInvFN _ = throw InvalidFileName
+renameFile _ InvFN      = throw InvalidFileName
 renameFile (_ :/ Failed {}) _ = return ()
 renameFile af (ValFN fn) = do
   let fromf = fullPath af
@@ -404,6 +425,8 @@ renameFile _ _ = throw $ InvalidOperation "wrong input type"
 moveFile :: AnchoredFile FileInfo -- ^ file to move
          -> AnchoredFile FileInfo -- ^ base target directory
          -> IO ()
+moveFile AFileInvFN _ = throw InvalidFileName
+moveFile _ AFileInvFN = throw InvalidFileName
 moveFile from to@(_ :/ Dir {}) = do
   let from' = fullPath from
       to'   = fullPath to </> (name . file $ from)

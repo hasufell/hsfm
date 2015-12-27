@@ -71,6 +71,7 @@ data FmIOException = FileDoesNotExist String
                    | DirDoesExist String
                    | IsSymlink String
                    | InvalidOperation String
+                   | InvalidFileName
   deriving (Show, Typeable)
 
 
