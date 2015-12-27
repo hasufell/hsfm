@@ -134,13 +134,8 @@ import System.Posix.Types
   , UserID
   )
 
-import qualified Data.Bitraversable as BT
-import qualified Data.Bifunctor     as BF
-import qualified Data.Bifoldable    as BFL
-import qualified Data.Traversable   as T
 import qualified System.Posix.Files as PF
 import qualified System.Posix.Directory as PFD
-
 
 
 
