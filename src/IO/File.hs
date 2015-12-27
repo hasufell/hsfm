@@ -318,7 +318,8 @@ deleteDirRecursive f@(_ :/ Dir {}) = do
     case file of
       (_ :/ SymLink {}) -> deleteSymlink file
       (_ :/ Dir {})     -> deleteDirRecursive file
-      (_ :/ f)          -> removeLink (fullPath file)
+      (AFileLike _)     -> removeLink (fullPath file)
+      _                 -> throw $ FileDoesExist (fullPath file)
   removeDirectory fp
 deleteDirRecursive _ = throw $ InvalidOperation "wrong input type"
 
