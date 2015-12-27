@@ -39,6 +39,11 @@ import Data.List
     isPrefixOf
   )
 import Data.Typeable
+import Foreign.C.Error
+  (
+    getErrno
+  , Errno
+  )
 import IO.Utils
 import System.Directory
   (
@@ -50,6 +55,10 @@ import System.FilePath
     equalFilePath
   , isAbsolute
   , takeFileName
+  )
+import System.IO.Error
+  (
+    catchIOError
   )
 
 import qualified System.Posix.Files as PF
@@ -66,6 +75,7 @@ data FmIOException = FileDoesNotExist String
                    | FileDoesExist String
                    | DirDoesExist String
                    | IsSymlink String
+                   | InvalidOperation String
   deriving (Show, Typeable)
 
 
@@ -125,3 +135,19 @@ throwIsSymlink :: FilePath -> IO ()
 throwIsSymlink fp =
   whenM (PF.isSymbolicLink <$> PF.getSymbolicLinkStatus fp)
         (throw $ IsSymlink fp)
+
+
+-- |Carries out an action, then checks if there is an IOException and
+-- a specific errno. If so, then it carries out another action, otherwise
+-- it rethrows the error.
+catchErrno :: Errno   -- ^ errno to catch
+           -> IO a    -- ^ action to try, which can raise an IOException
+           -> IO a    -- ^ action to carry out in case of an IOException and
+                      --   if errno matches
+           -> IO a
+catchErrno en a1 a2 =
+  catchIOError a1 $ \e -> do
+    errno <- getErrno
+    if errno == en
+      then a2
+      else ioError e

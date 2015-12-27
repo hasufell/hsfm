@@ -35,35 +35,27 @@ import Control.Applicative
   )
 import Control.Exception
   (
-    handle
-  , throw
-  , SomeException(..)
-  )
-import Control.Monad
-  (
-    unless
-  , void
+    throw
   )
 import Data.DirTree
 import Data.Foldable
   (
     for_
   )
+import Foreign.C.Error
+  (
+    eXDEV
+  )
 import IO.Error
 import IO.Utils
 import System.Directory
   (
     doesDirectoryExist
-  , doesFileExist
   , removeDirectoryRecursive
   )
 import System.FilePath
   (
-    equalFilePath
-  , isAbsolute
-  , takeFileName
-  , takeDirectory
-  , (</>)
+    (</>)
   )
 import System.Posix.Directory
   (
@@ -74,8 +66,6 @@ import System.Posix.Files
   (
     createSymbolicLink
   , readSymbolicLink
-  , fileAccess
-  , getFileStatus
   , groupExecuteMode
   , groupReadMode
   , groupWriteMode
@@ -86,7 +76,6 @@ import System.Posix.Files
   , ownerReadMode
   , ownerWriteMode
   , rename
-  , touchFile
   , unionFileModes
   , removeLink
   )
@@ -107,7 +96,6 @@ import System.Process
 
 import qualified System.Directory as SD
 
-import qualified System.Posix.Files as PF
 
 
 -- TODO: file operations should be threaded and not block the UI
@@ -157,7 +145,6 @@ runFileOp (FMove fo)              = return              $ Just $ FMove fo
 runFileOp (FDelete fp)            = easyDelete fp       >> return Nothing
 runFileOp (FOpen fp)              = openFile fp         >> return Nothing
 runFileOp (FExecute fp args)      = executeFile fp args >> return Nothing
-runFileOp _                       = return Nothing
 
 
 
@@ -216,7 +203,7 @@ copyDir cm from@(_ :/ Dir fromn _)
         _     -> return ()
 
       recreateSymlink f destdir
-copyDir _ _ _ = return ()
+copyDir _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Recreate a symlink.
@@ -229,7 +216,7 @@ recreateSymlink symf@(_ :/ SymLink {})
   = do
     symname <- readSymbolicLink (fullPath symf)
     createSymbolicLink symname (fullPath symdest </> (name . file $ symf))
-recreateSymlink _ _ = return ()
+recreateSymlink _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Copies the given file to the given file destination.
@@ -243,7 +230,7 @@ copyFile from@(_ :/ RegFile {}) to@(_ :/ RegFile {}) = do
       to'   = fullPath to
   throwSameFile from' to'
   SD.copyFile from' to'
-copyFile _ _ = return ()
+copyFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Copies the given file to the given dir with the same filename.
@@ -258,7 +245,7 @@ copyFileToDir from@(_ :/ RegFile fn _)
     let from' = fullPath from
         to'   = fullPath to </> fn
     SD.copyFile from' to'
-copyFileToDir _ _ = return ()
+copyFileToDir _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Copies a file, directory or symlink. In case of a symlink, it is just
@@ -277,7 +264,7 @@ easyCopy _ from@(_ :/ RegFile fn _)
 easyCopy cm from@(_ :/ Dir fn _)
               to@(_ :/ Dir {})
   = copyDir cm from to
-easyCopy _ _ _ = return ()
+easyCopy _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 
@@ -292,8 +279,7 @@ easyCopy _ _ _ = return ()
 deleteSymlink :: AnchoredFile FileInfo -> IO ()
 deleteSymlink f@(_ :/ SymLink {})
   = removeLink (fullPath f)
-deleteSymlink _
-  = return ()
+deleteSymlink _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes the given file, never symlinks.
@@ -301,8 +287,7 @@ deleteFile :: AnchoredFile FileInfo -> IO ()
 deleteFile   (_ :/ SymLink {}) = return ()
 deleteFile f@(_ :/ RegFile {})
   = removeLink (fullPath f)
-deleteFile _
-  = return ()
+deleteFile _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes the given directory, never symlinks.
@@ -310,7 +295,7 @@ deleteDir :: AnchoredFile FileInfo -> IO ()
 deleteDir   (_ :/ SymLink {}) = return ()
 deleteDir f@(_ :/ Dir {})
   = removeDirectory (fullPath f)
-deleteDir _ = return ()
+deleteDir _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes the given directory recursively, never symlinks.
@@ -318,7 +303,7 @@ deleteDirRecursive :: AnchoredFile FileInfo -> IO ()
 deleteDirRecursive   (_ :/ SymLink {}) = return ()
 deleteDirRecursive f@(_ :/ Dir {})
   = removeDirectoryRecursive (fullPath f)
-deleteDirRecursive _ = return ()
+deleteDirRecursive _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes a file, directory or symlink, whatever it may be.
@@ -330,8 +315,7 @@ easyDelete f@(_ :/ RegFile {})
   = deleteFile f
 easyDelete f@(_ :/ Dir {})
   = deleteDirRecursive f
-easyDelete _
-  = return ()
+easyDelete _ = throw $ InvalidOperation "wrong input type"
 
 
 
@@ -350,10 +334,10 @@ openFile f = spawnProcess "xdg-open" [fullPath f]
 -- |Executes a program with the given arguments.
 executeFile :: AnchoredFile FileInfo  -- ^ program
             -> [String]               -- ^ arguments
-            -> IO (Maybe ProcessHandle)
+            -> IO ProcessHandle
 executeFile prog@(_ :/ RegFile {}) args
-  = Just <$> spawnProcess (fullPath prog) args
-executeFile _ _      = return Nothing
+  = spawnProcess (fullPath prog) args
+executeFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 
@@ -369,7 +353,7 @@ createFile (ADirOrSym td) (ValFN fn) = do
   throwFileDoesExist fullp
   fd <- System.Posix.IO.createFile fullp newFilePerms
   closeFd fd
-createFile _ _ = return ()
+createFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 createDir :: AnchoredFile FileInfo -> FileName -> IO ()
@@ -377,7 +361,7 @@ createDir (ADirOrSym td) (ValFN fn) = do
   let fullp = fullPath td </> fn
   throwDirDoesExist fullp
   createDirectory fullp newFilePerms
-createDir _ _ = return ()
+createDir _ _ = throw $ InvalidOperation "wrong input type"
 
 
 
@@ -395,7 +379,7 @@ renameFile af (ValFN fn) = do
   throwFileDoesExist tof
   throwSameFile fromf tof
   rename fromf tof
-renameFile _ _ = return ()
+renameFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Move a given file to the given target directory.
@@ -407,11 +391,10 @@ moveFile from to@(_ :/ Dir {}) = do
       to'   = fullPath to </> (name . file $ from)
   throwFileDoesExist to'
   throwSameFile from' to'
-  handle (\(SomeException e) -> do
+  catchErrno eXDEV (rename from' to') $ do
     easyCopy Strict from to
     easyDelete from
-    ) $ rename from' to'
-moveFile _ _ = return ()
+moveFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 

@@ -43,7 +43,8 @@ import Control.Exception
   )
 import Control.Exception.Base
   (
-    IOException
+    onException
+  , IOException
   )
 import Control.Monad.State.Lazy
   (
@@ -240,7 +241,6 @@ convertViewP f af@(bp :/ constr) =
   in (b, bp :/ file)
 
 
-
 afileLike :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
 afileLike f@(bp :/ constr) = convertViewP fileLike f
 
@@ -289,12 +289,12 @@ fileLikeSym f@(SymLink { sdest = (_ :/ s@(SymLink {}) )})
   = case (fileLikeSym s) of
       (True, _) -> (True, f)
       _         -> (False, f)
-fileLikeSym f@(SymLink { sdest = (_ :/ RegFile {} )}) = (True, f)
-fileLikeSym f@(SymLink { sdest = (_ :/ BlockDev {} )}) = (True, f)
-fileLikeSym f@(SymLink { sdest = (_ :/ CharDev {} )}) = (True, f)
+fileLikeSym f@(SymLink { sdest = (_ :/ RegFile {} )})   = (True, f)
+fileLikeSym f@(SymLink { sdest = (_ :/ BlockDev {} )})  = (True, f)
+fileLikeSym f@(SymLink { sdest = (_ :/ CharDev {} )})   = (True, f)
 fileLikeSym f@(SymLink { sdest = (_ :/ NamedPipe {} )}) = (True, f)
-fileLikeSym f@(SymLink { sdest = (_ :/ Socket {} )}) = (True, f)
-fileLikeSym f = (False, f)
+fileLikeSym f@(SymLink { sdest = (_ :/ Socket {} )})    = (True, f)
+fileLikeSym f                                           = (False, f)
 
 
 adirSym :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
@@ -634,36 +634,34 @@ getContents (ADirOrSym af) = readDirectory (fullPath af)
 getContents _              = return []
 
 
--- |Get all files of a given directory and return them as a List.
--- This includes "." and "..".
-getAllDirsFiles :: FilePath -> IO [FilePath]
-getAllDirsFiles fp = do
+getDirsFiles' :: (FilePath -> [FilePath] -> [FilePath])
+              -> FilePath
+              -> IO [FilePath]
+getDirsFiles' filterf fp = do
   dirstream <- PFD.openDirStream fp
   let mdirs :: [FilePath] -> IO [FilePath]
       mdirs dirs = do
-        dir <- PFD.readDirStream dirstream
+        -- make sure we close the directory stream in case of errors
+        dir <- onException (PFD.readDirStream dirstream)
+                           (PFD.closeDirStream dirstream)
         if dir == ""
           then return dirs
-          else mdirs (dir : dirs)
+          else mdirs (dir `filterf` dirs)
   dirs <- mdirs []
   PFD.closeDirStream dirstream
   return dirs
+
+
+-- |Get all files of a given directory and return them as a List.
+-- This includes "." and "..".
+getAllDirsFiles :: FilePath -> IO [FilePath]
+getAllDirsFiles = getDirsFiles' (:)
 
 
 -- |Get all files of a given directory and return them as a List.
 -- This excludes "." and "..".
 getDirsFiles :: FilePath -> IO [FilePath]
-getDirsFiles fp = do
-  dirstream <- PFD.openDirStream fp
-  let mdirs :: [FilePath] -> IO [FilePath]
-      mdirs dirs = do
-        dir <- PFD.readDirStream dirstream
-        if dir == ""
-          then return dirs
-          else mdirs (insert dir dirs)
-  dirs <- mdirs []
-  PFD.closeDirStream dirstream
-  return dirs
+getDirsFiles = getDirsFiles' insert
   where
     insert dir dirs = case dir of
       "."  -> dirs
