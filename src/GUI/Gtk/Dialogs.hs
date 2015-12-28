@@ -28,6 +28,7 @@ import Control.Applicative
 import Control.Exception
   (
     catch
+  , throw
   , try
   , SomeException
   )
@@ -130,6 +131,7 @@ withCopyModeDialog fa =
     case e of
       FileDoesExist _ -> doIt
       DirDoesExist  _ -> doIt
+      e               -> throw e
   where
     doIt = do cm <- showCopyModeDialog
               case cm of
