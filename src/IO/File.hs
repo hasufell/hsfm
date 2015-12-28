@@ -37,6 +37,10 @@ import Control.Exception
   (
     throw
   )
+import Control.Monad
+  (
+    unless
+  )
 import Data.DirTree
 import Data.Foldable
   (
@@ -118,7 +122,7 @@ data Copy = CP1 (AnchoredFile FileInfo)
                 (AnchoredFile FileInfo)
           | CC  (AnchoredFile FileInfo)
                 (AnchoredFile FileInfo)
-                DirCopyMode
+                CopyMode
 
 
 -- |Data type describing partial or complete file move operation.
@@ -126,12 +130,15 @@ data Copy = CP1 (AnchoredFile FileInfo)
 data Move = MP1 (AnchoredFile FileInfo)
           | MC  (AnchoredFile FileInfo)
                 (AnchoredFile FileInfo)
+                CopyMode
 
 
--- |Directory copy modes.
-data DirCopyMode = Strict  -- ^ fail if the target directory already exists
-                 | Merge   -- ^ overwrite files if necessary
-                 | Replace -- ^ remove target directory before copying
+-- |Copy modes.
+data CopyMode = Strict  -- ^ fail if the target already exists
+              | Merge   -- ^ overwrite files if necessary, for files, this
+                        --   is the same as Replace
+              | Replace -- ^ remove targets before copying, this is
+                        --   only useful if the target is a directorty
 
 
 -- |Run a given FileOperation. If the FileOperation is partial, it will
@@ -139,7 +146,7 @@ data DirCopyMode = Strict  -- ^ fail if the target directory already exists
 runFileOp :: FileOperation -> IO (Maybe FileOperation)
 runFileOp (FCopy (CC from to cm)) = easyCopy cm from to >> return Nothing
 runFileOp (FCopy fo)              = return              $ Just $ FCopy fo
-runFileOp (FMove (MC from to))    = moveFile from to    >> return Nothing
+runFileOp (FMove (MC from to cm)) = moveFile cm from to >> return Nothing
 runFileOp (FMove fo)              = return              $ Just $ FMove fo
 runFileOp (FDelete fp)            = easyDelete fp       >> return Nothing
 runFileOp (FOpen fp)              = openFile fp         >> return Nothing
@@ -155,7 +162,7 @@ runFileOp (FExecute fp args)      = executeFile fp args >> return Nothing
 -- TODO: allow renaming
 -- |Copies a directory to the given destination with the specified
 -- `DirCopyMode`. Excludes symlinks.
-copyDir :: DirCopyMode
+copyDir :: CopyMode
         -> AnchoredFile FileInfo  -- ^ source dir
         -> AnchoredFile FileInfo  -- ^ destination dir
         -> IO ()
@@ -177,9 +184,9 @@ copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
 
     for_ contents $ \f ->
       case f of
-        (_ :/ SymLink {})  -> recreateSymlink f destdir
+        (_ :/ SymLink {})  -> recreateSymlink cm f destdir
         (_ :/ Dir {})      -> copyDir cm f destdir
-        (_ :/ RegFile {})  -> copyFileToDir f destdir
+        (_ :/ RegFile {})  -> copyFileToDir Replace f destdir
         _                  -> return ()
   where
     createDestdir destdir fmode =
@@ -194,37 +201,38 @@ copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
           whenM (doesDirectoryExist destdir)
                 (deleteDirRecursive =<< Data.DirTree.readFile destdir)
           createDirectory destdir fmode
-    recreateSymlink' f destdir = do
-      let destfilep = fullPath destdir </> (name . file $ f)
-      destfile <- Data.DirTree.readFile destfilep
-
-      _ <- case cm of
-        -- delete old file/dir to be able to create symlink
-        Merge -> easyDelete destfile
-        _     -> return ()
-
-      recreateSymlink f destdir
 copyDir _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Recreate a symlink.
-recreateSymlink :: AnchoredFile FileInfo  -- ^ the old symlink file
+recreateSymlink :: CopyMode
+                -> AnchoredFile FileInfo  -- ^ the old symlink file
                 -> AnchoredFile FileInfo  -- ^ destination dir of the
                                           --   new symlink file
                 -> IO ()
-recreateSymlink AFileInvFN _ = throw InvalidFileName
-recreateSymlink _ AFileInvFN = throw InvalidFileName
-recreateSymlink symf@(_ :/ SymLink {})
-                symdest@(_ :/ Dir {})
+recreateSymlink _ AFileInvFN _ = throw InvalidFileName
+recreateSymlink _ _ AFileInvFN = throw InvalidFileName
+recreateSymlink cm    symf@(_ :/ SymLink {})
+                   symdest@(_ :/ Dir {})
   = do
-    symname <- readSymbolicLink (fullPath symf)
-    createSymbolicLink symname (fullPath symdest </> (name . file $ symf))
-recreateSymlink _ _ = throw $ InvalidOperation "wrong input type"
+    sympoint <- readSymbolicLink (fullPath symf)
+    let symname = fullPath symdest </> (name . file $ symf)
+    case cm of
+      Merge   -> delOld symname
+      Replace -> delOld symname
+      _       -> return ()
+    createSymbolicLink sympoint symname
+  where
+    delOld symname = do
+      f <- Data.DirTree.readFile symname
+      unless (failed . file $ f)
+             (easyDelete f)
+recreateSymlink _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |TODO: handle EAGAIN exception for non-blocking IO
 -- |Low-level function to copy a given file to the given path. The fileMode
--- is preserved.
+-- is preserved. The file is always overwritten if accessible.
 copyFile' :: FilePath -> FilePath -> IO ()
 copyFile' from to = do
   fromFstatus <- getSymbolicLinkStatus from
@@ -235,52 +243,55 @@ copyFile' from to = do
   BS.writeFile to fromContent
 
 
--- |Copies the given file to the given file destination.
+-- |Copies the given file to the given file destination, overwriting it.
 -- Excludes symlinks.
-copyFile :: AnchoredFile FileInfo  -- ^ source file
-         -> AnchoredFile FileInfo  -- ^ destination file
-         -> IO ()
-copyFile AFileInvFN _ = throw InvalidFileName
-copyFile _ AFileInvFN = throw InvalidFileName
-copyFile (_ :/ SymLink {}) _ = return ()
-copyFile from@(_ :/ RegFile {}) to@(_ :/ RegFile {}) = do
-  let from' = fullPath from
-      to'   = fullPath to
-  throwSameFile from' to'
-  copyFile' from' to'
-copyFile _ _ = throw $ InvalidOperation "wrong input type"
+overwriteFile :: AnchoredFile FileInfo  -- ^ source file
+              -> AnchoredFile FileInfo  -- ^ destination file
+              -> IO ()
+overwriteFile AFileInvFN _ = throw InvalidFileName
+overwriteFile _ AFileInvFN = throw InvalidFileName
+overwriteFile from@(_ :/ RegFile {})
+                to@(_ :/ RegFile {})
+  = do
+    let from' = fullPath from
+        to'   = fullPath to
+    throwSameFile from' to'
+    copyFile' from' to'
+overwriteFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Copies the given file to the given dir with the same filename.
 -- Excludes symlinks.
-copyFileToDir :: AnchoredFile FileInfo
+copyFileToDir :: CopyMode
+              -> AnchoredFile FileInfo
               -> AnchoredFile FileInfo
               -> IO ()
-copyFileToDir AFileInvFN _ = throw InvalidFileName
-copyFileToDir _ AFileInvFN = throw InvalidFileName
-copyFileToDir (_ :/ SymLink {}) _ = return ()
-copyFileToDir from@(_ :/ RegFile fn _)
-                to@(_ :/ Dir {}) =
-  do
+copyFileToDir _ AFileInvFN _ = throw InvalidFileName
+copyFileToDir _ _ AFileInvFN = throw InvalidFileName
+copyFileToDir cm from@(_ :/ RegFile fn _)
+                   to@(_ :/ Dir {})
+  = do
     let from' = fullPath from
         to'   = fullPath to </> fn
+    case cm of
+      Strict -> throwFileDoesExist to'
+      _      -> return ()
     copyFile' from' to'
-copyFileToDir _ _ = throw $ InvalidOperation "wrong input type"
+copyFileToDir _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Copies a file, directory or symlink. In case of a symlink, it is just
 -- recreated, even if it points to a directory.
-easyCopy :: DirCopyMode
+easyCopy :: CopyMode
          -> AnchoredFile FileInfo
          -> AnchoredFile FileInfo
          -> IO ()
-easyCopy _ from@(_ :/ SymLink {}) to@(_ :/ Dir {}) = recreateSymlink from to
-easyCopy _ from@(_ :/ RegFile fn _)
-             to@(_ :/ Dir {})
-  = copyFileToDir from to
-easyCopy _ from@(_ :/ RegFile fn _)
-             to@(_ :/ RegFile {})
-  = copyFile from to
+easyCopy cm from@(_ :/ SymLink {})
+              to@(_ :/ Dir {})
+  = recreateSymlink cm from to
+easyCopy cm from@(_ :/ RegFile fn _)
+              to@(_ :/ Dir {})
+  = copyFileToDir cm from to
 easyCopy cm from@(_ :/ Dir fn _)
               to@(_ :/ Dir {})
   = copyDir cm from to
@@ -306,7 +317,6 @@ deleteSymlink _ = throw $ InvalidOperation "wrong input type"
 -- |Deletes the given file, never symlinks.
 deleteFile :: AnchoredFile FileInfo -> IO ()
 deleteFile AFileInvFN = throw InvalidFileName
-deleteFile   (_ :/ SymLink {}) = return ()
 deleteFile f@(_ :/ RegFile {})
   = removeLink (fullPath f)
 deleteFile _ = throw $ InvalidOperation "wrong input type"
@@ -315,7 +325,6 @@ deleteFile _ = throw $ InvalidOperation "wrong input type"
 -- |Deletes the given directory, never symlinks.
 deleteDir :: AnchoredFile FileInfo -> IO ()
 deleteDir AFileInvFN = throw InvalidFileName
-deleteDir   (_ :/ SymLink {}) = return ()
 deleteDir f@(_ :/ Dir {})
   = removeDirectory (fullPath f)
 deleteDir _ = throw $ InvalidOperation "wrong input type"
@@ -411,7 +420,6 @@ createDir _ _ = throw $ InvalidOperation "wrong input type"
 renameFile :: AnchoredFile FileInfo -> FileName -> IO ()
 renameFile AFileInvFN _ = throw InvalidFileName
 renameFile _ InvFN      = throw InvalidFileName
-renameFile (_ :/ Failed {}) _ = return ()
 renameFile af (ValFN fn) = do
   let fromf = fullPath af
       tof   = anchor af </> fn
@@ -422,20 +430,28 @@ renameFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Move a given file to the given target directory.
-moveFile :: AnchoredFile FileInfo -- ^ file to move
+moveFile :: CopyMode
+         -> AnchoredFile FileInfo -- ^ file to move
          -> AnchoredFile FileInfo -- ^ base target directory
          -> IO ()
-moveFile AFileInvFN _ = throw InvalidFileName
-moveFile _ AFileInvFN = throw InvalidFileName
-moveFile from to@(_ :/ Dir {}) = do
+moveFile _ AFileInvFN _ = throw InvalidFileName
+moveFile _ _ AFileInvFN = throw InvalidFileName
+moveFile cm from to@(_ :/ Dir {}) = do
   let from' = fullPath from
       to'   = fullPath to </> (name . file $ from)
-  throwFileDoesExist to'
+  case cm of
+    Strict  -> throwFileDoesExist to'
+    Merge   -> delOld to'
+    Replace -> delOld to'
   throwSameFile from' to'
   catchErrno eXDEV (rename from' to') $ do
     easyCopy Strict from to
     easyDelete from
-moveFile _ _ = throw $ InvalidOperation "wrong input type"
+  where
+    delOld to = do
+      to' <- Data.DirTree.readFile to
+      unless (failed . file $ to') (easyDelete to')
+moveFile _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 

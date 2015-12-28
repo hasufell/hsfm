@@ -277,15 +277,14 @@ operationFinal mygui myview = withErrorDialog $ do
     FMove (MP1 s) -> do
       let cmsg = "Really move \"" ++ fullPath s
                   ++ "\"" ++ " to \"" ++ fullPath cdir ++ "\"?"
-      withConfirmationDialog cmsg
-        $ void $ runFileOp (FMove . MC s $ cdir)
+      withConfirmationDialog cmsg . withCopyModeDialog
+        $ \cm -> void $ runFileOp (FMove . MC s cdir $ cm)
       return ()
     FCopy (CP1 s) -> do
       let cmsg = "Really copy \"" ++ fullPath s
                  ++ "\"" ++ " to \"" ++ fullPath cdir ++ "\"?"
-      cm <- showCopyModeChooserDialog
-      withConfirmationDialog cmsg
-        $ void $ runFileOp (FCopy . CC s cdir $ cm)
+      withConfirmationDialog cmsg . withCopyModeDialog
+        $ \cm -> void $ runFileOp (FCopy . CC s cdir $ cm)
       return ()
     _ -> return ()
 

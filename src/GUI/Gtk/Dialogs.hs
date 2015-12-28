@@ -27,7 +27,8 @@ import Control.Applicative
   )
 import Control.Exception
   (
-    try
+    catch
+  , try
   , SomeException
   )
 import Control.Monad
@@ -59,6 +60,7 @@ import Distribution.Verbosity
   )
 import Graphics.UI.Gtk
 import GUI.Gtk.Data
+import IO.Error
 import IO.File
 
 
@@ -100,14 +102,14 @@ showConfirmationDialog str = do
 
 -- |Asks the user which directory copy mode he wants via dialog popup
 -- and returns 'DirCopyMode'.
-showCopyModeChooserDialog :: IO DirCopyMode
-showCopyModeChooserDialog = do
+showCopyModeDialog :: IO CopyMode
+showCopyModeDialog = do
   chooserDialog <- messageDialogNew Nothing
                                     [DialogDestroyWithParent]
                                     MessageQuestion
                                     ButtonsNone
-                                    "Choose the copy mode"
-  dialogAddButton chooserDialog "Strict"  (ResponseUser 0)
+                                    "Target exists, how to proceed?"
+  dialogAddButton chooserDialog "Cancel"  (ResponseUser 0)
   dialogAddButton chooserDialog "Merge"   (ResponseUser 1)
   dialogAddButton chooserDialog "Replace" (ResponseUser 2)
   rID <- dialogRun chooserDialog
@@ -116,6 +118,23 @@ showCopyModeChooserDialog = do
     ResponseUser 0 -> return Strict
     ResponseUser 1 -> return Merge
     ResponseUser 2 -> return Replace
+
+
+-- |Attempts to run the given function with the `Strict` copy mode.
+-- If that raises a `FileDoesExist` or `DirDoesExist`, then it prompts
+-- the user for action via `showCopyModeDialog` and then carries out
+-- the given function again.
+withCopyModeDialog :: (CopyMode -> IO ()) -> IO ()
+withCopyModeDialog fa =
+  catch (fa Strict) $ \e ->
+    case e of
+      FileDoesExist _ -> doIt
+      DirDoesExist  _ -> doIt
+  where
+    doIt = do cm <- showCopyModeDialog
+              case cm of
+                Strict -> return () -- don't try again
+                _      -> fa cm
 
 
 -- |Shows the about dialog from the help menu.
