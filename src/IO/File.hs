@@ -224,8 +224,6 @@ recreateSymlink _ _ = throw $ InvalidOperation "wrong input type"
 -- |Low-level function to copy a given file to the given path. The fileMode
 -- is preserved.
 copyFile' :: FilePath -> FilePath -> IO ()
-copyFile' InvFN _ = throw InvalidFileName
-copyFile' _ InvFN = throw InvalidFileName
 copyFile' from to = do
   fromFstatus <- getSymbolicLinkStatus from
   fromContent <- BS.readFile from
