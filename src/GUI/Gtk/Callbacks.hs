@@ -244,6 +244,7 @@ moveInit :: [Row] -> MyGUI -> MyView -> IO ()
 moveInit [row] mygui myview = do
   writeTVarIO (operationBuffer myview) (FMove . MP1 $ row)
   let sbmsg = "Move buffer: " ++ fullPath row
+  popStatusbar mygui
   void $ pushStatusBar mygui sbmsg
 moveInit _ _ _ = withErrorDialog
                    . throw $ InvalidOperation
@@ -258,6 +259,7 @@ copyInit :: [Row] -> MyGUI -> MyView -> IO ()
 copyInit [row] mygui myview = do
   writeTVarIO (operationBuffer myview) (FCopy . CP1 $ row)
   let sbmsg = "Copy buffer: " ++ fullPath row
+  popStatusbar mygui
   void $ pushStatusBar mygui sbmsg
 copyInit _ _ _ = withErrorDialog
                    . throw $ InvalidOperation
