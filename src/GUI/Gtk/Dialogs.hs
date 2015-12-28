@@ -63,7 +63,10 @@ import Graphics.UI.Gtk
 import GUI.Gtk.Data
 import IO.Error
 import IO.File
-
+import Paths_hsfm
+  (
+    getDataFileName
+  )
 
 
 
@@ -143,9 +146,11 @@ withCopyModeDialog fa =
 showAboutDialog :: IO ()
 showAboutDialog = do
   ad       <- aboutDialogNew
-  lstr     <- readFile "LICENSE"
-  hsfmicon <- pixbufNewFromFile "data/Gtk/icons/hsfm.png"
-  pdesc    <- packageDescription <$> readPackageDescription silent "hsfm.cabal"
+  lstr     <- readFile =<< getDataFileName "LICENSE"
+  hsfmicon <- pixbufNewFromFile =<< getDataFileName "data/Gtk/icons/hsfm.png"
+  pdesc    <- fmap packageDescription
+                   (readPackageDescription silent
+                     =<< getDataFileName "hsfm.cabal")
   set ad
     [ aboutDialogProgramName  := (unPackageName . pkgName . package) pdesc
     , aboutDialogName         := (unPackageName . pkgName . package) pdesc

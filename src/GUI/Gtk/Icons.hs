@@ -24,6 +24,10 @@ module GUI.Gtk.Icons where
 
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Gdk.Pixbuf
+import Paths_hsfm
+  (
+    getDataFileName
+  )
 
 
 -- |Icon type we use in our GUI.
@@ -44,7 +48,7 @@ getIcon icon itheme isize = do
   mpix <- iconThemeLoadIcon itheme iname isize IconLookupUseBuiltin
   case mpix of
     Just pix -> return pix
-    Nothing  -> pixbufNewFromFile ("data/Gtk/icons/" ++ iname)
+    Nothing  -> pixbufNewFromFile =<< getDataFileName ("data/Gtk/icons/" ++ iname)
   where
     iconToStr IFolder = "gtk-directory"
     iconToStr IFile   = "gtk-file"

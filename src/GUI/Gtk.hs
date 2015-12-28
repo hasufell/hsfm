@@ -84,6 +84,10 @@ import IO.Error
 import IO.File
 import IO.Utils
 import MyPrelude
+import Paths_hsfm
+  (
+    getDataFileName
+  )
 import Safe
   (
     headDef
@@ -160,7 +164,7 @@ startMainWindow startdir = do
   operationBuffer <- newTVarIO None
 
   builder <- builderNew
-  builderAddFromFile builder "data/Gtk/builder.xml"
+  builderAddFromFile builder =<< getDataFileName "data/Gtk/builder.xml"
 
   -- get the pre-defined gui widgets
   rootWin           <- builderGetObject builder castToWindow
@@ -288,6 +292,6 @@ startMainWindow startdir = do
   containerAdd scroll treeView
 
   -- sets the default icon
-  windowSetDefaultIconFromFile "data/Gtk/icons/hsfm.png"
+  windowSetDefaultIconFromFile =<< getDataFileName "data/Gtk/icons/hsfm.png"
 
   widgetShowAll rootWin
