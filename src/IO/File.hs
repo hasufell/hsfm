@@ -96,6 +96,8 @@ import qualified Data.ByteString  as BS
 
 
 -- TODO: file operations should be threaded and not block the UI
+-- TODO: make sure we do the right thing for BlockDev, CharDev etc...
+--       most operations are not implemented for these
 
 
 -- |Data type describing an actual file operation that can be
@@ -176,9 +178,9 @@ copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
     for_ contents $ \f ->
       case f of
         (_ :/ SymLink {})  -> recreateSymlink f destdir
-        (_ :/ Dir {}) -> copyDir cm f destdir
-        (_ :/ RegFile {}) -> copyFileToDir f destdir
-        _                 -> return ()
+        (_ :/ Dir {})      -> copyDir cm f destdir
+        (_ :/ RegFile {})  -> copyFileToDir f destdir
+        _                  -> return ()
   where
     createDestdir destdir fmode =
       case cm of
@@ -208,7 +210,7 @@ copyDir _ _ _ = throw $ InvalidOperation "wrong input type"
 -- |Recreate a symlink.
 recreateSymlink :: AnchoredFile FileInfo  -- ^ the old symlink file
                 -> AnchoredFile FileInfo  -- ^ destination dir of the
-                                                   --   new symlink file
+                                          --   new symlink file
                 -> IO ()
 recreateSymlink AFileInvFN _ = throw InvalidFileName
 recreateSymlink _ AFileInvFN = throw InvalidFileName
