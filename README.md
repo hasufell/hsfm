@@ -12,6 +12,11 @@ Design goals:
 - type safety, runtime safety, strictness
 - simple add-on interface
 
+Screenshots
+-----------
+
+![Image missing](https://cloud.githubusercontent.com/assets/1241845/12013136/abd4c01a-ad10-11e5-86a9-ea8e52ca5610.png "hsfm-gtk")
+
 
 Installation
 ------------
