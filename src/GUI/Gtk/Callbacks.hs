@@ -86,6 +86,12 @@ setCallbacks mygui myview = do
   -- GUI events
   _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
   _ <- treeView mygui `on` rowActivated $ (\_ _ -> withRows mygui myview open)
+  _ <- refreshView mygui `on` buttonActivated $ do
+       cdir <- liftIO $ getCurrentDir myview
+       refreshTreeView' mygui myview cdir
+  _ <- clearStatusBar mygui `on` buttonActivated $ do
+       popStatusbar mygui
+       writeTVarIO (operationBuffer myview) None
 
   -- key events
   _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
@@ -122,10 +128,6 @@ setCallbacks mygui myview = do
     [Control] <- eventModifier
     "v"       <- fmap glibToString eventKeyName
     liftIO $ operationFinal mygui myview
-
-  _ <- refreshView mygui `on` buttonActivated $ do
-       cdir <- liftIO $ getCurrentDir myview
-       refreshTreeView' mygui myview cdir
 
   -- menubar-file
   _ <- menubarFileQuit mygui `on` menuItemActivated $ mainQuit
@@ -176,7 +178,6 @@ setCallbacks mygui myview = do
     liftIO $ withRows mygui myview del
   _ <- rcFileCut mygui `on` menuItemActivated $
     liftIO $ withRows mygui myview moveInit
-
 
   return ()
 
@@ -240,8 +241,10 @@ del _ _ _ = withErrorDialog
 --
 -- * 'operationBuffer' writes
 moveInit :: [Row] -> MyGUI -> MyView -> IO ()
-moveInit [row] mygui myview =
+moveInit [row] mygui myview = do
   writeTVarIO (operationBuffer myview) (FMove . MP1 $ row)
+  let sbmsg = "Move buffer: " ++ fullPath row
+  void $ pushStatusBar mygui sbmsg
 moveInit _ _ _ = withErrorDialog
                    . throw $ InvalidOperation
                              "Operation not supported on multiple files"
@@ -252,8 +255,10 @@ moveInit _ _ _ = withErrorDialog
 --
 -- * 'operationBuffer' writes
 copyInit :: [Row] -> MyGUI -> MyView -> IO ()
-copyInit [row] mygui myview =
+copyInit [row] mygui myview = do
   writeTVarIO (operationBuffer myview) (FCopy . CP1 $ row)
+  let sbmsg = "Copy buffer: " ++ fullPath row
+  void $ pushStatusBar mygui sbmsg
 copyInit _ _ _ = withErrorDialog
                    . throw $ InvalidOperation
                              "Operation not supported on multiple files"

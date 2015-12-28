@@ -294,3 +294,11 @@ pushStatusBar mygui str = do
   cid <- statusbarGetContextId sb "FM Status"
   mid <- statusbarPush sb cid str
   return (cid, mid)
+
+
+-- |Pop a message from the status bar.
+popStatusbar :: MyGUI -> IO ()
+popStatusbar mygui = do
+  let sb = statusBar mygui
+  cid <- statusbarGetContextId sb "FM Status"
+  statusbarPop sb cid

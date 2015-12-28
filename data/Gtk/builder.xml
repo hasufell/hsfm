@@ -94,6 +94,11 @@
     <property name="can_focus">False</property>
     <property name="stock">gtk-edit</property>
   </object>
+  <object class="GtkImage" id="image3">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-cancel</property>
+  </object>
   <object class="GtkApplicationWindow" id="rootWin">
     <property name="can_focus">False</property>
     <child>
@@ -314,17 +319,45 @@
           </packing>
         </child>
         <child>
-          <object class="GtkStatusbar" id="statusBar">
+          <object class="GtkBox" id="box3">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="margin_left">10</property>
-            <property name="margin_right">10</property>
-            <property name="margin_start">10</property>
-            <property name="margin_end">10</property>
-            <property name="margin_top">6</property>
-            <property name="margin_bottom">6</property>
-            <property name="orientation">vertical</property>
-            <property name="spacing">2</property>
+            <child>
+              <object class="GtkStatusbar" id="statusBar">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="margin_left">10</property>
+                <property name="margin_right">10</property>
+                <property name="margin_start">10</property>
+                <property name="margin_end">10</property>
+                <property name="margin_top">6</property>
+                <property name="margin_bottom">6</property>
+                <property name="orientation">vertical</property>
+                <property name="spacing">2</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="clearStatusBar">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="margin_left">5</property>
+                <property name="margin_right">5</property>
+                <property name="margin_top">5</property>
+                <property name="margin_bottom">5</property>
+                <property name="image">image3</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>

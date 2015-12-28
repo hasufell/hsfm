@@ -191,6 +191,8 @@ startMainWindow startdir = do
                        "urlBar"
   statusBar         <- builderGetObject builder castToStatusbar
                        "statusBar"
+  clearStatusBar    <- builderGetObject builder castToButton
+                       "clearStatusBar"
   rcMenu            <- builderGetObject builder castToMenu
                        "rcMenu"
   rcFileOpen        <- builderGetObject builder castToImageMenuItem

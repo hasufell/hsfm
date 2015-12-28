@@ -73,6 +73,7 @@ data MyGUI = MkMyGUI {
   , refreshView :: Button
   , urlBar :: Entry
   , statusBar :: Statusbar
+  , clearStatusBar :: Button
   , treeView :: TreeView
   -- |first column
   , cF :: TreeViewColumn
