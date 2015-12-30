@@ -80,8 +80,16 @@ setCallbacks :: MyGUI -> MyView -> IO ()
 setCallbacks mygui myview = do
   view' <- readTVarIO $ view myview
   case view' of
-    FMTreeView treeView -> setTreeViewCallbacks treeView
-    FMIconView iconView -> return ()
+    FMTreeView treeView -> do
+      _ <- treeView `on` rowActivated
+             $ (\_ _ -> withItems mygui myview open)
+      commonGuiEvents treeView
+      return ()
+    FMIconView iconView -> do
+      _ <- iconView `on` itemActivated
+             $ (\_ -> withItems mygui myview open)
+      commonGuiEvents iconView
+      return ()
   menubarCallbacks
   where
     menubarCallbacks = do
@@ -116,11 +124,10 @@ setCallbacks mygui myview = do
       _ <- menubarHelpAbout mygui `on` menuItemActivated $
         liftIO showAboutDialog
       return ()
-    setTreeViewCallbacks treeView = do
+    commonGuiEvents view = do
       -- GUI events
       _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
-      _ <- treeView `on` rowActivated
-             $ (\_ _ -> withItems mygui myview open)
+
       _ <- refreshViewB mygui `on` buttonActivated $ do
            cdir <- liftIO $ getCurrentDir myview
            refreshView' mygui myview cdir
@@ -133,39 +140,39 @@ setCallbacks mygui myview = do
         [Control] <- eventModifier
         "q"       <- fmap glibToString eventKeyName
         liftIO mainQuit
-      _ <- treeView `on` keyPressEvent $ tryEvent $ do
+      _ <- view `on` keyPressEvent $ tryEvent $ do
         [Control] <- eventModifier
         "h"       <- fmap glibToString eventKeyName
         cdir <- liftIO $ getCurrentDir myview
         liftIO $ modifyTVarIO (settings mygui)
                               (\x -> x { showHidden = not . showHidden $ x})
                  >> refreshView' mygui myview cdir
-      _ <- treeView `on` keyPressEvent $ tryEvent $ do
+      _ <- view `on` keyPressEvent $ tryEvent $ do
         [Alt] <- eventModifier
         "Up"  <- fmap glibToString eventKeyName
         liftIO $ upDir mygui myview
-      _ <- treeView `on` keyPressEvent $ tryEvent $ do
+      _ <- view `on` keyPressEvent $ tryEvent $ do
         "Delete"  <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview del
-      _ <- treeView `on` keyPressEvent $ tryEvent $ do
+      _ <- view `on` keyPressEvent $ tryEvent $ do
         []            <- eventModifier
         "Return"      <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview open
-      _ <- treeView `on` keyPressEvent $ tryEvent $ do
+      _ <- view `on` keyPressEvent $ tryEvent $ do
         [Control] <- eventModifier
         "c"       <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview copyInit
-      _ <- treeView `on` keyPressEvent $ tryEvent $ do
+      _ <- view `on` keyPressEvent $ tryEvent $ do
         [Control] <- eventModifier
         "x"       <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview moveInit
-      _ <- treeView `on` keyPressEvent $ tryEvent $ do
+      _ <- view `on` keyPressEvent $ tryEvent $ do
         [Control] <- eventModifier
         "v"       <- fmap glibToString eventKeyName
         liftIO $ operationFinal mygui myview
 
       -- righ-click
-      _ <- treeView `on` buttonPressEvent $ do
+      _ <- view `on` buttonPressEvent $ do
         eb <- eventButton
         t  <- eventTime
         case eb of
