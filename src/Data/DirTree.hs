@@ -784,14 +784,14 @@ packPermissions dt = fromFreeVar (pStr . fileMode) dt
   where
     pStr ffm = typeModeStr ++ ownerModeStr ++ groupModeStr ++ otherModeStr
       where
-        typeModeStr
-          | hasFM PF.regularFileMode      = "-"
-          | hasFM PF.directoryMode        = "d"
-          | hasFM PF.symbolicLinkMode     = "l"
-          | hasFM PF.socketMode           = "s"
-          | hasFM PF.blockSpecialMode     = "b"
-          | hasFM PF.characterSpecialMode = "c"
-          | hasFM PF.namedPipeMode        = "p"
+        typeModeStr = case dt of
+          Dir {}       -> "d"
+          RegFile {}   -> "-"
+          SymLink {}   -> "l"
+          BlockDev {}  -> "b"
+          CharDev {}   -> "c"
+          NamedPipe {} -> "p"
+          Socket {}    -> "s"
         ownerModeStr =    hasFmStr PF.ownerReadMode    "r"
                        ++ hasFmStr PF.ownerWriteMode   "w"
                        ++ hasFmStr PF.ownerExecuteMode "x"
