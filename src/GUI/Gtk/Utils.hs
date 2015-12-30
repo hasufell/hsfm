@@ -25,30 +25,14 @@ import Control.Applicative
   (
     (<$>)
   )
-import Control.Concurrent.MVar
-  (
-    putMVar
-  , tryTakeMVar
-  )
 import Control.Concurrent.STM
   (
-    TVar
-  , newTVarIO
-  , readTVarIO
+    readTVarIO
   )
 import Data.DirTree
-import Data.Foldable
-  (
-    for_
-  )
-import Data.List
-  (
-    isPrefixOf
-  )
 import Data.Maybe
   (
     catMaybes
-  , fromMaybe
   , fromJust
   )
 import Data.Traversable
@@ -57,17 +41,6 @@ import Data.Traversable
   )
 import Graphics.UI.Gtk
 import GUI.Gtk.Data
-import IO.Error
-import IO.Utils
-import MyPrelude
-import System.INotify
-  (
-    addWatch
-  , initINotify
-  , killINotify
-  , EventVariety(..)
-  , Event(..)
-  )
 
 
 
@@ -77,22 +50,34 @@ import System.INotify
     -----------------
 
 
--- |Gets the currently selected row of the treeView, if any.
---
--- Interaction with mutable references:
---
--- * 'rawModel' reads
--- * 'sortedModel' reads
--- * 'filteredModel' reads
-getSelectedRows :: MyGUI
-                -> MyView
-                -> IO [Row]
-getSelectedRows mygui myview = do
-  tvs   <- treeViewGetSelection (treeView mygui)
-  tps   <- treeSelectionGetSelectedRows tvs
+getSelectedTreePaths :: MyGUI -> MyView -> IO [TreePath]
+getSelectedTreePaths _ myview = do
+  view' <- readTVarIO $ view myview
+  case view' of
+    FMTreeView treeView -> do
+      tvs   <- treeViewGetSelection treeView
+      treeSelectionGetSelectedRows tvs
+    FMIconView iconView ->
+      iconViewGetSelectedItems iconView
+
+
+-- |Gets the currently selected item of the treeView, if any.
+getSelectedItems :: MyGUI
+                 -> MyView
+                 -> IO [Item]
+getSelectedItems mygui myview = do
+  tps   <- getSelectedTreePaths mygui myview
+  getSelectedItems' mygui myview tps
+
+
+getSelectedItems' :: MyGUI
+                  -> MyView
+                  -> [TreePath]
+                  -> IO [Item]
+getSelectedItems' mygui myview tps = do
+  rawModel'      <- readTVarIO $ rawModel myview
   sortedModel'   <- readTVarIO $ sortedModel myview
   filteredModel' <- readTVarIO $ filteredModel myview
-  rawModel'      <- readTVarIO $ rawModel myview
   iters <- catMaybes <$> mapM (treeModelGetIter sortedModel') tps
   forM iters $ \iter -> do
     cIter' <- treeModelSortConvertIterToChildIter sortedModel' iter
@@ -100,19 +85,21 @@ getSelectedRows mygui myview = do
     treeModelGetRow rawModel' cIter
 
 
--- |Carry out an action on the currently selected row.
+
+
+-- |Carry out an action on the currently selected item.
 --
--- If there is no row selected, does nothing.
-withRows :: MyGUI
-         -> MyView
-         -> (   [Row]
-             -> MyGUI
-             -> MyView
-             -> IO ()) -- ^ action to carry out
-         -> IO ()
-withRows mygui myview io = do
-  rows <- getSelectedRows mygui myview
-  io rows mygui myview
+-- If there is no item selected, does nothing.
+withItems :: MyGUI
+          -> MyView
+          -> (   [Item]
+              -> MyGUI
+              -> MyView
+              -> IO ()) -- ^ action to carry out
+          -> IO ()
+withItems mygui myview io = do
+  items <- getSelectedItems mygui myview
+  io items mygui myview
 
 
 -- |Create the 'ListStore' of files/directories from the current directory.
@@ -120,172 +107,29 @@ withRows mygui myview io = do
 -- into the GTK+ data structures.
 fileListStore :: AnchoredFile FileInfo  -- ^ current dir
               -> MyView
-              -> IO (ListStore Row)
+              -> IO (ListStore Item)
 fileListStore dt myview = do
   cs <- Data.DirTree.getContents dt
   listStoreNew cs
 
 
--- |Currently unsafe. This is used to obtain any row (possibly the '.' row)
+-- |Currently unsafe. This is used to obtain any item (possibly the '.' item)
 -- and extract the "current working directory" from it.
---
--- Interaction with mutable references:
---
--- * 'rawModel' reads
-getFirstRow :: MyView
+getFirstItem :: MyView
             -> IO (AnchoredFile FileInfo)
-getFirstRow myview = do
+getFirstItem myview = do
   rawModel' <- readTVarIO $ rawModel myview
   iter      <- fromJust <$> treeModelGetIterFirst rawModel'
   treeModelGetRow rawModel' iter
 
 
--- |Currently unsafe. Gets the current directory via `getFirstRow` and `goUp`.
+-- |Currently unsafe. Gets the current directory via `getFirstItem` and
+-- `goUp`.
 getCurrentDir :: MyView
               -> IO (AnchoredFile FileInfo)
-getCurrentDir myview = getFirstRow myview >>= goUp
+getCurrentDir myview = getFirstItem myview >>= goUp
 
 
--- |Re-reads the current directory or the given one and updates the TreeView.
---
--- The operation may fail with:
---
--- * 'DirDoesNotExist' if the target directory does not exist
--- * 'PathNotAbsolute' if the target directory is not absolute
---
--- Interaction with mutable references:
---
--- * 'rawModel' writes
-refreshTreeView :: MyGUI
-                -> MyView
-                -> Maybe FilePath
-                -> IO ()
-refreshTreeView mygui myview mfp = do
-  mcdir <- getFirstRow myview
-  let fp  = fromMaybe (anchor mcdir) mfp
-
-  -- get selected rows
-  tvs   <- treeViewGetSelection (treeView mygui)
-  srows <- treeSelectionGetSelectedRows tvs
-
-  -- TODO catch exceptions
-  dirSanityThrow fp
-
-  newFsState  <- Data.DirTree.readFile fp
-  newRawModel <- fileListStore newFsState myview
-  writeTVarIO (rawModel myview) newRawModel
-
-  constructTreeView mygui myview
-
-  -- reselect selected rows
-  mapM_ (treeSelectionSelectPath tvs) srows
-
-
--- |Refreshes the TreeView based on the given directory.
---
--- Interaction with mutable references:
---
--- * 'rawModel' writes
-refreshTreeView' :: MyGUI
-                 -> MyView
-                 -> AnchoredFile FileInfo
-                 -> IO ()
-refreshTreeView' mygui myview dt = do
-  newRawModel  <- fileListStore dt myview
-  writeTVarIO (rawModel myview) newRawModel
-
-  -- get selected rows
-  tvs   <- treeViewGetSelection (treeView mygui)
-  srows <- treeSelectionGetSelectedRows tvs
-
-  constructTreeView mygui myview
-
-  -- reselect selected rows
-  mapM_ (treeSelectionSelectPath tvs) srows
-
-
--- TODO: make this function more slim so only the most necessary parts are
--- called
--- |Constructs the visible TreeView with the current underlying mutable models,
--- which are retrieved from 'MyGUI'.
---
--- Interaction with mutable references:
---
--- * 'rawModel' reads
--- * 'filteredModel' writes
--- * 'sortedModel' writes
--- * 'settings' reads
-constructTreeView :: MyGUI
-                  -> MyView
-                  -> IO ()
-constructTreeView mygui myview = do
-  let treeView' = treeView mygui
-      cF'       = cF mygui
-      cMD'      = cMD mygui
-      render'   = renderTxt mygui
-
-  cdirp <- anchor <$> getFirstRow myview
-
-  -- update urlBar
-  entrySetText (urlBar mygui) cdirp
-
-  rawModel' <- readTVarIO $ rawModel myview
-
-  -- filtering
-  filteredModel' <- treeModelFilterNew rawModel' []
-  writeTVarIO (filteredModel myview) filteredModel'
-  treeModelFilterSetVisibleFunc filteredModel' $ \iter -> do
-     hidden <- showHidden <$> readTVarIO (settings mygui)
-     row    <- (name . file) <$> treeModelGetRow rawModel' iter
-     if hidden
-       then return True
-       else return $ not . hiddenFile $ row
-
-  -- sorting
-  sortedModel' <- treeModelSortNewWithModel filteredModel'
-  writeTVarIO (sortedModel myview) sortedModel'
-  treeSortableSetSortFunc sortedModel' 1 $ \iter1 iter2 -> do
-      cIter1 <- treeModelFilterConvertIterToChildIter filteredModel' iter1
-      cIter2 <- treeModelFilterConvertIterToChildIter filteredModel' iter2
-      row1   <- treeModelGetRow rawModel' cIter1
-      row2   <- treeModelGetRow rawModel' cIter2
-      return $ compare row1 row2
-  treeSortableSetSortColumnId sortedModel' 1 SortAscending
-
-  -- set values
-  treeModelSetColumn rawModel' (makeColumnIdPixbuf 0)
-                     (dirtreePix . file)
-  treeModelSetColumn rawModel' (makeColumnIdString 1)
-                     (name . file)
-  treeModelSetColumn rawModel' (makeColumnIdString 2)
-                     (packModTime . file)
-  treeModelSetColumn rawModel' (makeColumnIdString 3)
-                     (packPermissions . file)
-
-  -- update treeview model
-  treeViewSetModel treeView' sortedModel'
-  treeViewSetRubberBanding treeView' True
-
-  -- add watcher
-  mi <- tryTakeMVar (inotify myview)
-  for_ mi $ \i -> killINotify i
-  newi <- initINotify
-  w <- addWatch
-         newi
-         [Move, MoveIn, MoveOut, MoveSelf, Create, Delete, DeleteSelf]
-         cdirp
-         (\_ -> postGUIAsync $ refreshTreeView mygui myview (Just cdirp))
-  putMVar (inotify myview) newi
-
-  return ()
-  where
-    dirtreePix (Dir {})          = folderPix mygui
-    dirtreePix (FileLike {})     = filePix mygui
-    dirtreePix (DirSym _)        = folderSymPix mygui
-    dirtreePix (FileLikeSym {})  = fileSymPix mygui
-    dirtreePix (Failed {})       = errorPix mygui
-    dirtreePix (BrokenSymlink _) = errorPix mygui
-    dirtreePix _                 = errorPix mygui
 
 
 -- |Push a message to the status bar.

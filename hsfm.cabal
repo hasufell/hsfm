@@ -58,6 +58,8 @@ executable hsfm-gtk
                        GUI.Gtk.Data
                        GUI.Gtk.Dialogs
                        GUI.Gtk.Icons
+                       GUI.Gtk.MyGUI
+                       GUI.Gtk.MyView
                        GUI.Gtk.Utils
                        MyPrelude
 

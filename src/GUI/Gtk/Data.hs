@@ -60,6 +60,8 @@ data MyGUI = MkMyGUI {
   , menubarEditRename :: ImageMenuItem
   , menubarEditPaste :: ImageMenuItem
   , menubarEditDelete :: ImageMenuItem
+  , menubarViewTree :: ImageMenuItem
+  , menubarViewIcon :: ImageMenuItem
   , menubarHelpAbout :: ImageMenuItem
   , rcMenu :: Menu
   , rcFileOpen :: ImageMenuItem
@@ -70,23 +72,17 @@ data MyGUI = MkMyGUI {
   , rcFileRename :: ImageMenuItem
   , rcFilePaste :: ImageMenuItem
   , rcFileDelete :: ImageMenuItem
-  , refreshView :: Button
+  , refreshViewB :: Button
   , urlBar :: Entry
   , statusBar :: Statusbar
   , clearStatusBar :: Button
-  , treeView :: TreeView
-  -- |first column
-  , cF :: TreeViewColumn
-  -- |second column
-  , cMD :: TreeViewColumn
-  , renderTxt :: CellRendererText
-  , renderPix :: CellRendererPixbuf
   , settings :: TVar FMSettings
   , folderPix :: Pixbuf
   , folderSymPix :: Pixbuf
   , filePix :: Pixbuf
   , fileSymPix :: Pixbuf
   , errorPix :: Pixbuf
+  , scroll :: ScrolledWindow
 }
 
 
@@ -96,17 +92,24 @@ data FMSettings = MkFMSettings {
   , isLazy :: Bool
 }
 
+data FMView = FMTreeView TreeView
+            | FMIconView IconView
 
-type Row = AnchoredFile FileInfo
+type Item = AnchoredFile FileInfo
 
 
--- |This describes the contents of the treeView and is separated from MyGUI,
+-- |This describes the contents of the current vie and is separated from MyGUI,
 -- because we might want to have multiple views.
 data MyView = MkMyView {
-    rawModel :: TVar (ListStore Row)
-  , sortedModel :: TVar (TypedTreeModelSort Row)
-  , filteredModel :: TVar (TypedTreeModelFilter Row)
+    view            :: TVar FMView
+  , rawModel        :: TVar (ListStore Item)
+  , sortedModel     :: TVar (TypedTreeModelSort Item)
+  , filteredModel   :: TVar (TypedTreeModelFilter Item)
   , operationBuffer :: TVar FileOperation
-  , inotify :: MVar INotify
+  , inotify         :: MVar INotify
 }
 
+
+fmViewToContainer :: FMView -> Container
+fmViewToContainer (FMTreeView x) =  castToContainer . toGObject $ x
+fmViewToContainer (FMIconView x) =  castToContainer . toGObject $ x
