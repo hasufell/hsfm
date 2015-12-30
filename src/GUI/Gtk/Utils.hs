@@ -264,6 +264,7 @@ constructTreeView mygui myview = do
 
   -- update treeview model
   treeViewSetModel treeView' sortedModel'
+  treeViewSetRubberBanding treeView' True
 
   -- add watcher
   mi <- tryTakeMVar (inotify myview)
