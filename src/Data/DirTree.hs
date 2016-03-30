@@ -225,11 +225,6 @@ data FileInfo = FileInfo {
 } deriving (Show, Eq, Ord)
 
 
-type UserIO a t = Path Abs -> IO a
-
-type Builder a t = UserIO a t -> Path Abs -> IO [File a]
-
-
 
 
     ------------------------------------
@@ -428,7 +423,7 @@ readWith ff p = do
       bd = P.dirname p
       p' = P.toFilePath p
   bd' <- P.canonicalizePath bd -- TODO: this will cause a dialog to pop up on error
-  handleDT' bd' fn $ do
+  handleDT bd' fn $ do
     fs   <- PF.getSymbolicLinkStatus p'
     fv   <- ff p
     file <- constructFile fs fv bd' fn
@@ -440,7 +435,7 @@ readWith ff p = do
           -- AnchoredFile
           let fp = bd' P.</> fn'
           x <- PF.readSymbolicLink (P.fromAbs fp)
-          resolvedSyml <- handleDT' bd' fn' $ do
+          resolvedSyml <- handleDT bd' fn' $ do
             -- watch out, we call </> from 'filepath' here, but it is safe
             -- TODO: could it happen that too many '..' lead
             -- to something like '/' after normalization?
@@ -592,29 +587,6 @@ isSocketC _            = False
 
 
 
----- PATH CONVERSIONS ----
-
-
-
--- |Check whether the given file is a hidden file.
-hiddenFile :: Path Fn -> Bool
-hiddenFile (Path ".")  = False
-hiddenFile (Path "..") = False
-hiddenFile (Path fn)   = "." `isPrefixOf` fn
-
-
--- |Like `normalise` from System.FilePath but removes occurences of '..'.
--- Note that this sort of misbehaves if the path contains symlink
--- components.
-normalize :: FilePath -> FilePath
-normalize fp =
-  joinPath $ foldl' ff [] (splitDirectories . normalise $ fp)
-  where
-    ff ["/"] ".." = ["/"]
-    ff x ".."     = initDef [] x
-    ff x y        = x ++ [y]
-
-
 
 ---- IO HELPERS: ----
 
@@ -693,6 +665,62 @@ getFileInfo fp = do
     (PF.statusChangeTimeHiRes fs)
 
 
+
+---- FAILURE HELPERS: ----
+
+
+-- Handles an IO exception by returning a Failed constructor filled with that
+-- exception.
+-- TODO: only handle IO exceptions
+handleDT :: Path Abs
+         -> Path Fn
+         -> IO (AnchoredFile a)
+         -> IO (AnchoredFile a)
+handleDT bp n
+  = handle (\e -> return $ bp :/ Failed n e)
+
+
+-- DoesNotExist errors not present at the topmost level could happen if a
+-- named file or directory is deleted after being listed by
+-- getDirectoryContents but before we can get it into memory.
+--    So we filter those errors out because the user should not see errors
+-- raised by the internal implementation of this module:
+--    This leaves the error if it exists in the top (user-supplied) level:
+removeNonexistent :: [AnchoredFile a] -> [AnchoredFile a]
+removeNonexistent = filter isOkConstructor
+  where
+    isOkConstructor (_ :/ c) = not (failed c) || isOkError c
+    isOkError = not . isDoesNotExistErrorType . ioeGetErrorType . err
+
+
+---- SYMLINK HELPERS: ----
+
+
+-- |Checks if a symlink is broken by examining the constructor of the
+-- symlink destination.
+--
+-- When called on a non-symlink, returns False.
+isBrokenSymlink :: File FileInfo -> Bool
+isBrokenSymlink af@(SymLink _ _ (_ :/ Failed {}) _) = True
+isBrokenSymlink _ = False
+
+
+---- OTHER: ----
+
+
+-- |Check whether the given file is a hidden file.
+hiddenFile :: Path Fn -> Bool
+hiddenFile (Path ".")  = False
+hiddenFile (Path "..") = False
+hiddenFile (Path fn)   = "." `isPrefixOf` fn
+
+
+-- |Apply a function on the free variable. If there is no free variable
+-- for the given constructor the value from the `Default` class is used.
+fromFreeVar :: (Default d) => (a -> d) -> File a -> d
+fromFreeVar f df = maybeD f $ getFreeVar df
+
+
 -- |Gets the free variable. Returns Nothing if the constructor is of `Failed`.
 getFreeVar :: File a -> Maybe a
 getFreeVar (Dir _  d)         = Just d
@@ -705,72 +733,22 @@ getFreeVar (Socket _  d)      = Just d
 getFreeVar _                  = Nothing
 
 
----- FAILURE HELPERS: ----
-
-
--- handles an IO exception by returning a Failed constructor filled with that
--- exception:
-handleDT :: Path Fn -> IO (File a) -> IO (File a)
-handleDT n = handle (return . Failed n)
-
-
--- handles an IO exception by returning a Failed constructor filled with that
--- exception:
--- TODO: only handle IO exceptions
-handleDT' :: Path Abs
-          -> Path Fn
-          -> IO (AnchoredFile a)
-          -> IO (AnchoredFile a)
-handleDT' bp n
-  = handle (\e -> return $ bp :/ Failed n e)
-
-
--- DoesNotExist errors not present at the topmost level could happen if a
--- named file or directory is deleted after being listed by
--- getDirectoryContents but before we can get it into memory.
---    So we filter those errors out because the user should not see errors
--- raised by the internal implementation of this module:
---     This leaves the error if it exists in the top (user-supplied) level:
-removeNonexistent :: [AnchoredFile a] -> [AnchoredFile a]
-removeNonexistent = filter isOkConstructor
-  where
-    isOkConstructor (_ :/ c) = not (failed c) || isOkError c
-    isOkError = not . isDoesNotExistErrorType . ioeGetErrorType . err
-
-
----- SYMLINK HELPERS: ----
-
-
--- |Checks if a symlink is broken by examining the constructor of the
--- symlink destination. This also follows the symlink chain.
---
--- When called on a non-symlink, returns False.
-isBrokenSymlink :: File FileInfo -> Bool
-isBrokenSymlink af@(SymLink _ _ (_ :/ Failed {}) _) = True
-isBrokenSymlink _ = False
-
-
----- OTHER: ----
-
-
-
+-- |Get the full path of the file.
 fullPath :: AnchoredFile a -> Path Abs
 fullPath (bp :/ f) = bp P.</> name f
 
 
--- |Apply a function on the free variable. If there is no free variable
--- for the given constructor the value from the `Default` class is used.
-fromFreeVar :: (Default d) => (a -> d) -> File a -> d
-fromFreeVar f df = maybeD f $ getFreeVar df
-
-
+-- |Get the full path of the file, converted to a `FilePath`.
+fullPathS :: AnchoredFile a -> FilePath
+fullPathS = P.fromAbs . fullPath
 
 
 -- |Pack the modification time into a string.
 packModTime :: File FileInfo
             -> String
-packModTime = fromFreeVar
-                $ show . posixSecondsToUTCTime . realToFrac . modificationTime
+packModTime =
+  fromFreeVar
+    $ show . posixSecondsToUTCTime . realToFrac . modificationTime
 
 
 -- |Pack the permissions into a string, similar to what "ls -l" does.
