@@ -241,7 +241,7 @@ execute _ _ _ = withErrorDialog
 -- |Supposed to be used with 'withRows'. Deletes a file or directory.
 del :: [Item] -> MyGUI -> MyView -> IO ()
 del [item] mygui myview = withErrorDialog $ do
-  let cmsg  = "Really delete \"" ++ P.fromAbs (fullPath item) ++ "\"?"
+  let cmsg  = "Really delete \"" ++ fullPathS item ++ "\"?"
   withConfirmationDialog cmsg
     $ easyDelete item
 -- this throws on the first error that occurs
@@ -258,7 +258,7 @@ del _ _ _ = withErrorDialog
 moveInit :: [Item] -> MyGUI -> MyView -> IO ()
 moveInit [item] mygui myview = do
   writeTVarIO (operationBuffer myview) (FMove . MP1 $ item)
-  let sbmsg = "Move buffer: " ++ P.fromAbs (fullPath item)
+  let sbmsg = "Move buffer: " ++ fullPathS item
   popStatusbar mygui
   void $ pushStatusBar mygui sbmsg
 moveInit _ _ _ = withErrorDialog
@@ -269,7 +269,7 @@ moveInit _ _ _ = withErrorDialog
 copyInit :: [Item] -> MyGUI -> MyView -> IO ()
 copyInit [item] mygui myview = do
   writeTVarIO (operationBuffer myview) (FCopy . CP1 $ item)
-  let sbmsg = "Copy buffer: " ++ P.fromAbs (fullPath item)
+  let sbmsg = "Copy buffer: " ++ fullPathS item
   popStatusbar mygui
   void $ pushStatusBar mygui sbmsg
 copyInit _ _ _ = withErrorDialog
@@ -284,14 +284,14 @@ operationFinal mygui myview = withErrorDialog $ do
   cdir <- getCurrentDir myview
   case op of
     FMove (MP1 s) -> do
-      let cmsg = "Really move \"" ++ P.fromAbs (fullPath s)
-                  ++ "\"" ++ " to \"" ++ P.fromAbs (fullPath cdir) ++ "\"?"
+      let cmsg = "Really move \"" ++ fullPathS s
+                  ++ "\"" ++ " to \"" ++ fullPathS cdir ++ "\"?"
       withConfirmationDialog cmsg . withCopyModeDialog
         $ \cm -> void $ runFileOp (FMove . MC s cdir $ cm)
       return ()
     FCopy (CP1 s) -> do
-      let cmsg = "Really copy \"" ++ P.fromAbs (fullPath s)
-                 ++ "\"" ++ " to \"" ++ P.fromAbs (fullPath cdir) ++ "\"?"
+      let cmsg = "Really copy \"" ++ fullPathS s
+                 ++ "\"" ++ " to \"" ++ fullPathS cdir ++ "\"?"
       withConfirmationDialog cmsg . withCopyModeDialog
         $ \cm -> void $ runFileOp (FCopy . CC s cdir $ cm)
       return ()
@@ -323,7 +323,7 @@ renameF [item] mygui myview = withErrorDialog $ do
   mfn  <- textInputDialog "Enter new file name"
   let pmfn = P.parseFn =<< mfn
   for_ pmfn $ \fn -> do
-    let cmsg = "Really rename \"" ++ P.fromAbs (fullPath item)
+    let cmsg = "Really rename \"" ++ fullPathS item
                ++ "\"" ++ " to \"" ++ P.fromAbs (anchor item P.</> fn) ++ "\"?"
     withConfirmationDialog cmsg $
       HSFM.FileSystem.FileOperations.renameFile item fn

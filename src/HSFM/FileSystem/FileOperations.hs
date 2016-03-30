@@ -226,7 +226,7 @@ recreateSymlink _ _ AFileInvFN = throw InvalidFileName
 recreateSymlink cm    symf@(_ :/ SymLink {})
                    symdest@(_ :/ Dir {})
   = do
-    sympoint <- readSymbolicLink (P.fromAbs . fullPath $ symf)
+    sympoint <- readSymbolicLink (fullPathS $ symf)
     let symname = fullPath symdest P.</> (name . file $ symf)
     case cm of
       Merge   -> delOld symname
@@ -264,8 +264,8 @@ overwriteFile _ AFileInvFN = throw InvalidFileName
 overwriteFile from@(_ :/ RegFile {})
                 to@(_ :/ RegFile {})
   = do
-    let from' = P.fromAbs . fullPath $ from
-        to'   = P.fromAbs . fullPath $ to
+    let from' = fullPathS from
+        to'   = fullPathS to
     throwSameFile from' to'
     copyFile' from' to'
 overwriteFile _ _ = throw $ InvalidOperation "wrong input type"
@@ -282,7 +282,7 @@ copyFileToDir _ _ AFileInvFN = throw InvalidFileName
 copyFileToDir cm from@(_ :/ RegFile fn _)
                    to@(_ :/ Dir {})
   = do
-    let from' = P.fromAbs . fullPath $ from
+    let from' = fullPathS from
         to'   = P.fromAbs (fullPath to P.</> fn)
     case cm of
       Strict -> throwFileDoesExist to'
@@ -382,7 +382,7 @@ easyDelete _ = throw $ InvalidOperation "wrong input type"
 openFile :: AnchoredFile a
          -> IO ProcessHandle
 openFile AFileInvFN = throw InvalidFileName
-openFile f = spawnProcess "xdg-open" [P.fromAbs . fullPath $ f]
+openFile f = spawnProcess "xdg-open" [fullPathS f]
 
 
 -- |Executes a program with the given arguments.
@@ -391,7 +391,7 @@ executeFile :: AnchoredFile FileInfo  -- ^ program
             -> IO ProcessHandle
 executeFile AFileInvFN _ = throw InvalidFileName
 executeFile prog@(_ :/ RegFile {}) args
-  = spawnProcess (P.fromAbs . fullPath $ prog) args
+  = spawnProcess (fullPathS prog) args
 executeFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -434,7 +434,7 @@ renameFile :: AnchoredFile FileInfo -> Path Fn -> IO ()
 renameFile AFileInvFN _ = throw InvalidFileName
 renameFile _ InvFN      = throw InvalidFileName
 renameFile af (ValFN fn) = do
-  let fromf = P.fromAbs . fullPath $ af
+  let fromf = fullPathS af
       tof   = P.fromAbs (anchor af P.</> fn)
   throwFileDoesExist tof
   throwSameFile fromf tof
@@ -451,7 +451,7 @@ moveFile _ AFileInvFN _ = throw InvalidFileName
 moveFile _ _ AFileInvFN = throw InvalidFileName
 moveFile cm from to@(_ :/ Dir {}) = do
   let from'  = fullPath from
-      froms' = P.fromAbs . fullPath $ from
+      froms' = fullPathS from
       to'    = fullPath to P.</> (name . file $ from)
       tos'   = P.fromAbs (fullPath to P.</> (name . file $ from))
   case cm of
