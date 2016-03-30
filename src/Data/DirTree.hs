@@ -62,7 +62,8 @@ import Data.List
   )
 import Data.Maybe
   (
-    fromMaybe
+    catMaybes
+  , fromMaybe
   )
 import Data.Ord
   (
@@ -85,6 +86,15 @@ import Data.Word
   (
     Word64
   )
+import HPath
+    (
+      Abs
+    , Path
+    , Fn
+    , Rel
+    , pattern Path
+    )
+import qualified HPath as P
 import Safe
   (
     atDef
@@ -144,14 +154,10 @@ import qualified System.Posix.Directory as PFD
     ----------------------------
 
 
--- |Weak type to distinguish between FilePath and FileName.
-type FileName = String
-
-
 -- |Represents a file. The `anchor` field is the path
 -- to that file without the filename.
 data AnchoredFile a =
-  (:/) { anchor :: FilePath, file :: File a }
+  (:/) { anchor :: Path Abs, file :: File a }
   deriving (Eq, Show)
 
 
@@ -162,37 +168,39 @@ data AnchoredFile a =
 -- can be converted to a String with 'show'.
 data File a =
     Failed {
-    name :: FileName
+    name :: Path Fn
   , err  :: IOException
   }
   | Dir {
-    name :: FileName
+    name :: Path Fn
   , fvar :: a
   }
   | RegFile {
-    name :: FileName
+    name :: Path Fn
   , fvar :: a
   }
+  -- TODO: add raw symlink dest (not normalized) to SymLink?
   | SymLink {
-    name  :: FileName
-  , fvar  :: a
-  , sdest :: AnchoredFile a  -- ^ symlink madness,
-                             --   we need to know where it points to
+    name    :: Path Fn
+  , fvar    :: a
+  , sdest   :: AnchoredFile a  -- ^ symlink madness,
+                               --   we need to know where it points to
+  , rawdest :: FilePath
   }
   | BlockDev {
-    name :: FileName
+    name :: Path Fn
   , fvar :: a
   }
   | CharDev {
-    name :: FileName
+    name :: Path Fn
   , fvar :: a
   }
   | NamedPipe {
-    name :: FileName
+    name :: Path Fn
   , fvar :: a
   }
   | Socket {
-    name :: FileName
+    name :: Path Fn
   , fvar :: a
   } deriving (Show, Eq)
 
@@ -216,9 +224,9 @@ data FileInfo = FileInfo {
 } deriving (Show, Eq, Ord)
 
 
-type UserIO a = FilePath -> IO a
+type UserIO a t = Path Abs -> IO a
 
-type Builder a = UserIO a -> FilePath -> IO [File a]
+type Builder a t = UserIO a t -> Path Abs -> IO [File a]
 
 
 
@@ -240,12 +248,12 @@ afileLike :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
 afileLike f@(bp :/ constr) = convertViewP fileLike f
 
 fileLike :: File FileInfo -> (Bool, File FileInfo)
-fileLike f@(RegFile {})   = (True, f)
-fileLike f@(BlockDev {})  = (True, f)
-fileLike f@(CharDev {})   = (True, f)
-fileLike f@(NamedPipe {}) = (True, f)
-fileLike f@(Socket {})    = (True, f)
-fileLike f                = (False, f)
+fileLike f@RegFile {}  = (True, f)
+fileLike f@BlockDev{}  = (True, f)
+fileLike f@CharDev{}   = (True, f)
+fileLike f@NamedPipe{} = (True, f)
+fileLike f@Socket{}    = (True, f)
+fileLike f             = (False, f)
 
 
 sadir :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
@@ -268,12 +276,12 @@ safileLike :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
 safileLike f = convertViewP sfileLike f
 
 sfileLike :: File FileInfo -> (Bool, File FileInfo)
-sfileLike f@(RegFile {})   = (True, f)
-sfileLike f@(BlockDev {})  = (True, f)
-sfileLike f@(CharDev {})   = (True, f)
-sfileLike f@(NamedPipe {}) = (True, f)
-sfileLike f@(Socket {})    = (True, f)
-sfileLike f                = fileLikeSym f
+sfileLike f@RegFile{}   = (True, f)
+sfileLike f@BlockDev{}  = (True, f)
+sfileLike f@CharDev{}   = (True, f)
+sfileLike f@NamedPipe{} = (True, f)
+sfileLike f@Socket{}    = (True, f)
+sfileLike f             = fileLikeSym f
 
 
 afileLikeSym :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
@@ -304,11 +312,11 @@ dirSym f@(SymLink { sdest = (_ :/ Dir {} )}) = (True, f)
 dirSym f = (False, f)
 
 
-invalidFileName :: FileName -> (Bool, FileName)
-invalidFileName ""   = (True, "")
-invalidFileName "."  = (True, ".")
-invalidFileName ".." = (True, "..")
-invalidFileName fn   = (elem pathSeparator fn, fn)
+invalidFileName :: Path Fn -> (Bool, Path Fn)
+invalidFileName p@(Path "")   = (True, p)
+invalidFileName p@(Path ".")  = (True, p)
+invalidFileName p@(Path "..") = (True, p)
+invalidFileName p@(Path fn)   = (elem pathSeparator fn, p)
 
 
 abrokenSymlink :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
@@ -408,72 +416,80 @@ instance Ord (AnchoredFile FileInfo) where
     ----------------------------
 
 
--- |Read a file into an `AnchoredFile`, filling the free variables via
--- the given function.
-readFileWith :: (FilePath -> IO a)
-             -> FilePath
-             -> IO (AnchoredFile a)
-readFileWith ff p = do
-  let fn = topDir p
-      bd = baseDir p
-  handleDT' bd fn $ do
-    fs  <- PF.getSymbolicLinkStatus p
-    fv  <- ff p
-    file <- constructFile fs fv bd fn
-    return (bd :/ file)
+-- |Reads a file or directory Path into an `AnchoredFile`, filling the free
+-- variables via the given function.
+readWith :: (Path Abs -> IO a)  -- ^ function that fills the free
+                                --   a variable
+         -> Path Abs            -- ^ Path to read
+         -> IO (AnchoredFile a)
+readWith ff p = do
+  let fn = P.basename p
+      bd = P.dirname p
+      p' = P.toFilePath p
+  bd' <- P.canonicalizePath bd -- TODO: this will cause a dialog to pop up on error
+  handleDT' bd' fn $ do
+    fs   <- PF.getSymbolicLinkStatus p'
+    fv   <- ff p
+    file <- constructFile fs fv bd' fn
+    return (bd' :/ file)
   where
-    constructFile fs fv bd' n
+    constructFile fs fv bd' fn'
       | PF.isSymbolicLink    fs = do
           -- symlink madness, we need to make sure we save the correct
           -- AnchoredFile
-          let fp = bd' </> n
-          resolvedSyml <- handleDT' bd' n $ do
-            sfp <- (\x -> if isAbsolute x then x else bd' </> x)
-                     <$> PF.readSymbolicLink fp
-            _ <- PF.getFileStatus sfp -- important to break infinite symbolic
-                                      -- link cycle
-            readFileWith ff sfp
-          return $ SymLink n fv resolvedSyml
-      | PF.isDirectory       fs = return $ Dir       n fv
-      | PF.isRegularFile     fs = return $ RegFile   n fv
-      | PF.isBlockDevice     fs = return $ BlockDev  n fv
-      | PF.isCharacterDevice fs = return $ CharDev   n fv
-      | PF.isNamedPipe       fs = return $ NamedPipe n fv
-      | PF.isSocket          fs = return $ Socket    n fv
-      | otherwise               = return $ Failed    n (userError
-                                                        "Unknown filetype!")
+          let fp = bd' P.</> fn'
+          x <- PF.readSymbolicLink (P.fromAbs fp)
+          resolvedSyml <- handleDT' bd' fn' $ do
+            -- watch out, we call </> from 'filepath' here, but it is safe
+            -- TODO: could it happen that too many '..' lead
+            -- to something like '/' after normalization?
+            let sfp = if isAbsolute x then x else (P.fromAbs bd') </> x
+            sf <- PF.getFileStatus sfp -- important to break infinite symbolic
+                                       -- link cycle
+            rsfp <- P.realPath sfp
+            readWith ff =<< P.parseAbs rsfp
+          return $ SymLink fn' fv resolvedSyml x
+      | PF.isDirectory       fs = return $ Dir       fn' fv
+      | PF.isRegularFile     fs = return $ RegFile   fn' fv
+      | PF.isBlockDevice     fs = return $ BlockDev  fn' fv
+      | PF.isCharacterDevice fs = return $ CharDev   fn' fv
+      | PF.isNamedPipe       fs = return $ NamedPipe fn' fv
+      | PF.isSocket          fs = return $ Socket    fn' fv
+      | otherwise               = return $ Failed    fn' (userError
+                                                          "Unknown filetype!")
 
 
-readFile :: FilePath -> IO (AnchoredFile FileInfo)
-readFile fp = readFileWith getFileInfo $ normalize fp
+-- |Reads a file Path into an AnchoredFile.
+readFile :: (Path Abs -> IO a) -> Path Abs -> IO (AnchoredFile a)
+readFile ff fp = readWith ff fp
 
+readFileWithFileInfo :: Path Abs -> IO (AnchoredFile FileInfo)
+readFileWithFileInfo = Data.DirTree.readFile getFileInfo
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
 -- the free variables via `getFileInfo`. This includes the "." and ".."
 -- directories.
-readDirectory :: FilePath -> IO [AnchoredFile FileInfo]
-readDirectory fp = readDirectoryWith getAllDirsFiles getFileInfo
-                     $ normalize fp
+readDirectoryContents :: Path Abs -> IO [AnchoredFile FileInfo]
+readDirectoryContents fp = readDirectoryContentsWith getAllDirsFiles getFileInfo fp
 
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
 -- the free variables via `getFileInfo`. This excludes the "." and ".."
 -- directories.
-readDirectory' :: FilePath -> IO [AnchoredFile FileInfo]
-readDirectory' fp = readDirectoryWith getDirsFiles getFileInfo
-                      $ normalize fp
+readDirectoryContents' :: Path Abs -> IO [AnchoredFile FileInfo]
+readDirectoryContents' fp = readDirectoryContentsWith getDirsFiles getFileInfo fp
 
 
--- | same as readDirectory but allows us to, for example, use
+-- |Same as readDirectoryContents but allows us to, for example, use
 -- ByteString.readFile to return a tree of ByteStrings.
-readDirectoryWith :: (FilePath -> IO [FilePath])
-                  -> (FilePath -> IO a)
-                  -> FilePath
-                  -> IO [AnchoredFile a]
-readDirectoryWith getfiles ff p = do
-  contents <- getfiles $ normalize p
-  cs <- mapM (\x -> readFileWith ff $ p </> x) contents
-  return $ removeNonexistent cs
+readDirectoryContentsWith :: (Path Abs -> IO [Path Fn])
+                          -> (Path Abs -> IO a)
+                          -> Path Abs
+                          -> IO [AnchoredFile a]
+readDirectoryContentsWith getfiles ff p = do
+  files <- getfiles p
+  fcs <- mapM (\x -> Data.DirTree.readFile ff $ p P.</> x) files
+  return $ removeNonexistent fcs
 
 
 
@@ -549,8 +565,8 @@ isDirC _         = False
 
 
 isSymC :: File a -> Bool
-isSymC (SymLink _ _ _) = True
-isSymC _               = False
+isSymC (SymLink _ _ _ _) = True
+isSymC _                 = False
 
 
 isBlockC :: File a -> Bool
@@ -579,19 +595,11 @@ isSocketC _            = False
 
 
 
--- extracting pathnames and base names:
-topDir, baseDir :: FilePath -> FilePath
-topDir = last . splitDirectories
-baseDir = joinPath . init . splitDirectories
-
-
 -- |Check whether the given file is a hidden file.
-hiddenFile :: FilePath -> Bool
-hiddenFile "."  = False
-hiddenFile ".." = False
-hiddenFile str
-  | "." `isPrefixOf` str = True
-  | otherwise            = False
+hiddenFile :: Path Fn -> Bool
+hiddenFile (Path ".")  = False
+hiddenFile (Path "..") = False
+hiddenFile (Path fn)   = "." `isPrefixOf` fn
 
 
 -- |Like `normalise` from System.FilePath but removes occurences of '..'.
@@ -612,29 +620,27 @@ normalize fp =
 
 -- |Go up one directory in the filesystem hierarchy.
 goUp :: AnchoredFile FileInfo -> IO (AnchoredFile FileInfo)
-goUp af@("" :/ _) = return af
-goUp    (bp :/ _) = Data.DirTree.readFile bp
+goUp af@(Path "" :/ _) = return af
+goUp    (bp :/ _)      = Data.DirTree.readFile getFileInfo bp
 
 
 -- |Go up one directory in the filesystem hierarchy.
-goUp' :: FilePath -> IO (AnchoredFile FileInfo)
-goUp' fp = do
-  let cfp = normalize fp
-  Data.DirTree.readFile $ baseDir cfp
+goUp' :: Path Abs -> IO (AnchoredFile FileInfo)
+goUp' fp = Data.DirTree.readFile getFileInfo $ P.dirname fp
 
 
 -- |Get the contents of a directory.
 getContents :: AnchoredFile FileInfo
             -> IO [AnchoredFile FileInfo]
-getContents (ADirOrSym af) = readDirectory (fullPath af)
+getContents (ADirOrSym af) = readDirectoryContents (fullPath af)
 getContents _              = return []
 
 
 getDirsFiles' :: (FilePath -> [FilePath] -> [FilePath])
-              -> FilePath
-              -> IO [FilePath]
+              -> Path Abs
+              -> IO [Path Fn]
 getDirsFiles' filterf fp = do
-  dirstream <- PFD.openDirStream fp
+  dirstream <- PFD.openDirStream . P.toFilePath $ fp
   let mdirs :: [FilePath] -> IO [FilePath]
       mdirs dirs = do
         -- make sure we close the directory stream in case of errors
@@ -645,18 +651,18 @@ getDirsFiles' filterf fp = do
           else mdirs (dir `filterf` dirs)
   dirs <- mdirs []
   PFD.closeDirStream dirstream
-  return dirs
+  return $ catMaybes (fmap P.parseFn dirs)
 
 
 -- |Get all files of a given directory and return them as a List.
 -- This includes "." and "..".
-getAllDirsFiles :: FilePath -> IO [FilePath]
+getAllDirsFiles :: Path Abs -> IO [Path Fn]
 getAllDirsFiles = getDirsFiles' (:)
 
 
 -- |Get all files of a given directory and return them as a List.
 -- This excludes "." and "..".
-getDirsFiles :: FilePath -> IO [FilePath]
+getDirsFiles :: Path Abs -> IO [Path Fn]
 getDirsFiles = getDirsFiles' insert
   where
     insert dir dirs = case dir of
@@ -666,9 +672,9 @@ getDirsFiles = getDirsFiles' insert
 
 
 -- |Gets all file information.
-getFileInfo :: FilePath -> IO FileInfo
+getFileInfo :: Path Abs -> IO FileInfo
 getFileInfo fp = do
-  fs <- PF.getSymbolicLinkStatus fp
+  fs <- PF.getSymbolicLinkStatus (P.fromAbs fp)
   return $ FileInfo
     (PF.deviceID fs)
     (PF.fileID fs)
@@ -688,14 +694,14 @@ getFileInfo fp = do
 
 -- |Gets the free variable. Returns Nothing if the constructor is of `Failed`.
 getFreeVar :: File a -> Maybe a
-getFreeVar (Dir _  d)       = Just d
-getFreeVar (RegFile _  d)   = Just d
-getFreeVar (SymLink _  d _) = Just d
-getFreeVar (BlockDev _  d)  = Just d
-getFreeVar (CharDev _  d)   = Just d
-getFreeVar (NamedPipe _  d) = Just d
-getFreeVar (Socket _  d)    = Just d
-getFreeVar _                = Nothing
+getFreeVar (Dir _  d)         = Just d
+getFreeVar (RegFile _  d)     = Just d
+getFreeVar (SymLink _  d _ _) = Just d
+getFreeVar (BlockDev _  d)    = Just d
+getFreeVar (CharDev _  d)     = Just d
+getFreeVar (NamedPipe _  d)   = Just d
+getFreeVar (Socket _  d)      = Just d
+getFreeVar _                  = Nothing
 
 
 ---- FAILURE HELPERS: ----
@@ -703,14 +709,19 @@ getFreeVar _                = Nothing
 
 -- handles an IO exception by returning a Failed constructor filled with that
 -- exception:
-handleDT :: FileName -> IO (File a) -> IO (File a)
+handleDT :: Path Fn -> IO (File a) -> IO (File a)
 handleDT n = handle (return . Failed n)
 
 
 -- handles an IO exception by returning a Failed constructor filled with that
 -- exception:
-handleDT' :: FilePath -> FileName -> IO (AnchoredFile a) -> IO (AnchoredFile a)
-handleDT' bp n = handle (\e -> return $ bp :/ Failed n e)
+-- TODO: only handle IO exceptions
+handleDT' :: Path Abs
+          -> Path Fn
+          -> IO (AnchoredFile a)
+          -> IO (AnchoredFile a)
+handleDT' bp n
+  = handle (\e -> return $ bp :/ Failed n e)
 
 
 -- DoesNotExist errors not present at the topmost level could happen if a
@@ -729,25 +740,12 @@ removeNonexistent = filter isOkConstructor
 ---- SYMLINK HELPERS: ----
 
 
--- |Follows a chain of symlinks until it finds a non-symlink. Note that
--- this can be caught in an infinite loop if the symlinks haven't been
--- constructed properly. This module however ensures that this cannot
--- happen.
-followSymlink :: File FileInfo -> File FileInfo
-followSymlink (SymLink _ _ (_ :/ b@(SymLink {}))) = followSymlink b
-followSymlink af                                  = af
-
-
 -- |Checks if a symlink is broken by examining the constructor of the
 -- symlink destination. This also follows the symlink chain.
 --
 -- When called on a non-symlink, returns False.
 isBrokenSymlink :: File FileInfo -> Bool
-isBrokenSymlink af@(SymLink _ _ (_ :/ Failed {})) = True
-isBrokenSymlink af@(SymLink {})
-  = case followSymlink af of
-      (Failed {}) -> True
-      _           -> False
+isBrokenSymlink af@(SymLink _ _ (_ :/ Failed {}) _) = True
 isBrokenSymlink _ = False
 
 
@@ -755,8 +753,8 @@ isBrokenSymlink _ = False
 
 
 
-fullPath :: AnchoredFile a -> FilePath
-fullPath (bp :/ f) = bp </> name f
+fullPath :: AnchoredFile a -> Path Abs
+fullPath (bp :/ f) = bp P.</> name f
 
 
 -- |Apply a function on the free variable. If there is no free variable

@@ -50,6 +50,12 @@ import Foreign.C.Error
   (
     eXDEV
   )
+import HPath
+    (
+      Path
+    , Fn
+    )
+import qualified HPath as P
 import IO.Error
 import IO.Utils
 import System.FilePath
@@ -172,15 +178,17 @@ copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
              to@(_ :/ Dir {})
   = do
     let fromp    = fullPath from
+        fromp'   = P.toFilePath fromp
         top      = fullPath to
-        destdirp = top </> fromn
-    throwDestinationInSource fromp destdirp
-    throwSameFile fromp destdirp
+        destdirp = top P.</> fromn
+        destdirp' = P.toFilePath destdirp
+    throwDestinationInSource fromp' destdirp'
+    throwSameFile fromp' destdirp'
 
     createDestdir destdirp fmode
-    destdir <- Data.DirTree.readFile destdirp
+    destdir <- Data.DirTree.readFileWithFileInfo destdirp
 
-    contents <- readDirectory' (fullPath from)
+    contents <- readDirectoryContents' (fullPath from)
 
     for_ contents $ \f ->
       case f of
@@ -190,17 +198,19 @@ copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
         _                  -> return ()
   where
     createDestdir destdir fmode =
-      case cm of
+      let destdir' = P.toFilePath destdir
+      in case cm of
         Merge   ->
-          unlessM (doesDirectoryExist destdir)
-                  (createDirectory destdir fmode)
+          unlessM (doesDirectoryExist destdir')
+                  (createDirectory destdir' fmode)
         Strict  -> do
-          throwDirDoesExist destdir
-          createDirectory destdir fmode
+          throwDirDoesExist destdir'
+          createDirectory destdir' fmode
         Replace -> do
-          whenM (doesDirectoryExist destdir)
-                (deleteDirRecursive =<< Data.DirTree.readFile destdir)
-          createDirectory destdir fmode
+          whenM (doesDirectoryExist destdir')
+                (deleteDirRecursive =<< Data.DirTree.readFileWithFileInfo
+                                          destdir)
+          createDirectory destdir' fmode
 copyDir _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -215,16 +225,16 @@ recreateSymlink _ _ AFileInvFN = throw InvalidFileName
 recreateSymlink cm    symf@(_ :/ SymLink {})
                    symdest@(_ :/ Dir {})
   = do
-    sympoint <- readSymbolicLink (fullPath symf)
-    let symname = fullPath symdest </> (name . file $ symf)
+    sympoint <- readSymbolicLink (P.fromAbs . fullPath $ symf)
+    let symname = fullPath symdest P.</> (name . file $ symf)
     case cm of
       Merge   -> delOld symname
       Replace -> delOld symname
       _       -> return ()
-    createSymbolicLink sympoint symname
+    createSymbolicLink sympoint (P.fromAbs symname)
   where
     delOld symname = do
-      f <- Data.DirTree.readFile symname
+      f <- Data.DirTree.readFileWithFileInfo symname
       unless (failed . file $ f)
              (easyDelete f)
 recreateSymlink _ _ _ = throw $ InvalidOperation "wrong input type"
@@ -253,8 +263,8 @@ overwriteFile _ AFileInvFN = throw InvalidFileName
 overwriteFile from@(_ :/ RegFile {})
                 to@(_ :/ RegFile {})
   = do
-    let from' = fullPath from
-        to'   = fullPath to
+    let from' = P.fromAbs . fullPath $ from
+        to'   = P.fromAbs . fullPath $ to
     throwSameFile from' to'
     copyFile' from' to'
 overwriteFile _ _ = throw $ InvalidOperation "wrong input type"
@@ -271,8 +281,8 @@ copyFileToDir _ _ AFileInvFN = throw InvalidFileName
 copyFileToDir cm from@(_ :/ RegFile fn _)
                    to@(_ :/ Dir {})
   = do
-    let from' = fullPath from
-        to'   = fullPath to </> fn
+    let from' = P.fromAbs . fullPath $ from
+        to'   = P.fromAbs (fullPath to P.</> fn)
     case cm of
       Strict -> throwFileDoesExist to'
       _      -> return ()
@@ -310,7 +320,7 @@ easyCopy _ _ _ = throw $ InvalidOperation "wrong input type"
 deleteSymlink :: AnchoredFile FileInfo -> IO ()
 deleteSymlink AFileInvFN = throw InvalidFileName
 deleteSymlink f@(_ :/ SymLink {})
-  = removeLink (fullPath f)
+  = removeLink (P.toFilePath . fullPath $ f)
 deleteSymlink _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -318,7 +328,7 @@ deleteSymlink _ = throw $ InvalidOperation "wrong input type"
 deleteFile :: AnchoredFile FileInfo -> IO ()
 deleteFile AFileInvFN = throw InvalidFileName
 deleteFile f@(_ :/ RegFile {})
-  = removeLink (fullPath f)
+  = removeLink (P.toFilePath . fullPath $ f)
 deleteFile _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -326,23 +336,25 @@ deleteFile _ = throw $ InvalidOperation "wrong input type"
 deleteDir :: AnchoredFile FileInfo -> IO ()
 deleteDir AFileInvFN = throw InvalidFileName
 deleteDir f@(_ :/ Dir {})
-  = removeDirectory (fullPath f)
+  = removeDirectory (P.toFilePath . fullPath $ f)
 deleteDir _ = throw $ InvalidOperation "wrong input type"
 
 
+-- TODO: check if we have permissions at all to remove the directory,
+--       before we go recursively messing with it
 -- |Deletes the given directory recursively.
 deleteDirRecursive :: AnchoredFile FileInfo -> IO ()
 deleteDirRecursive AFileInvFN = throw InvalidFileName
 deleteDirRecursive f@(_ :/ Dir {}) = do
   let fp = fullPath f
-  files <- readDirectory' fp
+  files <- readDirectoryContents' fp
   for_ files $ \file ->
     case file of
       (_ :/ SymLink {}) -> deleteSymlink file
       (_ :/ Dir {})     -> deleteDirRecursive file
-      (_ :/ RegFile {}) -> removeLink (fullPath file)
-      _                 -> throw $ FileDoesExist (fullPath file)
-  removeDirectory fp
+      (_ :/ RegFile {}) -> removeLink (P.toFilePath . fullPath $ file)
+      _                 -> throw $ FileDoesExist (P.toFilePath . fullPath $ file)
+  removeDirectory . P.toFilePath $ fp
 deleteDirRecursive _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -369,7 +381,7 @@ easyDelete _ = throw $ InvalidOperation "wrong input type"
 openFile :: AnchoredFile a
          -> IO ProcessHandle
 openFile AFileInvFN = throw InvalidFileName
-openFile f = spawnProcess "xdg-open" [fullPath f]
+openFile f = spawnProcess "xdg-open" [P.fromAbs . fullPath $ f]
 
 
 -- |Executes a program with the given arguments.
@@ -378,7 +390,7 @@ executeFile :: AnchoredFile FileInfo  -- ^ program
             -> IO ProcessHandle
 executeFile AFileInvFN _ = throw InvalidFileName
 executeFile prog@(_ :/ RegFile {}) args
-  = spawnProcess (fullPath prog) args
+  = spawnProcess (P.fromAbs . fullPath $ prog) args
 executeFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -389,22 +401,22 @@ executeFile _ _ = throw $ InvalidOperation "wrong input type"
     ---------------------
 
 
-createFile :: AnchoredFile FileInfo -> FileName -> IO ()
+createFile :: AnchoredFile FileInfo -> Path Fn -> IO ()
 createFile AFileInvFN _ = throw InvalidFileName
 createFile _ InvFN      = throw InvalidFileName
 createFile (ADirOrSym td) (ValFN fn) = do
-  let fullp = fullPath td </> fn
+  let fullp = P.fromAbs (fullPath td P.</> fn)
   throwFileDoesExist fullp
   fd <- System.Posix.IO.createFile fullp newFilePerms
   closeFd fd
 createFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
-createDir :: AnchoredFile FileInfo -> FileName -> IO ()
+createDir :: AnchoredFile FileInfo -> Path Fn -> IO ()
 createDir AFileInvFN _ = throw InvalidFileName
 createDir _ InvFN      = throw InvalidFileName
 createDir (ADirOrSym td) (ValFN fn) = do
-  let fullp = fullPath td </> fn
+  let fullp = P.fromAbs (fullPath td P.</> fn)
   throwDirDoesExist fullp
   createDirectory fullp newFilePerms
 createDir _ _ = throw $ InvalidOperation "wrong input type"
@@ -417,12 +429,12 @@ createDir _ _ = throw $ InvalidOperation "wrong input type"
     ----------------------------
 
 
-renameFile :: AnchoredFile FileInfo -> FileName -> IO ()
+renameFile :: AnchoredFile FileInfo -> Path Fn -> IO ()
 renameFile AFileInvFN _ = throw InvalidFileName
 renameFile _ InvFN      = throw InvalidFileName
 renameFile af (ValFN fn) = do
-  let fromf = fullPath af
-      tof   = anchor af </> fn
+  let fromf = P.fromAbs . fullPath $ af
+      tof   = P.fromAbs (anchor af P.</> fn)
   throwFileDoesExist tof
   throwSameFile fromf tof
   rename fromf tof
@@ -437,19 +449,21 @@ moveFile :: CopyMode
 moveFile _ AFileInvFN _ = throw InvalidFileName
 moveFile _ _ AFileInvFN = throw InvalidFileName
 moveFile cm from to@(_ :/ Dir {}) = do
-  let from' = fullPath from
-      to'   = fullPath to </> (name . file $ from)
+  let from'  = fullPath from
+      froms' = P.fromAbs . fullPath $ from
+      to'    = fullPath to P.</> (name . file $ from)
+      tos'   = P.fromAbs (fullPath to P.</> (name . file $ from))
   case cm of
-    Strict  -> throwFileDoesExist to'
+    Strict  -> throwFileDoesExist tos'
     Merge   -> delOld to'
     Replace -> delOld to'
-  throwSameFile from' to'
-  catchErrno eXDEV (rename from' to') $ do
+  throwSameFile froms' tos'
+  catchErrno eXDEV (rename froms' tos') $ do
     easyCopy Strict from to
     easyDelete from
   where
     delOld to = do
-      to' <- Data.DirTree.readFile to
+      to' <- Data.DirTree.readFileWithFileInfo to
       unless (failed . file $ to') (easyDelete to')
 moveFile _ _ _ = throw $ InvalidOperation "wrong input type"
 

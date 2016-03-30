@@ -44,11 +44,15 @@ import Data.Foldable
 import Data.Maybe
   (
     catMaybes
+  , fromJust
+  , fromMaybe
   )
 import Graphics.UI.Gtk
 import {-# SOURCE #-} GUI.Gtk.Callbacks (setCallbacks)
 import GUI.Gtk.Data
+import GUI.Gtk.Icons
 import GUI.Gtk.Utils
+import qualified HPath as P
 import IO.File
 import IO.Utils
 import System.FilePath
@@ -127,6 +131,8 @@ createIconView = do
   iconViewSetColumns iconv (-1)
   iconViewSetSpacing iconv 2
   iconViewSetMargin iconv 0
+  {- set iconv [ iconViewItemOrientation := OrientationHorizontal ] -}
+  {- set iconv [ iconViewOrientation := OrientationHorizontal ] -}
 
   return $ FMIconView iconv
 
@@ -189,10 +195,9 @@ refreshView :: MyGUI
 refreshView mygui myview mfp =
   case mfp of
     Just fp  -> do
-      cdir <- (\x -> if (failed . file $ x) || (not . isAbsolute . anchor $ x)
-                       then Data.DirTree.readFile "/"
-                       else return x) =<< Data.DirTree.readFile fp
-      refreshView' mygui myview  cdir
+      let mdir = fromMaybe (fromJust $ P.parseAbs "/") (P.parseAbs fp)
+      cdir <- Data.DirTree.readFileWithFileInfo mdir
+      refreshView' mygui myview cdir
     Nothing  -> refreshView' mygui myview =<< getCurrentDir myview
 
 
@@ -233,12 +238,30 @@ constructView :: MyGUI
               -> MyView
               -> IO ()
 constructView mygui myview = do
+  settings' <- readTVarIO $ settings mygui
+
+  -- pix stuff
+  iT           <- iconThemeGetDefault
+  folderPix    <- getIcon IFolder iT (iconSize settings')
+  folderSymPix <- getSymlinkIcon IFolder iT (iconSize settings')
+  filePix      <- getIcon IFile iT (iconSize settings')
+  fileSymPix   <- getSymlinkIcon IFile iT (iconSize settings')
+  errorPix     <- getIcon IError iT (iconSize settings')
+  let dirtreePix (Dir {})          = folderPix
+      dirtreePix (FileLike {})     = filePix
+      dirtreePix (DirSym _)        = folderSymPix
+      dirtreePix (FileLikeSym {})  = fileSymPix
+      dirtreePix (Failed {})       = errorPix
+      dirtreePix (BrokenSymlink _) = errorPix
+      dirtreePix _                 = errorPix
+
+
   view' <- readTVarIO $ view myview
 
   cdirp <- anchor <$> getFirstItem myview
 
   -- update urlBar
-  entrySetText (urlBar mygui) cdirp
+  entrySetText (urlBar mygui) (P.fromAbs cdirp)
 
   rawModel' <- readTVarIO $ rawModel myview
 
@@ -267,7 +290,7 @@ constructView mygui myview = do
   treeModelSetColumn rawModel' (makeColumnIdPixbuf 0)
                      (dirtreePix . file)
   treeModelSetColumn rawModel' (makeColumnIdString 1)
-                     (name . file)
+                     (P.fromRel . name . file)
   treeModelSetColumn rawModel' (makeColumnIdString 2)
                      (packModTime . file)
   treeModelSetColumn rawModel' (makeColumnIdString 3)
@@ -292,16 +315,8 @@ constructView mygui myview = do
   w <- addWatch
          newi
          [Move, MoveIn, MoveOut, MoveSelf, Create, Delete, DeleteSelf]
-         cdirp
-         (\_ -> postGUIAsync $ refreshView mygui myview (Just cdirp))
+         (P.fromAbs cdirp)
+         (\_ -> postGUIAsync $ refreshView mygui myview (Just $ P.fromAbs cdirp))
   putMVar (inotify myview) newi
 
   return ()
-  where
-    dirtreePix (Dir {})          = folderPix mygui
-    dirtreePix (FileLike {})     = filePix mygui
-    dirtreePix (DirSym _)        = folderSymPix mygui
-    dirtreePix (FileLikeSym {})  = fileSymPix mygui
-    dirtreePix (Failed {})       = errorPix mygui
-    dirtreePix (BrokenSymlink _) = errorPix mygui
-    dirtreePix _                 = errorPix mygui
