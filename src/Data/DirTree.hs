@@ -95,6 +95,7 @@ import HPath
     , pattern Path
     )
 import qualified HPath as P
+import MyPrelude
 import Safe
   (
     atDef
@@ -763,9 +764,6 @@ fromFreeVar :: (Default d) => (a -> d) -> File a -> d
 fromFreeVar f df = maybeD f $ getFreeVar df
 
 
--- |A `maybe` flavor using the `Default` class.
-maybeD :: (Default b) => (a -> b) -> Maybe a -> b
-maybeD = maybe def
 
 
 -- |Pack the modification time into a string.
