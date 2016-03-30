@@ -6,7 +6,7 @@ license:             GPL-2
 license-file:        LICENSE
 author:              Julian Ospald
 maintainer:          hasufell@hasufell.de
-copyright:           Copyright: (c) 2015 Julian Ospald
+copyright:           Copyright: (c) 2016 Julian Ospald
 homepage:            https://github.com/hasufell/hsfm
 category:            Desktop
 build-type:          Simple
