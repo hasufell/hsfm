@@ -18,7 +18,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
-module GUI.Gtk.MyView where
+module HSFM.GUI.Gtk.MyView where
 
 
 import Control.Applicative
@@ -36,7 +36,6 @@ import Control.Concurrent.STM
     newTVarIO
   , readTVarIO
   )
-import Data.DirTree
 import Data.Foldable
   (
     for_
@@ -48,13 +47,14 @@ import Data.Maybe
   , fromMaybe
   )
 import Graphics.UI.Gtk
-import {-# SOURCE #-} GUI.Gtk.Callbacks (setCallbacks)
-import GUI.Gtk.Data
-import GUI.Gtk.Icons
-import GUI.Gtk.Utils
+import {-# SOURCE #-} HSFM.GUI.Gtk.Callbacks (setCallbacks)
 import qualified HPath as P
-import IO.File
-import IO.Utils
+import HSFM.FileSystem.FileOperations
+import HSFM.FileSystem.FileType
+import HSFM.GUI.Gtk.Data
+import HSFM.GUI.Gtk.Icons
+import HSFM.GUI.Gtk.Utils
+import HSFM.Utils.IO
 import System.FilePath
   (
     isAbsolute
@@ -196,7 +196,7 @@ refreshView mygui myview mfp =
   case mfp of
     Just fp  -> do
       let mdir = fromMaybe (fromJust $ P.parseAbs "/") (P.parseAbs fp)
-      cdir <- Data.DirTree.readFileWithFileInfo mdir
+      cdir <- HSFM.FileSystem.FileType.readFileWithFileInfo mdir
       refreshView' mygui myview cdir
     Nothing  -> refreshView' mygui myview =<< getCurrentDir myview
 

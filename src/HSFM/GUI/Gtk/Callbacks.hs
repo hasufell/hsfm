@@ -18,7 +18,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
-module GUI.Gtk.Callbacks where
+module HSFM.GUI.Gtk.Callbacks where
 
 
 import Control.Applicative
@@ -43,20 +43,20 @@ import Control.Monad.IO.Class
   (
     liftIO
   )
-import Data.DirTree
 import Data.Foldable
   (
     for_
   )
 import Graphics.UI.Gtk
-import GUI.Gtk.Data
-import GUI.Gtk.Dialogs
-import GUI.Gtk.MyView
-import GUI.Gtk.Utils
 import qualified HPath as P
-import IO.Error
-import IO.File
-import IO.Utils
+import HSFM.FileSystem.Errors
+import HSFM.FileSystem.FileOperations
+import HSFM.FileSystem.FileType
+import HSFM.GUI.Gtk.Data
+import HSFM.GUI.Gtk.Dialogs
+import HSFM.GUI.Gtk.MyView
+import HSFM.GUI.Gtk.Utils
+import HSFM.Utils.IO
 import System.FilePath
   (
     isAbsolute
@@ -217,7 +217,7 @@ open :: [Item] -> MyGUI -> MyView -> IO ()
 open [item] mygui myview = withErrorDialog $
   case item of
     ADirOrSym r -> do
-      nv <- Data.DirTree.readFileWithFileInfo $ fullPath r
+      nv <- HSFM.FileSystem.FileType.readFileWithFileInfo $ fullPath r
       refreshView' mygui myview nv
     r ->
       void $ openFile r
@@ -325,7 +325,8 @@ renameF [item] mygui myview = withErrorDialog $ do
   for_ pmfn $ \fn -> do
     let cmsg = "Really rename \"" ++ P.fromAbs (fullPath item)
                ++ "\"" ++ " to \"" ++ P.fromAbs (anchor item P.</> fn) ++ "\"?"
-    withConfirmationDialog cmsg $ IO.File.renameFile item fn
+    withConfirmationDialog cmsg $
+      HSFM.FileSystem.FileOperations.renameFile item fn
 renameF _ _ _ = withErrorDialog
                   . throw $ InvalidOperation
                             "Operation not supported on multiple files"

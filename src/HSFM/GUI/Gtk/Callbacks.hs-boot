@@ -16,39 +16,10 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
-{-# OPTIONS_HADDOCK ignore-exports #-}
 
-module Main where
+module HSFM.GUI.Gtk.Callbacks where
 
-
-import Graphics.UI.Gtk
-import GUI.Gtk.Data
-import GUI.Gtk.MyGUI
-import GUI.Gtk.MyView
-import Safe
-  (
-    headDef
-  )
-import System.Environment
-  (
-    getArgs
-  )
+import HSFM.GUI.Gtk.Data
 
 
-main :: IO ()
-main = do
-  _ <- initGUI
-
-  args <- getArgs
-
-  mygui <- createMyGUI
-
-  myview <- createMyView mygui createTreeView
-
-  refreshView mygui myview (Just $ headDef "/" args)
-
-  widgetShowAll (rootWin mygui)
-
-  _ <- mainGUI
-  return ()
-
+setCallbacks :: MyGUI -> MyView -> IO ()

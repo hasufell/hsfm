@@ -18,7 +18,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
-module GUI.Gtk.Dialogs where
+module HSFM.GUI.Gtk.Dialogs where
 
 
 import Control.Applicative
@@ -60,9 +60,9 @@ import Distribution.Verbosity
     silent
   )
 import Graphics.UI.Gtk
-import GUI.Gtk.Data
-import IO.Error
-import IO.File
+import HSFM.FileSystem.Errors
+import HSFM.FileSystem.FileOperations
+import HSFM.GUI.Gtk.Data
 import Paths_hsfm
   (
     getDataFileName

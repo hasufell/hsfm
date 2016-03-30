@@ -23,7 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --
 -- It doesn't allow to represent the whole filesystem, since that's only
 -- possible through IO laziness, which introduces too much internal state.
-module Data.DirTree where
+module HSFM.FileSystem.FileType where
 
 
 import Control.Applicative
@@ -95,7 +95,7 @@ import HPath
     , pattern Path
     )
 import qualified HPath as P
-import MyPrelude
+import HSFM.Utils.MyPrelude
 import Safe
   (
     atDef
@@ -488,7 +488,7 @@ readFile :: (Path Abs -> IO a) -> Path Abs -> IO (AnchoredFile a)
 readFile ff fp = readWith ff fp
 
 readFileWithFileInfo :: Path Abs -> IO (AnchoredFile FileInfo)
-readFileWithFileInfo = Data.DirTree.readFile getFileInfo
+readFileWithFileInfo = HSFM.FileSystem.FileType.readFile getFileInfo
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
 -- the free variables via `getFileInfo`. This includes the "." and ".."
@@ -512,7 +512,7 @@ readDirectoryContentsWith :: (Path Abs -> IO [Path Fn])
                           -> IO [AnchoredFile a]
 readDirectoryContentsWith getfiles ff p = do
   files <- getfiles p
-  fcs <- mapM (\x -> Data.DirTree.readFile ff $ p P.</> x) files
+  fcs <- mapM (\x -> HSFM.FileSystem.FileType.readFile ff $ p P.</> x) files
   return $ removeNonexistent fcs
 
 
@@ -622,12 +622,12 @@ isSocketC _            = False
 -- |Go up one directory in the filesystem hierarchy.
 goUp :: AnchoredFile FileInfo -> IO (AnchoredFile FileInfo)
 goUp af@(Path "" :/ _) = return af
-goUp    (bp :/ _)      = Data.DirTree.readFile getFileInfo bp
+goUp    (bp :/ _)      = HSFM.FileSystem.FileType.readFile getFileInfo bp
 
 
 -- |Go up one directory in the filesystem hierarchy.
 goUp' :: Path Abs -> IO (AnchoredFile FileInfo)
-goUp' fp = Data.DirTree.readFile getFileInfo $ P.dirname fp
+goUp' fp = HSFM.FileSystem.FileType.readFile getFileInfo $ P.dirname fp
 
 
 -- |Get the contents of a directory.

@@ -19,7 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 -- |Module for Gtk icon handling.
-module GUI.Gtk.Icons where
+module HSFM.GUI.Gtk.Icons where
 
 
 import Data.Maybe

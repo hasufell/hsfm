@@ -16,10 +16,40 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
+{-# OPTIONS_HADDOCK ignore-exports #-}
 
-module GUI.Gtk.Callbacks where
+-- |Random and general IO utilities.
+module HSFM.Utils.IO where
 
-import GUI.Gtk.Data
+
+import Control.Concurrent.STM
+  (
+    atomically
+  )
+import Control.Concurrent.STM.TVar
+  (
+    writeTVar
+  , modifyTVar
+  , TVar
+  )
+import Control.Monad
+  (
+    when
+  , unless
+  )
 
 
-setCallbacks :: MyGUI -> MyView -> IO ()
+writeTVarIO :: TVar a -> a -> IO ()
+writeTVarIO tvar val = atomically $ writeTVar tvar val
+
+
+modifyTVarIO :: TVar a -> (a -> a) -> IO ()
+modifyTVarIO tvar f = atomically $ modifyTVar tvar f
+
+
+whenM :: Monad m => m Bool -> m () -> m ()
+whenM mb a = mb >>= (`when` a)
+
+
+unlessM :: Monad m => m Bool -> m () -> m ()
+unlessM mb a = mb >>= (`unless` a)

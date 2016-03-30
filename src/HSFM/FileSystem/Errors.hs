@@ -20,7 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 {-# LANGUAGE DeriveDataTypeable #-}
 
 -- |Provides error handling.
-module IO.Error where
+module HSFM.FileSystem.Errors where
 
 
 import Control.Applicative
@@ -44,7 +44,7 @@ import Foreign.C.Error
     getErrno
   , Errno
   )
-import IO.Utils
+import HSFM.Utils.IO
 import System.FilePath
   (
     equalFilePath

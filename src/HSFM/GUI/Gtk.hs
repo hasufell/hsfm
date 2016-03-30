@@ -18,38 +18,37 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
--- |Random and general IO utilities.
-module IO.Utils where
+module Main where
 
 
-import Control.Concurrent.STM
+import Graphics.UI.Gtk
+import HSFM.GUI.Gtk.Data
+import HSFM.GUI.Gtk.MyGUI
+import HSFM.GUI.Gtk.MyView
+import Safe
   (
-    atomically
+    headDef
   )
-import Control.Concurrent.STM.TVar
+import System.Environment
   (
-    writeTVar
-  , modifyTVar
-  , TVar
-  )
-import Control.Monad
-  (
-    when
-  , unless
+    getArgs
   )
 
 
-writeTVarIO :: TVar a -> a -> IO ()
-writeTVarIO tvar val = atomically $ writeTVar tvar val
+main :: IO ()
+main = do
+  _ <- initGUI
 
+  args <- getArgs
 
-modifyTVarIO :: TVar a -> (a -> a) -> IO ()
-modifyTVarIO tvar f = atomically $ modifyTVar tvar f
+  mygui <- createMyGUI
 
+  myview <- createMyView mygui createTreeView
 
-whenM :: Monad m => m Bool -> m () -> m ()
-whenM mb a = mb >>= (`when` a)
+  refreshView mygui myview (Just $ headDef "/" args)
 
+  widgetShowAll (rootWin mygui)
 
-unlessM :: Monad m => m Bool -> m () -> m ()
-unlessM mb a = mb >>= (`unless` a)
+  _ <- mainGUI
+  return ()
+

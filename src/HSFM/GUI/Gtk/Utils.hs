@@ -18,7 +18,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
-module GUI.Gtk.Utils where
+module HSFM.GUI.Gtk.Utils where
 
 
 import Control.Applicative
@@ -29,7 +29,6 @@ import Control.Concurrent.STM
   (
     readTVarIO
   )
-import Data.DirTree
 import Data.Maybe
   (
     catMaybes
@@ -40,8 +39,8 @@ import Data.Traversable
     forM
   )
 import Graphics.UI.Gtk
-import GUI.Gtk.Data
-
+import HSFM.FileSystem.FileType
+import HSFM.GUI.Gtk.Data
 
 
 
@@ -109,7 +108,7 @@ fileListStore :: AnchoredFile FileInfo  -- ^ current dir
               -> MyView
               -> IO (ListStore Item)
 fileListStore dt myview = do
-  cs <- Data.DirTree.getContents dt
+  cs <- HSFM.FileSystem.FileType.getContents dt
   listStoreNew cs
 
 

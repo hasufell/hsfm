@@ -26,7 +26,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 -- It would be nicer to pass states around, but the filesystem state changes
 -- too quickly and cannot be relied upon. Lazy implementations of filesystem
 -- trees have been tried as well, but they can introduce subtle bugs.
-module IO.File where
+module HSFM.FileSystem.FileOperations where
 
 
 import Control.Applicative
@@ -41,7 +41,6 @@ import Control.Monad
   (
     unless
   )
-import Data.DirTree
 import Data.Foldable
   (
     for_
@@ -56,8 +55,10 @@ import HPath
     , Fn
     )
 import qualified HPath as P
-import IO.Error
-import IO.Utils
+import HSFM.FileSystem.Errors
+import HSFM.FileSystem.FileType
+import HSFM.Utils.IO
+import HSFM.Utils.MyPrelude
 import System.FilePath
   (
     (</>)
@@ -186,7 +187,7 @@ copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
     throwSameFile fromp' destdirp'
 
     createDestdir destdirp fmode
-    destdir <- Data.DirTree.readFileWithFileInfo destdirp
+    destdir <- HSFM.FileSystem.FileType.readFileWithFileInfo destdirp
 
     contents <- readDirectoryContents' (fullPath from)
 
@@ -208,8 +209,8 @@ copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
           createDirectory destdir' fmode
         Replace -> do
           whenM (doesDirectoryExist destdir')
-                (deleteDirRecursive =<< Data.DirTree.readFileWithFileInfo
-                                          destdir)
+                (deleteDirRecursive =<<
+                   HSFM.FileSystem.FileType.readFileWithFileInfo destdir)
           createDirectory destdir' fmode
 copyDir _ _ _ = throw $ InvalidOperation "wrong input type"
 
@@ -234,7 +235,7 @@ recreateSymlink cm    symf@(_ :/ SymLink {})
     createSymbolicLink sympoint (P.fromAbs symname)
   where
     delOld symname = do
-      f <- Data.DirTree.readFileWithFileInfo symname
+      f <- HSFM.FileSystem.FileType.readFileWithFileInfo symname
       unless (failed . file $ f)
              (easyDelete f)
 recreateSymlink _ _ _ = throw $ InvalidOperation "wrong input type"
@@ -463,7 +464,7 @@ moveFile cm from to@(_ :/ Dir {}) = do
     easyDelete from
   where
     delOld to = do
-      to' <- Data.DirTree.readFileWithFileInfo to
+      to' <- HSFM.FileSystem.FileType.readFileWithFileInfo to
       unless (failed . file $ to') (easyDelete to')
 moveFile _ _ _ = throw $ InvalidOperation "wrong input type"
 
