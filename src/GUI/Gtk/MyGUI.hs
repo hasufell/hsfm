@@ -27,7 +27,6 @@ import Control.Concurrent.STM
   )
 import Graphics.UI.Gtk
 import GUI.Gtk.Data
-import GUI.Gtk.Icons
 import Paths_hsfm
   (
     getDataFileName
@@ -45,15 +44,8 @@ import Paths_hsfm
 createMyGUI :: IO MyGUI
 createMyGUI = do
 
-  settings <- newTVarIO (MkFMSettings False True)
-
-  -- get the icons
-  iT           <- iconThemeGetDefault
-  folderPix    <- getIcon IFolder iT 24
-  folderSymPix <- getSymlinkIcon IFolder iT 24
-  filePix      <- getIcon IFile iT 24
-  fileSymPix   <- getSymlinkIcon IFile iT 24
-  errorPix     <- getIcon IError iT 24
+  let settings' = MkFMSettings False True 24
+  settings <- newTVarIO settings'
 
   builder <- builderNew
   builderAddFromFile builder =<< getDataFileName "data/Gtk/builder.xml"

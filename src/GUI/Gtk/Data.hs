@@ -77,11 +77,6 @@ data MyGUI = MkMyGUI {
   , statusBar :: Statusbar
   , clearStatusBar :: Button
   , settings :: TVar FMSettings
-  , folderPix :: Pixbuf
-  , folderSymPix :: Pixbuf
-  , filePix :: Pixbuf
-  , fileSymPix :: Pixbuf
-  , errorPix :: Pixbuf
   , scroll :: ScrolledWindow
 }
 
@@ -90,6 +85,7 @@ data MyGUI = MkMyGUI {
 data FMSettings = MkFMSettings {
     showHidden :: Bool
   , isLazy :: Bool
+  , iconSize :: Int
 }
 
 data FMView = FMTreeView TreeView

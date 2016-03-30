@@ -22,6 +22,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module GUI.Gtk.Icons where
 
 
+import Data.Maybe
+  (
+    fromJust
+  )
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Gdk.Pixbuf
 import Paths_hsfm
@@ -45,10 +49,12 @@ getIcon :: GtkIcon    -- ^ icon we want
         -> IO Pixbuf
 getIcon icon itheme isize = do
   let iname = iconToStr icon
-  mpix <- iconThemeLoadIcon itheme iname isize IconLookupUseBuiltin
-  case mpix of
-    Just pix -> return pix
-    Nothing  -> pixbufNewFromFile =<< getDataFileName ("data/Gtk/icons/" ++ iname)
+  hasicon <- iconThemeHasIcon itheme iname
+  case hasicon of
+    True -> fromJust <$> iconThemeLoadIcon itheme iname isize
+                                           IconLookupUseBuiltin
+    False -> pixbufNewFromFile =<< getDataFileName
+                                    ("data/Gtk/icons/" ++ iname ++ ".png")
   where
     iconToStr IFolder = "gtk-directory"
     iconToStr IFile   = "gtk-file"
