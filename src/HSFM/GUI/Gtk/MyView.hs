@@ -36,6 +36,15 @@ import Control.Concurrent.STM
     newTVarIO
   , readTVarIO
   )
+import Control.Exception
+  (
+    try
+  , SomeException
+  )
+import Control.Monad
+  (
+    when
+  )
 import Data.Foldable
   (
     for_
@@ -66,6 +75,10 @@ import System.INotify
   , killINotify
   , EventVariety(..)
   , Event(..)
+  )
+import System.IO.Error
+  (
+    tryIOError
   )
 
 
@@ -196,9 +209,24 @@ refreshView mygui myview mfp =
   case mfp of
     Just fp  -> do
       let mdir = fromMaybe (fromJust $ P.parseAbs "/") (P.parseAbs fp)
-      cdir <- HSFM.FileSystem.FileType.readFileWithFileInfo mdir
-      refreshView' mygui myview cdir
-    Nothing  -> refreshView' mygui myview =<< getCurrentDir myview
+      -- readFileWithFileInfo can just outright fail...
+      ecdir <- tryIOError (HSFM.FileSystem.FileType.readFileWithFileInfo mdir)
+      case ecdir of
+        Right cdir -> do
+          -- ...or return an `AnchordFile` with a Failed constructor,
+          -- both of which need to be handled here
+          if (failed . file $ cdir)
+            then refreshView mygui myview =<< getAlternativeDir
+            else refreshView' mygui myview cdir
+        Left e -> refreshView mygui myview =<< getAlternativeDir
+    Nothing  -> refreshView mygui myview =<< getAlternativeDir
+    where
+      getAlternativeDir = do
+        ecd <- try (getCurrentDir myview) :: IO (Either SomeException
+                                                        (AnchoredFile FileInfo))
+        case (ecd) of
+          Right dir -> return (Just $ fullPathS dir)
+          Left _    -> return (Just "/")
 
 
 -- |Refreshes the View based on the given directory.
