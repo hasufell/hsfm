@@ -179,12 +179,10 @@ copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
              to@(_ :/ Dir {})
   = do
     let fromp    = fullPath from
-        fromp'   = P.toFilePath fromp
         top      = fullPath to
         destdirp = top P.</> fromn
-        destdirp' = P.toFilePath destdirp
-    throwDestinationInSource fromp' destdirp'
-    throwSameFile fromp' destdirp'
+    throwDestinationInSource fromp destdirp
+    throwSameFile fromp destdirp
 
     createDestdir destdirp fmode
     destdir <- HSFM.FileSystem.FileType.readFileWithFileInfo destdirp
@@ -202,13 +200,13 @@ copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
       let destdir' = P.toFilePath destdir
       in case cm of
         Merge   ->
-          unlessM (doesDirectoryExist destdir')
+          unlessM (doesDirectoryExist destdir)
                   (createDirectory destdir' fmode)
         Strict  -> do
-          throwDirDoesExist destdir'
+          throwDirDoesExist destdir
           createDirectory destdir' fmode
         Replace -> do
-          whenM (doesDirectoryExist destdir')
+          whenM (doesDirectoryExist destdir)
                 (deleteDirRecursive =<<
                    HSFM.FileSystem.FileType.readFileWithFileInfo destdir)
           createDirectory destdir' fmode
@@ -264,10 +262,10 @@ overwriteFile _ AFileInvFN = throw InvalidFileName
 overwriteFile from@(_ :/ RegFile {})
                 to@(_ :/ RegFile {})
   = do
-    let from' = fullPathS from
-        to'   = fullPathS to
+    let from' = fullPath from
+        to'   = fullPath to
     throwSameFile from' to'
-    copyFile' from' to'
+    copyFile' (P.fromAbs from') (P.fromAbs to')
 overwriteFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -282,12 +280,12 @@ copyFileToDir _ _ AFileInvFN = throw InvalidFileName
 copyFileToDir cm from@(_ :/ RegFile fn _)
                    to@(_ :/ Dir {})
   = do
-    let from' = fullPathS from
-        to'   = P.fromAbs (fullPath to P.</> fn)
+    let from' = fullPath from
+        to'   = fullPath to P.</> fn
     case cm of
       Strict -> throwFileDoesExist to'
       _      -> return ()
-    copyFile' from' to'
+    copyFile' (P.fromAbs from') (P.fromAbs to')
 copyFileToDir _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -406,9 +404,9 @@ createFile :: AnchoredFile FileInfo -> Path Fn -> IO ()
 createFile AFileInvFN _ = throw InvalidFileName
 createFile _ InvFN      = throw InvalidFileName
 createFile (ADirOrSym td) (ValFN fn) = do
-  let fullp = P.fromAbs (fullPath td P.</> fn)
+  let fullp = fullPath td P.</> fn
   throwFileDoesExist fullp
-  fd <- System.Posix.IO.createFile fullp newFilePerms
+  fd <- System.Posix.IO.createFile (P.fromAbs fullp) newFilePerms
   closeFd fd
 createFile _ _ = throw $ InvalidOperation "wrong input type"
 
@@ -417,9 +415,9 @@ createDir :: AnchoredFile FileInfo -> Path Fn -> IO ()
 createDir AFileInvFN _ = throw InvalidFileName
 createDir _ InvFN      = throw InvalidFileName
 createDir (ADirOrSym td) (ValFN fn) = do
-  let fullp = P.fromAbs (fullPath td P.</> fn)
+  let fullp = fullPath td P.</> fn
   throwDirDoesExist fullp
-  createDirectory fullp newFilePerms
+  createDirectory (P.fromAbs fullp) newFilePerms
 createDir _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -434,11 +432,11 @@ renameFile :: AnchoredFile FileInfo -> Path Fn -> IO ()
 renameFile AFileInvFN _ = throw InvalidFileName
 renameFile _ InvFN      = throw InvalidFileName
 renameFile af (ValFN fn) = do
-  let fromf = fullPathS af
-      tof   = P.fromAbs (anchor af P.</> fn)
+  let fromf = fullPath af
+      tof   = anchor af P.</> fn
   throwFileDoesExist tof
   throwSameFile fromf tof
-  rename fromf tof
+  rename (P.fromAbs fromf) (P.fromAbs tof)
 renameFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -455,16 +453,16 @@ moveFile cm from to@(_ :/ Dir {}) = do
       to'    = fullPath to P.</> (name . file $ from)
       tos'   = P.fromAbs (fullPath to P.</> (name . file $ from))
   case cm of
-    Strict  -> throwFileDoesExist tos'
+    Strict  -> throwFileDoesExist to'
     Merge   -> delOld to'
     Replace -> delOld to'
-  throwSameFile froms' tos'
+  throwSameFile from' to'
   catchErrno eXDEV (rename froms' tos') $ do
     easyCopy Strict from to
     easyDelete from
   where
-    delOld to = do
-      to' <- HSFM.FileSystem.FileType.readFileWithFileInfo to
+    delOld fp = do
+      to' <- HSFM.FileSystem.FileType.readFileWithFileInfo fp
       unless (failed . file $ to') (easyDelete to')
 moveFile _ _ _ = throw $ InvalidOperation "wrong input type"
 

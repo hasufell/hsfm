@@ -49,6 +49,11 @@ import Data.Foldable
   )
 import Graphics.UI.Gtk
 import qualified HPath as P
+import HPath
+    (
+      Abs
+    , Path
+    )
 import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
@@ -206,10 +211,8 @@ setCallbacks mygui myview = do
 urlGoTo :: MyGUI -> MyView -> IO ()
 urlGoTo mygui myview = withErrorDialog $ do
   fp <- entryGetText (urlBar mygui)
-  let abs = isAbsolute fp
-  exists <- (||) <$> doesDirectoryExist fp <*> doesFileExist fp
-  -- TODO: more explicit error handling?
-  refreshView mygui myview (Just fp)
+  forM_ (P.parseAbs fp :: Maybe (Path Abs)) $ \fp' ->
+      refreshView mygui myview (Just $ P.fromAbs fp')
 
 
 -- |Supposed to be used with 'withRows'. Opens a file or directory.

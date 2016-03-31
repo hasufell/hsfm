@@ -23,20 +23,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.FileSystem.Errors where
 
 
-import Control.Applicative
-  (
-    (<$>)
-  )
 import Control.Exception
 import Control.Monad
   (
-    unless
-  , void
-  , when
-  )
-import Data.List
-  (
-    isPrefixOf
+    when
   )
 import Data.Typeable
 import Foreign.C.Error
@@ -44,12 +34,16 @@ import Foreign.C.Error
     getErrno
   , Errno
   )
+import qualified HPath as P
+import HPath
+    (
+      Abs
+    , Path
+    )
 import HSFM.Utils.IO
 import System.FilePath
   (
     equalFilePath
-  , isAbsolute
-  , takeFileName
   )
 import System.IO.Error
   (
@@ -78,59 +72,78 @@ data FmIOException = FileDoesNotExist String
 instance Exception FmIOException
 
 
--- Throws an exception if the filepath is not absolute
--- or the file does not exist.
-fileSanityThrow :: FilePath -> IO ()
-fileSanityThrow fp = throwNotAbsolute fp >> throwFileDoesNotExist fp
 
 
--- Throws an exception if the filepath is not absolute
--- or the dir does not exist.
-dirSanityThrow :: FilePath -> IO ()
-dirSanityThrow fp = throwNotAbsolute fp >> throwDirDoesNotExist fp
+    ----------------------------
+    --[ Path based functions ]--
+    ----------------------------
 
 
-throwNotAbsolute :: FilePath -> IO ()
-throwNotAbsolute fp = unless (isAbsolute fp) (throw $ PathNotAbsolute fp)
-
-
-throwFileDoesExist :: FilePath -> IO ()
+throwFileDoesExist :: Path Abs -> IO ()
 throwFileDoesExist fp =
-  whenM (doesFileExist fp) (throw $ FileDoesExist fp)
+  whenM (doesFileExist fp) (throw $ FileDoesExist $ P.fromAbs fp)
 
 
-throwDirDoesExist :: FilePath -> IO ()
+throwDirDoesExist :: Path Abs -> IO ()
 throwDirDoesExist fp =
-  whenM (doesDirectoryExist fp) (throw $ DirDoesExist fp)
+  whenM (doesDirectoryExist fp) (throw $ DirDoesExist $ P.fromAbs fp)
 
 
-throwDirDoesNotExist :: FilePath -> IO ()
-throwDirDoesNotExist fp =
-  unlessM (doesDirectoryExist fp) (throw $ DirDoesNotExist fp)
-
-
-throwFileDoesNotExist :: FilePath -> IO ()
+throwFileDoesNotExist :: Path Abs -> IO ()
 throwFileDoesNotExist fp =
-  unlessM (doesFileExist fp) (throw $ FileDoesNotExist fp)
+  whenM (doesFileExist fp) (throw $ FileDoesExist $ P.fromAbs fp)
 
 
-throwSameFile :: FilePath -- ^ should be canonicalized
-              -> FilePath -- ^ should be canonicalized
+throwDirDoesNotExist :: Path Abs -> IO ()
+throwDirDoesNotExist fp =
+  whenM (doesDirectoryExist fp) (throw $ DirDoesExist $ P.fromAbs fp)
+
+
+throwSameFile :: Path Abs -- ^ will be canonicalized
+              -> Path Abs -- ^ will be canonicalized
               -> IO ()
-throwSameFile fp1 fp2 = when (equalFilePath fp1 fp2) (throw $ SameFile fp1 fp2)
+throwSameFile fp1 fp2 = do
+  fp1' <- fmap P.fromAbs $ P.canonicalizePath fp1
+  fp2' <- fmap P.fromAbs $ P.canonicalizePath fp2
+  when (equalFilePath fp1' fp2') (throw $ SameFile fp1' fp2')
 
 
-throwDestinationInSource :: FilePath -- ^ should be canonicalized
-                         -> FilePath -- ^ should be canonicalized
+throwDestinationInSource :: Path Abs -- ^ will be canonicalized
+                         -> Path Abs -- ^ will be canonicalized
                          -> IO ()
-throwDestinationInSource source dest =
-  when (source `isPrefixOf` dest) (throw $ DestinationInSource dest source)
+throwDestinationInSource source dest = do
+  source'  <- P.canonicalizePath source
+  cDestbase <- fmap P.dirname $ P.canonicalizePath dest
+  let dest' = cDestbase P.</> P.basename dest
+  when (source' `P.isParentOf` dest')
+       (throw $ DestinationInSource (P.fromAbs dest') (P.fromAbs source'))
 
 
-throwIsSymlink :: FilePath -> IO ()
-throwIsSymlink fp =
-  whenM (PF.isSymbolicLink <$> PF.getSymbolicLinkStatus fp)
-        (throw $ IsSymlink fp)
+-- |Checks if the given file exists and is not a directory. This follows
+-- symlinks, but will return True if the symlink is broken.
+doesFileExist :: Path Abs -> IO Bool
+doesFileExist fp =
+  handleIOError (\_ -> return False) $ do
+    fp' <- fmap P.fromAbs $ P.canonicalizePath fp
+    fs  <- PF.getFileStatus fp'
+    return $ not . PF.isDirectory $ fs
+
+
+-- |Checks if the given file exists and is a directory. This follows
+-- symlinks, but will return False if the symlink is broken.
+doesDirectoryExist :: Path Abs -> IO Bool
+doesDirectoryExist fp =
+  handleIOError (\_ -> return False) $ do
+    fp' <- fmap P.fromAbs $ P.canonicalizePath fp
+    fs  <- PF.getFileStatus fp'
+    return $ PF.isDirectory fs
+
+
+
+
+    --------------------------------
+    --[ Error handling functions ]--
+    --------------------------------
 
 
 -- |Carries out an action, then checks if there is an IOException and
@@ -152,21 +165,3 @@ catchErrno en a1 a2 =
 handleIOError :: (IOError -> IO a) -> IO a -> IO a
 handleIOError a1 a2 = catchIOError a2 a1
 
-
--- |Checks if the given file exists and is not a directory. This follows
--- symlinks, but will return True if the symlink is broken.
-doesFileExist :: FilePath -> IO Bool
-doesFileExist fp =
-  handleIOError (\_ -> return False) $ do
-    fs <- catchIOError (PF.getFileStatus fp) $ \_ ->
-      PF.getSymbolicLinkStatus fp
-    return $ not . PF.isDirectory $ fs
-
-
--- |Checks if the given file exists and is a directory. This follows
--- symlinks, but will return False if the symlink is broken.
-doesDirectoryExist :: FilePath -> IO Bool
-doesDirectoryExist fp =
-  handleIOError (\_ -> return False) $ do
-    fs <- PF.getFileStatus fp
-    return $ PF.isDirectory fs
