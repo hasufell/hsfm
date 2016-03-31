@@ -206,7 +206,7 @@ createTreeView = do
 -- If that fails, it reads "/" instead.
 --
 -- If the third argument is (Just path) it tries to read "path". If that
--- fails, it tread "/" instead.
+-- fails, it reads "/" instead.
 refreshView :: MyGUI
             -> MyView
             -> Maybe FilePath
