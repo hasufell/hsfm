@@ -29,10 +29,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.FileSystem.FileOperations where
 
 
-import Control.Applicative
-  (
-    (<$>)
-  )
 import Control.Exception
   (
     throw
@@ -58,11 +54,6 @@ import qualified HPath as P
 import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileType
 import HSFM.Utils.IO
-import HSFM.Utils.MyPrelude
-import System.FilePath
-  (
-    (</>)
-  )
 import System.Posix.Directory
   (
     createDirectory
@@ -158,6 +149,7 @@ runFileOp (FMove fo)              = return              $ Just $ FMove fo
 runFileOp (FDelete fp)            = easyDelete fp       >> return Nothing
 runFileOp (FOpen fp)              = openFile fp         >> return Nothing
 runFileOp (FExecute fp args)      = executeFile fp args >> return Nothing
+runFileOp _                       = return Nothing
 
 
 
@@ -175,7 +167,7 @@ copyDir :: CopyMode
         -> IO ()
 copyDir _ AFileInvFN _ = throw InvalidFileName
 copyDir _ _ AFileInvFN = throw InvalidFileName
-copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
+copyDir cm from@(_ :/ Dir fromn FileInfo{ fileMode = fmode })
              to@(_ :/ Dir {})
   = do
     let fromp    = fullPath from
@@ -196,20 +188,20 @@ copyDir cm from@(_ :/ Dir fromn (FileInfo { fileMode = fmode }))
         (_ :/ RegFile {})  -> copyFileToDir Replace f destdir
         _                  -> return ()
   where
-    createDestdir destdir fmode =
+    createDestdir destdir fmode' =
       let destdir' = P.toFilePath destdir
       in case cm of
         Merge   ->
           unlessM (doesDirectoryExist destdir)
-                  (createDirectory destdir' fmode)
+                  (createDirectory destdir' fmode')
         Strict  -> do
           throwDirDoesExist destdir
-          createDirectory destdir' fmode
+          createDirectory destdir' fmode'
         Replace -> do
           whenM (doesDirectoryExist destdir)
                 (deleteDirRecursive =<<
                    HSFM.FileSystem.FileType.readFileWithFileInfo destdir)
-          createDirectory destdir' fmode
+          createDirectory destdir' fmode'
 copyDir _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -295,14 +287,14 @@ easyCopy :: CopyMode
          -> AnchoredFile FileInfo
          -> AnchoredFile FileInfo
          -> IO ()
-easyCopy cm from@(_ :/ SymLink {})
-              to@(_ :/ Dir {})
+easyCopy cm from@(_ :/ SymLink{})
+              to@(_ :/ Dir{})
   = recreateSymlink cm from to
-easyCopy cm from@(_ :/ RegFile fn _)
-              to@(_ :/ Dir {})
+easyCopy cm from@(_ :/ RegFile{})
+              to@(_ :/ Dir{})
   = copyFileToDir cm from to
-easyCopy cm from@(_ :/ Dir fn _)
-              to@(_ :/ Dir {})
+easyCopy cm from@(_ :/ Dir{})
+              to@(_ :/ Dir{})
   = copyDir cm from to
 easyCopy _ _ _ = throw $ InvalidOperation "wrong input type"
 

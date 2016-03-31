@@ -21,10 +21,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.GUI.Gtk.Utils where
 
 
-import Control.Applicative
-  (
-    (<$>)
-  )
 import Control.Concurrent.STM
   (
     readTVarIO
@@ -73,7 +69,7 @@ getSelectedItems' :: MyGUI
                   -> MyView
                   -> [TreePath]
                   -> IO [Item]
-getSelectedItems' mygui myview tps = do
+getSelectedItems' _ myview tps = do
   rawModel'      <- readTVarIO $ rawModel myview
   sortedModel'   <- readTVarIO $ sortedModel myview
   filteredModel' <- readTVarIO $ filteredModel myview
@@ -107,7 +103,7 @@ withItems mygui myview io = do
 fileListStore :: AnchoredFile FileInfo  -- ^ current dir
               -> MyView
               -> IO (ListStore Item)
-fileListStore dt myview = do
+fileListStore dt _ = do
   cs <- HSFM.FileSystem.FileType.getContents dt
   listStoreNew cs
 

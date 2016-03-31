@@ -21,10 +21,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.GUI.Gtk.MyView where
 
 
-import Control.Applicative
-  (
-    (<$>)
-  )
 import Control.Concurrent.MVar
   (
     newEmptyMVar
@@ -40,10 +36,6 @@ import Control.Exception
   (
     try
   , SomeException
-  )
-import Control.Monad
-  (
-    when
   )
 import Data.Foldable
   (
@@ -64,17 +56,12 @@ import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Icons
 import HSFM.GUI.Gtk.Utils
 import HSFM.Utils.IO
-import System.FilePath
-  (
-    isAbsolute
-  )
 import System.INotify
   (
     addWatch
   , initINotify
   , killINotify
   , EventVariety(..)
-  , Event(..)
   )
 import System.IO.Error
   (
@@ -218,19 +205,19 @@ refreshView mygui myview mfp =
       -- readFileWithFileInfo can just outright fail...
       ecdir <- tryIOError (HSFM.FileSystem.FileType.readFileWithFileInfo mdir)
       case ecdir of
-        Right cdir -> do
+        Right cdir ->
           -- ...or return an `AnchordFile` with a Failed constructor,
           -- both of which need to be handled here
           if (failed . file $ cdir)
             then refreshView mygui myview =<< getAlternativeDir
             else refreshView' mygui myview cdir
-        Left e -> refreshView mygui myview =<< getAlternativeDir
+        Left _ -> refreshView mygui myview =<< getAlternativeDir
     Nothing  -> refreshView mygui myview =<< getAlternativeDir
     where
       getAlternativeDir = do
         ecd <- try (getCurrentDir myview) :: IO (Either SomeException
                                                         (AnchoredFile FileInfo))
-        case (ecd) of
+        case ecd of
           Right dir -> return (Just $ fullPathS dir)
           Left _    -> return (Just "/")
 
@@ -285,13 +272,13 @@ constructView mygui myview = do
   filePix      <- getIcon IFile iT (iconSize settings')
   fileSymPix   <- getSymlinkIcon IFile iT (iconSize settings')
   errorPix     <- getIcon IError iT (iconSize settings')
-  let dirtreePix (Dir {})          = folderPix
-      dirtreePix (FileLike {})     = filePix
-      dirtreePix (DirSym _)        = folderSymPix
-      dirtreePix (FileLikeSym {})  = fileSymPix
-      dirtreePix (Failed {})       = errorPix
-      dirtreePix (BrokenSymlink _) = errorPix
-      dirtreePix _                 = errorPix
+  let dirtreePix Dir{}           = folderPix
+      dirtreePix FileLike{}      = filePix
+      dirtreePix DirSym{}        = folderSymPix
+      dirtreePix FileLikeSym{}   = fileSymPix
+      dirtreePix Failed{}        = errorPix
+      dirtreePix BrokenSymlink{} = errorPix
+      dirtreePix _               = errorPix
 
 
   view' <- readTVarIO $ view myview
@@ -350,7 +337,7 @@ constructView mygui myview = do
   mi <- tryTakeMVar (inotify myview)
   for_ mi $ \i -> killINotify i
   newi <- initINotify
-  w <- addWatch
+  _ <- addWatch
          newi
          [Move, MoveIn, MoveOut, MoveSelf, Create, Delete, DeleteSelf]
          (P.fromAbs cdirp)

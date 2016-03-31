@@ -54,6 +54,7 @@ library
   ghc-options:
     -O2
     -threaded
+    -Wall
     "-with-rtsopts=-N"
 
 executable hsfm-gtk
@@ -62,6 +63,7 @@ executable hsfm-gtk
                        HSFM.GUI.Gtk.Callbacks
                        HSFM.GUI.Gtk.Data
                        HSFM.GUI.Gtk.Dialogs
+                       HSFM.GUI.Gtk.Errors
                        HSFM.GUI.Gtk.Icons
                        HSFM.GUI.Gtk.MyGUI
                        HSFM.GUI.Gtk.MyView
@@ -97,4 +99,5 @@ executable hsfm-gtk
   ghc-options:
     -O2
     -threaded
+    -Wall
     "-with-rtsopts=-N"

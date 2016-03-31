@@ -27,7 +27,6 @@ import Data.Maybe
     fromJust
   )
 import Graphics.UI.Gtk
-import Graphics.UI.Gtk.Gdk.Pixbuf
 import Paths_hsfm
   (
     getDataFileName

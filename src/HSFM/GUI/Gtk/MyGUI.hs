@@ -110,6 +110,7 @@ createMyGUI = do
   let mygui  = MkMyGUI {..}
 
   -- sets the default icon
-  windowSetDefaultIconFromFile =<< getDataFileName "data/Gtk/icons/hsfm.png"
+  _ <- windowSetDefaultIconFromFile
+         =<< getDataFileName "data/Gtk/icons/hsfm.png"
 
   return mygui

@@ -26,17 +26,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.FileSystem.FileType where
 
 
-import Control.Applicative
-  (
-    (<*>)
-  , (<$>)
-  , (<|>)
-  , pure
-  )
-import Control.Arrow
-  (
-    first
-  )
+
 import Control.Exception
   (
     handle
@@ -53,85 +43,37 @@ import Control.Monad.State.Lazy
 import Data.Default
 import Data.List
   (
-    delete
-  , foldl'
-  , isPrefixOf
-  , sort
-  , sortBy
-  , (\\)
+    isPrefixOf
   )
 import Data.Maybe
   (
     catMaybes
-  , fromMaybe
-  )
-import Data.Ord
-  (
-    comparing
   )
 import Data.Time.Clock.POSIX
   (
     POSIXTime
   , posixSecondsToUTCTime
   )
-import Data.Time
-  (
-    UTCTime(..)
-  )
-import Data.Traversable
-  (
-    for
-  )
-import Data.Word
-  (
-    Word64
-  )
+import Data.Time()
 import HPath
     (
       Abs
     , Path
     , Fn
-    , Rel
     , pattern Path
     )
 import qualified HPath as P
 import HSFM.Utils.MyPrelude
-import Safe
-  (
-    atDef
-  , initDef
-  )
 import System.FilePath
   (
-    combine
-  , normalise
-  , equalFilePath
-  , isAbsolute
-  , joinPath
+    isAbsolute
   , pathSeparator
-  , splitDirectories
-  , takeFileName
   , (</>)
-  )
-import System.IO
-  (
-    IOMode
-  , Handle
-  , openFile
   )
 import System.IO.Error
   (
     ioeGetErrorType
   , isDoesNotExistErrorType
-  )
-import System.IO.Unsafe
-  (
-    unsafeInterleaveIO
-  )
-import System.Locale
-  (
-    defaultTimeLocale
-  , rfc822DateFormat
   )
 import System.Posix.Types
   (
@@ -237,7 +179,7 @@ data FileInfo = FileInfo {
 convertViewP :: (File FileInfo -> (Bool, File FileInfo))
              -> AnchoredFile FileInfo
              -> (Bool, AnchoredFile FileInfo)
-convertViewP f af@(bp :/ constr) =
+convertViewP f (bp :/ constr) =
   let (b, file) = f constr
   in (b, bp :/ file)
 
@@ -260,7 +202,7 @@ sfileLike f             = fileLikeSym f
 
 
 afileLike :: AnchoredFile FileInfo -> (Bool, AnchoredFile FileInfo)
-afileLike f@(bp :/ constr) = convertViewP fileLike f
+afileLike f = convertViewP fileLike f
 
 
 fileLike :: File FileInfo -> (Bool, File FileInfo)
@@ -312,7 +254,7 @@ invalidFileName :: Path Fn -> (Bool, Path Fn)
 invalidFileName p@(Path "")   = (True, p)
 invalidFileName p@(Path ".")  = (True, p)
 invalidFileName p@(Path "..") = (True, p)
-invalidFileName p@(Path fn)   = (elem pathSeparator fn, p)
+invalidFileName p             = (elem pathSeparator (P.fromRel p), p)
 
 
 -- |Matches on invalid filesnames, such as ".", ".." and anything
@@ -472,8 +414,6 @@ readWith ff p = do
             -- TODO: could it happen that too many '..' lead
             -- to something like '/' after normalization?
             let sfp = if isAbsolute x then x else (P.fromAbs bd') </> x
-            sf <- PF.getFileStatus sfp -- important to break infinite symbolic
-                                       -- link cycle
             rsfp <- P.realPath sfp
             readWith ff =<< P.parseAbs rsfp
           return $ SymLink fn' fv resolvedSyml x
@@ -733,7 +673,7 @@ removeNonexistent = filter isOkConstructor
 --
 -- When called on a non-symlink, returns False.
 isBrokenSymlink :: File FileInfo -> Bool
-isBrokenSymlink af@(SymLink _ _ (_ :/ Failed {}) _) = True
+isBrokenSymlink (SymLink _ _ (_ :/ Failed {}) _) = True
 isBrokenSymlink _ = False
 
 
@@ -744,7 +684,7 @@ isBrokenSymlink _ = False
 hiddenFile :: Path Fn -> Bool
 hiddenFile (Path ".")  = False
 hiddenFile (Path "..") = False
-hiddenFile (Path fn)   = "." `isPrefixOf` fn
+hiddenFile p           = "." `isPrefixOf` (P.fromRel p)
 
 
 -- |Apply a function on the free variable. If there is no free variable
@@ -798,6 +738,7 @@ packPermissions dt = fromFreeVar (pStr . fileMode) dt
           CharDev {}   -> "c"
           NamedPipe {} -> "p"
           Socket {}    -> "s"
+          _            -> "?"
         ownerModeStr =    hasFmStr PF.ownerReadMode    "r"
                        ++ hasFmStr PF.ownerWriteMode   "w"
                        ++ hasFmStr PF.ownerExecuteMode "x"

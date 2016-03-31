@@ -21,11 +21,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.GUI.Gtk.Callbacks where
 
 
-import Control.Applicative
-  (
-    (<$>)
-  , (<*>)
-  )
 import Control.Concurrent.STM
   (
     readTVarIO
@@ -62,11 +57,6 @@ import HSFM.GUI.Gtk.Dialogs
 import HSFM.GUI.Gtk.MyView
 import HSFM.GUI.Gtk.Utils
 import HSFM.Utils.IO
-import System.FilePath
-  (
-    isAbsolute
-  , (</>)
-  )
 import System.Glib.UTFString
   (
     glibToString
@@ -225,7 +215,7 @@ open [item] mygui myview = withErrorDialog $
     r ->
       void $ openFile r
 -- this throws on the first error that occurs
-open (FileLikeList fs) mygui myview = withErrorDialog $
+open (FileLikeList fs) _ _ = withErrorDialog $
   forM_ fs $ \f -> void $ openFile f
 open _ _ _ = withErrorDialog
                . throw $ InvalidOperation
@@ -234,7 +224,7 @@ open _ _ _ = withErrorDialog
 
 -- |Execute a given file.
 execute :: [Item] -> MyGUI -> MyView -> IO ()
-execute [item] mygui myview = withErrorDialog $
+execute [item] _ _ = withErrorDialog $
   void $ executeFile item []
 execute _ _ _ = withErrorDialog
                   . throw $ InvalidOperation
@@ -243,12 +233,12 @@ execute _ _ _ = withErrorDialog
 
 -- |Supposed to be used with 'withRows'. Deletes a file or directory.
 del :: [Item] -> MyGUI -> MyView -> IO ()
-del [item] mygui myview = withErrorDialog $ do
+del [item] _ _ = withErrorDialog $ do
   let cmsg  = "Really delete \"" ++ fullPathS item ++ "\"?"
   withConfirmationDialog cmsg
     $ easyDelete item
 -- this throws on the first error that occurs
-del items@(_:_) mygui myview = withErrorDialog $ do
+del items@(_:_) _ _ = withErrorDialog $ do
   let cmsg  = "Really delete " ++ show (length items) ++ " files?"
   withConfirmationDialog cmsg
     $ forM_ items $ \item -> easyDelete item
@@ -282,7 +272,7 @@ copyInit _ _ _ = withErrorDialog
 
 -- |Finalizes a file operation, such as copy or move.
 operationFinal :: MyGUI -> MyView -> IO ()
-operationFinal mygui myview = withErrorDialog $ do
+operationFinal _ myview = withErrorDialog $ do
   op <- readTVarIO (operationBuffer myview)
   cdir <- getCurrentDir myview
   case op of
@@ -305,15 +295,13 @@ operationFinal mygui myview = withErrorDialog $ do
 upDir :: MyGUI -> MyView -> IO ()
 upDir mygui myview = withErrorDialog $ do
   cdir <- getCurrentDir myview
-  rawModel'    <- readTVarIO $ rawModel myview
-  sortedModel' <- readTVarIO $ sortedModel myview
   nv <- goUp cdir
   refreshView' mygui myview nv
 
 
 -- |Go up one directory and visualize it in the treeView.
 newFile :: MyGUI -> MyView -> IO ()
-newFile mygui myview = withErrorDialog $ do
+newFile _ myview = withErrorDialog $ do
   mfn   <- textInputDialog "Enter file name"
   let pmfn = P.parseFn =<< mfn
   for_ pmfn $ \fn -> do
@@ -322,7 +310,7 @@ newFile mygui myview = withErrorDialog $ do
 
 
 renameF :: [Item] -> MyGUI -> MyView -> IO ()
-renameF [item] mygui myview = withErrorDialog $ do
+renameF [item] _ _ = withErrorDialog $ do
   mfn  <- textInputDialog "Enter new file name"
   let pmfn = P.parseFn =<< mfn
   for_ pmfn $ \fn -> do

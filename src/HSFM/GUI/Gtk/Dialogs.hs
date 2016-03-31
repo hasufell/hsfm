@@ -21,10 +21,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.GUI.Gtk.Dialogs where
 
 
-import Control.Applicative
-  (
-    (<$>)
-  )
 import Control.Exception
   (
     catch
@@ -35,7 +31,6 @@ import Control.Exception
 import Control.Monad
   (
     when
-  , void
   )
 import Data.Version
   (
@@ -62,7 +57,7 @@ import Distribution.Verbosity
 import Graphics.UI.Gtk
 import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileOperations
-import HSFM.GUI.Gtk.Data
+import HSFM.GUI.Gtk.Errors
 import Paths_hsfm
   (
     getDataFileName
@@ -113,15 +108,16 @@ showCopyModeDialog = do
                                     MessageQuestion
                                     ButtonsNone
                                     "Target exists, how to proceed?"
-  dialogAddButton chooserDialog "Cancel"  (ResponseUser 0)
-  dialogAddButton chooserDialog "Merge"   (ResponseUser 1)
-  dialogAddButton chooserDialog "Replace" (ResponseUser 2)
+  _ <- dialogAddButton chooserDialog "Cancel"  (ResponseUser 0)
+  _ <- dialogAddButton chooserDialog "Merge"   (ResponseUser 1)
+  _ <- dialogAddButton chooserDialog "Replace" (ResponseUser 2)
   rID <- dialogRun chooserDialog
   widgetDestroy chooserDialog
   case rID of
     ResponseUser 0 -> return Strict
     ResponseUser 1 -> return Merge
     ResponseUser 2 -> return Replace
+    _              -> throw  UnknownDialogButton
 
 
 -- |Attempts to run the given function with the `Strict` copy mode.
@@ -134,7 +130,7 @@ withCopyModeDialog fa =
     case e of
       FileDoesExist _ -> doIt
       DirDoesExist  _ -> doIt
-      e               -> throw e
+      e'              -> throw e'
   where
     doIt = do cm <- showCopyModeDialog
               case cm of
@@ -196,8 +192,8 @@ textInputDialog title = do
                                     title
   entry <- entryNew
   cbox <- dialogGetActionArea chooserDialog
-  dialogAddButton chooserDialog "Ok"     (ResponseUser 0)
-  dialogAddButton chooserDialog "Cancel" (ResponseUser 1)
+  _ <- dialogAddButton chooserDialog "Ok"     (ResponseUser 0)
+  _ <- dialogAddButton chooserDialog "Cancel" (ResponseUser 1)
   boxPackStart (castToBox cbox) entry PackNatural 5
   widgetShowAll chooserDialog
   rID <- dialogRun chooserDialog
@@ -205,5 +201,6 @@ textInputDialog title = do
            -- TODO: make this more safe
            ResponseUser 0 -> Just <$> entryGetText entry
            ResponseUser 1 -> return Nothing
+           _              -> throw  UnknownDialogButton
   widgetDestroy chooserDialog
   return ret
