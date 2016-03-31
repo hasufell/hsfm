@@ -201,6 +201,12 @@ createTreeView = do
 
 
 -- |Re-reads the current directory or the given one and updates the View.
+--
+-- If the third argument is Nothing, it tries to re-read the current directory.
+-- If that fails, it reads "/" instead.
+--
+-- If the third argument is (Just path) it tries to read "path". If that
+-- fails, it tread "/" instead.
 refreshView :: MyGUI
             -> MyView
             -> Maybe FilePath
@@ -230,6 +236,9 @@ refreshView mygui myview mfp =
 
 
 -- |Refreshes the View based on the given directory.
+--
+-- If the directory is not a Dir or a Symlink pointing to a Dir, then
+-- calls `refreshView` with the 3rd argument being Nothing.
 refreshView' :: MyGUI
              -> MyView
              -> AnchoredFile FileInfo
@@ -254,6 +263,7 @@ refreshView' mygui myview dt@(ADirOrSym _) = do
       ntps <- mapM treeRowReferenceGetPath trs
       mapM_ (treeSelectionSelectPath tvs) ntps
     _ -> return ()
+refreshView' mygui myview (_ :/ Failed{}) = refreshView mygui myview Nothing
 refreshView' _ _ _ = return ()
 
 
