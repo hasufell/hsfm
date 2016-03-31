@@ -442,6 +442,10 @@ instance Ord (AnchoredFile FileInfo) where
 
 -- |Reads a file or directory Path into an `AnchoredFile`, filling the free
 -- variables via the given function.
+-- The dirname of the given path will be canonicalized using `realpath`, so the
+-- anchor of `AnchoredFile` is always canonicalized.
+--
+-- Exceptions: when `canonicalizePath` fails, throws IOError
 readWith :: (Path Abs -> IO a)  -- ^ function that fills the free
                                 --   a variable
          -> Path Abs            -- ^ Path to read
@@ -450,7 +454,7 @@ readWith ff p = do
   let fn = P.basename p
       bd = P.dirname p
       p' = P.toFilePath p
-  bd' <- P.canonicalizePath bd -- TODO: this will cause a dialog to pop up on error
+  bd' <- P.canonicalizePath bd
   handleDT bd' fn $ do
     fs   <- PF.getSymbolicLinkStatus p'
     fv   <- ff p
