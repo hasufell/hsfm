@@ -174,7 +174,7 @@ copyDir cm from@(_ :/ Dir fromn FileInfo{ fileMode = fmode })
         top      = fullPath to
         destdirp = top P.</> fromn
     throwDestinationInSource fromp destdirp
-    throwSameFile fromp destdirp
+    throwSameFile fromp top
     throwCantOpenDirectory fromp
     throwCantOpenDirectory top
 
