@@ -194,6 +194,7 @@ createTreeView = do
 --
 -- If the third argument is (Just path) it tries to read "path". If that
 -- fails, it reads "/" instead.
+-- TODO: maybe move the parsing logic away and use 'Path Abs' in the type
 refreshView :: MyGUI
             -> MyView
             -> Maybe FilePath

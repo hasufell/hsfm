@@ -19,9 +19,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 -- |This module provides all the atomic IO related file operations like
--- copy, delete, move and so on. It operates only on FilePaths and reads
--- all necessary file information manually in order to stay atomic and not
--- rely on the state of passed objects.
+-- copy, delete, move and so on. It operates primarily on `AnchoredFile`, which
+-- is guaranteed to be well-formed.
 --
 -- It would be nicer to pass states around, but the filesystem state changes
 -- too quickly and cannot be relied upon. Lazy implementations of filesystem
