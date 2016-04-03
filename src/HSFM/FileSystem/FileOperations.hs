@@ -165,15 +165,18 @@ runFileOp _                       = return Nothing
 copyDir :: CopyMode
         -> AnchoredFile FileInfo  -- ^ source dir
         -> AnchoredFile FileInfo  -- ^ destination dir
+        -> Path Fn                -- ^ destination dir name
         -> IO ()
-copyDir _ AFileInvFN _ = throw InvalidFileName
-copyDir _ _ AFileInvFN = throw InvalidFileName
-copyDir cm from@(_ :/ Dir fromn FileInfo{ fileMode = fmode })
+copyDir _ AFileInvFN _ _ = throw InvalidFileName
+copyDir _ _ AFileInvFN _ = throw InvalidFileName
+copyDir _ _ _ InvFN      = throw InvalidFileName
+copyDir cm from@(_ :/ Dir _ FileInfo{ fileMode = fmode })
              to@(_ :/ Dir {})
+             fn
   = do
     let fromp    = fullPath from
         top      = fullPath to
-        destdirp = top P.</> fromn
+        destdirp = top P.</> fn
     throwDestinationInSource fromp destdirp
     throwSameFile fromp destdirp
     throwCantOpenDirectory fromp
@@ -187,7 +190,7 @@ copyDir cm from@(_ :/ Dir fromn FileInfo{ fileMode = fmode })
     for_ contents $ \f ->
       case f of
         (_ :/ SymLink {})  -> recreateSymlink cm f destdir (name . file $ f)
-        (_ :/ Dir {})      -> copyDir cm f destdir
+        (_ :/ Dir {})      -> copyDir cm f destdir (name . file $ f)
         (_ :/ RegFile {})  -> copyFile Replace f destdir (name . file $ f)
         _                  -> return ()
   where
@@ -205,7 +208,7 @@ copyDir cm from@(_ :/ Dir fromn FileInfo{ fileMode = fmode })
                 (deleteDirRecursive =<<
                    HSFM.FileSystem.FileType.readFileWithFileInfo destdir)
           createDirectory destdir' fmode'
-copyDir _ _ _ = throw $ InvalidOperation "wrong input type"
+copyDir _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Recreate a symlink.
@@ -303,7 +306,7 @@ easyCopy cm from@(_ :/ RegFile{})
   = copyFile cm from to (name . file $ from)
 easyCopy cm from@(_ :/ Dir{})
               to@(_ :/ Dir{})
-  = copyDir cm from to
+  = copyDir cm from to (name . file $ from)
 easyCopy _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
