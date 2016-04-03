@@ -198,11 +198,13 @@ setCallbacks mygui myview = do
 
 -- |Go to the url given at the 'urlBar' and visualize it in the given
 -- treeView.
+--
+-- If the url is invalid, does nothing.
 urlGoTo :: MyGUI -> MyView -> IO ()
 urlGoTo mygui myview = withErrorDialog $ do
   fp <- entryGetText (urlBar mygui)
   forM_ (P.parseAbs fp :: Maybe (Path Abs)) $ \fp' ->
-      refreshView mygui myview (Just $ P.fromAbs fp')
+      refreshView mygui myview (Just fp')
 
 
 -- |Supposed to be used with 'withRows'. Opens a file or directory.

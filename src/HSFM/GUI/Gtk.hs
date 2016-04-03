@@ -21,7 +21,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module Main where
 
 
+import Data.Maybe
+  (
+    fromJust
+  , fromMaybe
+  )
 import Graphics.UI.Gtk
+import qualified HPath as P
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.MyGUI
 import HSFM.GUI.Gtk.MyView
@@ -45,7 +51,9 @@ main = do
 
   myview <- createMyView mygui createTreeView
 
-  refreshView mygui myview (Just $ headDef "/" args)
+  let mdir = fromMaybe (fromJust $ P.parseAbs "/")
+                       (P.parseAbs $ headDef "/" args)
+  refreshView mygui myview (Just $ mdir)
 
   widgetShowAll (rootWin mygui)
 

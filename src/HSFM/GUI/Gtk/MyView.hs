@@ -44,11 +44,14 @@ import Data.Foldable
 import Data.Maybe
   (
     catMaybes
-  , fromJust
-  , fromMaybe
   )
 import Graphics.UI.Gtk
 import {-# SOURCE #-} HSFM.GUI.Gtk.Callbacks (setCallbacks)
+import HPath
+  (
+    Path
+  , Abs
+  )
 import qualified HPath as P
 import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
@@ -194,17 +197,15 @@ createTreeView = do
 --
 -- If the third argument is (Just path) it tries to read "path". If that
 -- fails, it reads "/" instead.
--- TODO: maybe move the parsing logic away and use 'Path Abs' in the type
 refreshView :: MyGUI
             -> MyView
-            -> Maybe FilePath
+            -> Maybe (Path Abs)
             -> IO ()
 refreshView mygui myview mfp =
   case mfp of
     Just fp  -> do
-      let mdir = fromMaybe (fromJust $ P.parseAbs "/") (P.parseAbs fp)
       -- readFileWithFileInfo can just outright fail...
-      ecdir <- tryIOError (HSFM.FileSystem.FileType.readFileWithFileInfo mdir)
+      ecdir <- tryIOError (HSFM.FileSystem.FileType.readFileWithFileInfo fp)
       case ecdir of
         Right cdir ->
           -- ...or return an `AnchordFile` with a Failed constructor,
@@ -217,10 +218,10 @@ refreshView mygui myview mfp =
     where
       getAlternativeDir = do
         ecd <- try (getCurrentDir myview) :: IO (Either SomeException
-                                                        (AnchoredFile FileInfo))
+                                                     (AnchoredFile FileInfo))
         case ecd of
-          Right dir -> return (Just $ fullPathS dir)
-          Left _    -> return (Just "/")
+          Right dir -> return (Just $ fullPath dir)
+          Left _    -> return (P.parseAbs "/")
 
 
 -- |Refreshes the View based on the given directory.
@@ -342,7 +343,7 @@ constructView mygui myview = do
          newi
          [Move, MoveIn, MoveOut, MoveSelf, Create, Delete, DeleteSelf]
          (P.fromAbs cdirp)
-         (\_ -> postGUIAsync $ refreshView mygui myview (Just $ P.fromAbs cdirp))
+         (\_ -> postGUIAsync $ refreshView mygui myview (Just $ cdirp))
   putMVar (inotify myview) newi
 
   return ()
