@@ -27,6 +27,7 @@ import Control.Exception
 import Control.Monad
   (
     when
+  , forM
   )
 import Data.Typeable
 import Foreign.C.Error
@@ -110,15 +111,24 @@ throwSameFile fp1 fp2 = do
   when (equalFilePath fp1' fp2') (throw $ SameFile fp1' fp2')
 
 
-throwDestinationInSource :: Path Abs -- ^ will be canonicalized
-                         -> Path Abs -- ^ `dirname dest` will be canonicalized
+-- |Checks whether the destination directory is contained
+-- within the source directory by comparing the device+file ID of the
+-- source directory with all device+file IDs of the parent directories
+-- of the destination.
+throwDestinationInSource :: Path Abs -- ^ source dir
+                         -> Path Abs -- ^ full destination, `basename dest`
+                                     --   must exist
                          -> IO ()
 throwDestinationInSource source dest = do
-  source'   <- P.canonicalizePath source
-  cDestbase <- P.canonicalizePath $ P.dirname dest
-  let dest' = cDestbase P.</> P.basename dest
-  when (source' `P.isParentOf` dest')
-       (throw $ DestinationInSource (P.fromAbs dest') (P.fromAbs source'))
+  source' <- P.canonicalizePath source
+  dest'   <- (P.</> P.basename dest) <$> (P.canonicalizePath $ P.dirname dest)
+  dids <- forM (P.getAllParents dest') $ \p -> do
+          fs <- PF.getSymbolicLinkStatus (P.fromAbs p)
+          return (PF.deviceID fs, PF.fileID fs)
+  sid <- fmap (\x -> (PF.deviceID x, PF.fileID x))
+              $ PF.getSymbolicLinkStatus (P.fromAbs source')
+  when (elem sid dids)
+       (throw $ DestinationInSource (P.fromAbs dest) (P.fromAbs source))
 
 
 -- |Checks if the given file exists and is not a directory. This follows
