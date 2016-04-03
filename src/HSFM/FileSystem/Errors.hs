@@ -51,6 +51,7 @@ import System.IO.Error
   )
 
 import qualified System.Posix.Files as PF
+import qualified System.Posix.Directory as PFD
 
 
 data FmIOException = FileDoesNotExist String
@@ -66,6 +67,7 @@ data FmIOException = FileDoesNotExist String
                    | IsSymlink String
                    | InvalidOperation String
                    | InvalidFileName
+                   | Can'tOpenDirectory String
   deriving (Show, Typeable)
 
 
@@ -138,6 +140,18 @@ doesDirectoryExist fp =
     fs  <- PF.getFileStatus fp'
     return $ PF.isDirectory fs
 
+
+canOpenDirectory :: Path Abs -> IO Bool
+canOpenDirectory fp =
+  handleIOError (\_ -> return False) $ do
+    dirstream <- PFD.openDirStream . P.fromAbs $ fp
+    PFD.closeDirStream dirstream
+    return True
+
+
+throwCantOpenDirectory :: Path Abs -> IO ()
+throwCantOpenDirectory fp =
+  unlessM (canOpenDirectory fp) (throw $ Can'tOpenDirectory $ P.fromAbs fp)
 
 
 
