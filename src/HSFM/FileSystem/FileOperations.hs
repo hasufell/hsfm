@@ -17,6 +17,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
 {-# OPTIONS_HADDOCK ignore-exports #-}
+{-# LANGUAGE PackageImports #-}
 
 -- |This module provides all the atomic IO related file operations like
 -- copy, delete, move and so on. It operates primarily on `AnchoredFile`, which
@@ -78,10 +79,10 @@ import System.Posix.Files
   , unionFileModes
   , removeLink
   )
-import System.Posix.IO
+import qualified "unix" System.Posix.IO as SPI
+import "unix-bytestring" System.Posix.IO.ByteString
   (
-    closeFd
-  , createFile
+    fdWrite
   )
 import System.Posix.Types
   (
@@ -245,10 +246,10 @@ copyFile' from to = do
   throwCantOpenDirectory $ P.dirname to
   fromFstatus <- getSymbolicLinkStatus from'
   fromContent <- BS.readFile from'
-  fd          <- System.Posix.IO.createFile to'
+  fd          <- SPI.createFile to'
                    (System.Posix.Files.fileMode fromFstatus)
-  closeFd fd
-  BS.writeFile to' fromContent
+  _ <- fdWrite fd fromContent
+  SPI.closeFd fd
 
 
 -- |Copies the given file to the given file destination, overwriting it.
@@ -407,8 +408,8 @@ createFile _ InvFN      = throw InvalidFileName
 createFile (ADirOrSym td) (ValFN fn) = do
   let fullp = fullPath td P.</> fn
   throwFileDoesExist fullp
-  fd <- System.Posix.IO.createFile (P.fromAbs fullp) newFilePerms
-  closeFd fd
+  fd <- SPI.createFile (P.fromAbs fullp) newFilePerms
+  SPI.closeFd fd
 createFile _ _ = throw $ InvalidOperation "wrong input type"
 
 

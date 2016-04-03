@@ -44,7 +44,8 @@ library
                        safe,
                        stm,
                        time >= 1.4.2,
-                       unix
+                       unix,
+                       unix-bytestring
   hs-source-dirs:      src
   default-language:    Haskell2010
   Default-Extensions:  RecordWildCards
@@ -89,7 +90,8 @@ executable hsfm-gtk
                        stm,
                        time >= 1.4.2,
                        transformers,
-                       unix
+                       unix,
+                       unix-bytestring
   hs-source-dirs:      src
   default-language:    Haskell2010
   Default-Extensions:  RecordWildCards
