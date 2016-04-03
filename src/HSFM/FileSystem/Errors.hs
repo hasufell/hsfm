@@ -107,7 +107,12 @@ throwSameFile :: Path Abs -- ^ will be canonicalized
               -> IO ()
 throwSameFile fp1 fp2 = do
   fp1' <- fmap P.fromAbs $ P.canonicalizePath fp1
-  fp2' <- fmap P.fromAbs $ P.canonicalizePath fp2
+  -- TODO: clean this up... if canonicalizing fp2 fails we try to
+  --       canonicalize `dirname fp2`
+  fp2' <- catchIOError (fmap P.fromAbs $ P.canonicalizePath fp2)
+                       (\_ -> fmap P.fromAbs
+                              $ (P.</> P.basename fp2)
+                                <$> (P.canonicalizePath $ P.dirname fp2))
   when (equalFilePath fp1' fp2') (throw $ SameFile fp1' fp2')
 
 
