@@ -175,6 +175,8 @@ copyDir cm from@(_ :/ Dir fromn FileInfo{ fileMode = fmode })
         destdirp = top P.</> fromn
     throwDestinationInSource fromp destdirp
     throwSameFile fromp destdirp
+    throwCantOpenDirectory fromp
+    throwCantOpenDirectory top
 
     createDestdir destdirp fmode
     destdir <- HSFM.FileSystem.FileType.readFileWithFileInfo destdirp
@@ -216,6 +218,7 @@ recreateSymlink _ _ AFileInvFN = throw InvalidFileName
 recreateSymlink cm    symf@(_ :/ SymLink {})
                    symdest@(_ :/ Dir {})
   = do
+    throwCantOpenDirectory $ fullPath symdest
     sympoint <- readSymbolicLink (fullPathS $ symf)
     let symname = fullPath symdest P.</> (name . file $ symf)
     case cm of
@@ -238,6 +241,8 @@ copyFile' :: Path Abs -> Path Abs -> IO ()
 copyFile' from to = do
   let from' = P.fromAbs from
       to'   = P.fromAbs to
+  throwCantOpenDirectory $ P.dirname from
+  throwCantOpenDirectory $ P.dirname to
   fromFstatus <- getSymbolicLinkStatus from'
   fromContent <- BS.readFile from'
   fd          <- System.Posix.IO.createFile to'
@@ -258,6 +263,8 @@ overwriteFile from@(_ :/ RegFile {})
   = do
     let from' = fullPath from
         to'   = fullPath to
+    throwCantOpenDirectory $ P.dirname from'
+    throwCantOpenDirectory $ P.dirname to'
     throwSameFile from' to'
     copyFile' from' to'
 overwriteFile _ _ = throw $ InvalidOperation "wrong input type"
@@ -276,6 +283,7 @@ copyFileToDir cm from@(_ :/ RegFile fn _)
   = do
     let from' = fullPath from
         to'   = fullPath to P.</> fn
+    throwCantOpenDirectory $ fullPath to
     case cm of
       Strict -> throwFileDoesExist to'
       _      -> return ()
@@ -333,13 +341,12 @@ deleteDir f@(_ :/ Dir {})
 deleteDir _ = throw $ InvalidOperation "wrong input type"
 
 
--- TODO: check if we have permissions at all to remove the directory,
---       before we go recursively messing with it
 -- |Deletes the given directory recursively.
 deleteDirRecursive :: AnchoredFile FileInfo -> IO ()
 deleteDirRecursive AFileInvFN = throw InvalidFileName
 deleteDirRecursive f@(_ :/ Dir {}) = do
   let fp = fullPath f
+  throwCantOpenDirectory fp
   files <- readDirectoryContents' fp
   for_ files $ \file ->
     case file of
