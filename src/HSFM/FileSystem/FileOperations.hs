@@ -48,6 +48,7 @@ import Foreign.C.Error
 import HPath
     (
       Path
+    , Abs
     , Fn
     )
 import qualified HPath as P
@@ -234,14 +235,16 @@ recreateSymlink _ _ _ = throw $ InvalidOperation "wrong input type"
 -- |TODO: handle EAGAIN exception for non-blocking IO
 -- |Low-level function to copy a given file to the given path. The fileMode
 -- is preserved. The file is always overwritten if accessible.
-copyFile' :: FilePath -> FilePath -> IO ()
+copyFile' :: Path Abs -> Path Abs -> IO ()
 copyFile' from to = do
-  fromFstatus <- getSymbolicLinkStatus from
-  fromContent <- BS.readFile from
-  fd          <- System.Posix.IO.createFile to
+  let from' = P.fromAbs from
+      to'   = P.fromAbs to
+  fromFstatus <- getSymbolicLinkStatus from'
+  fromContent <- BS.readFile from'
+  fd          <- System.Posix.IO.createFile to'
                    (System.Posix.Files.fileMode fromFstatus)
   closeFd fd
-  BS.writeFile to fromContent
+  BS.writeFile to' fromContent
 
 
 -- |Copies the given file to the given file destination, overwriting it.
@@ -257,7 +260,7 @@ overwriteFile from@(_ :/ RegFile {})
     let from' = fullPath from
         to'   = fullPath to
     throwSameFile from' to'
-    copyFile' (P.fromAbs from') (P.fromAbs to')
+    copyFile' from' to'
 overwriteFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -277,7 +280,7 @@ copyFileToDir cm from@(_ :/ RegFile fn _)
     case cm of
       Strict -> throwFileDoesExist to'
       _      -> return ()
-    copyFile' (P.fromAbs from') (P.fromAbs to')
+    copyFile' from' to'
 copyFileToDir _ _ _ = throw $ InvalidOperation "wrong input type"
 
 

@@ -45,10 +45,6 @@ import Data.List
   (
     isPrefixOf
   )
-import Data.Maybe
-  (
-    catMaybes
-  )
 import Data.Time.Clock.POSIX
   (
     POSIXTime
@@ -581,22 +577,26 @@ getContents (ADirOrSym af) = readDirectoryContents (fullPath af)
 getContents _              = return []
 
 
-getDirsFiles' :: (FilePath -> [FilePath] -> [FilePath])
+getDirsFiles' :: (Path Fn -> [Path Fn] -> [Path Fn])
               -> Path Abs
               -> IO [Path Fn]
 getDirsFiles' filterf fp = do
   dirstream <- PFD.openDirStream . P.toFilePath $ fp
-  let mdirs :: [FilePath] -> IO [FilePath]
+  let mdirs :: [Path Fn] -> IO [Path Fn]
       mdirs dirs = do
         -- make sure we close the directory stream in case of errors
+        -- TODO: more explicit error handling?
+        --       both the parsing and readin the stream can fail!
         dir <- onException (PFD.readDirStream dirstream)
                            (PFD.closeDirStream dirstream)
-        if dir == ""
-          then return dirs
-          else mdirs (dir `filterf` dirs)
+        case dir of
+          "" -> return dirs
+          _  -> do
+                  pdir <- P.parseFn dir
+                  mdirs $ pdir `filterf` dirs
   dirs <- mdirs []
   PFD.closeDirStream dirstream
-  return $ catMaybes (fmap P.parseFn dirs)
+  return dirs
 
 
 -- |Get all files of a given directory and return them as a List.
@@ -611,9 +611,9 @@ getDirsFiles :: Path Abs -> IO [Path Fn]
 getDirsFiles = getDirsFiles' insert
   where
     insert dir dirs = case dir of
-      "."  -> dirs
-      ".." -> dirs
-      _    -> dir : dirs
+      (Path ".")  -> dirs
+      (Path "..") -> dirs
+      _           -> dir : dirs
 
 
 -- |Gets all file information.
