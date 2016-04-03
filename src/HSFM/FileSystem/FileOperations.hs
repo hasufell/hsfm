@@ -273,25 +273,6 @@ copyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
 copyFile _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
--- |Copies the given file to the given file destination, overwriting it.
--- Excludes symlinks.
-overwriteFile :: AnchoredFile FileInfo  -- ^ source file
-              -> AnchoredFile FileInfo  -- ^ destination file
-              -> IO ()
-overwriteFile AFileInvFN _ = throw InvalidFileName
-overwriteFile _ AFileInvFN = throw InvalidFileName
-overwriteFile from@(_ :/ RegFile {})
-                to@(_ :/ RegFile {})
-  = do
-    let from' = fullPath from
-        to'   = fullPath to
-    throwCantOpenDirectory $ P.dirname from'
-    throwCantOpenDirectory $ P.dirname to'
-    throwSameFile from' to'
-    copyFile Replace from to (name . file $ to)
-overwriteFile _ _ = throw $ InvalidOperation "wrong input type"
-
-
 -- |Copies a file, directory or symlink. In case of a symlink, it is just
 -- recreated, even if it points to a directory.
 easyCopy :: CopyMode
