@@ -32,6 +32,7 @@ module HSFM.FileSystem.FileOperations where
 import Control.Exception
   (
     throw
+  , onException
   )
 import Control.Monad
   (
@@ -48,7 +49,6 @@ import Foreign.C.Error
 import HPath
     (
       Path
-    , Abs
     , Fn
     )
 import qualified HPath as P
@@ -186,9 +186,9 @@ copyDir cm from@(_ :/ Dir fromn FileInfo{ fileMode = fmode })
 
     for_ contents $ \f ->
       case f of
-        (_ :/ SymLink {})  -> recreateSymlink cm f destdir
+        (_ :/ SymLink {})  -> recreateSymlink cm f destdir (name . file $ f)
         (_ :/ Dir {})      -> copyDir cm f destdir
-        (_ :/ RegFile {})  -> copyFileToDir Replace f destdir
+        (_ :/ RegFile {})  -> copyFile Replace f destdir (name . file $ f)
         _                  -> return ()
   where
     createDestdir destdir fmode' =
@@ -213,15 +213,16 @@ recreateSymlink :: CopyMode
                 -> AnchoredFile FileInfo  -- ^ the old symlink file
                 -> AnchoredFile FileInfo  -- ^ destination dir of the
                                           --   new symlink file
+                -> Path Fn                -- ^ destination file name
                 -> IO ()
-recreateSymlink _ AFileInvFN _ = throw InvalidFileName
-recreateSymlink _ _ AFileInvFN = throw InvalidFileName
-recreateSymlink cm    symf@(_ :/ SymLink {})
-                   symdest@(_ :/ Dir {})
+recreateSymlink _ AFileInvFN _ _ = throw InvalidFileName
+recreateSymlink _ _ AFileInvFN _ = throw InvalidFileName
+recreateSymlink _ _ _ InvFN      = throw InvalidFileName
+recreateSymlink cm symf@(_ :/ SymLink {}) symdest@(_ :/ Dir {}) fn
   = do
     throwCantOpenDirectory $ fullPath symdest
     sympoint <- readSymbolicLink (fullPathS $ symf)
-    let symname = fullPath symdest P.</> (name . file $ symf)
+    let symname = fullPath symdest P.</> fn
     case cm of
       Merge   -> delOld symname
       Replace -> delOld symname
@@ -232,24 +233,41 @@ recreateSymlink cm    symf@(_ :/ SymLink {})
       f <- HSFM.FileSystem.FileType.readFileWithFileInfo symname
       unless (failed . file $ f)
              (easyDelete f)
-recreateSymlink _ _ _ = throw $ InvalidOperation "wrong input type"
+recreateSymlink _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |TODO: handle EAGAIN exception for non-blocking IO
--- |Low-level function to copy a given file to the given path. The fileMode
--- is preserved. The file is always overwritten if accessible.
-copyFile' :: Path Abs -> Path Abs -> IO ()
-copyFile' from to = do
-  let from' = P.fromAbs from
-      to'   = P.fromAbs to
-  throwCantOpenDirectory $ P.dirname from
-  throwCantOpenDirectory $ P.dirname to
-  fromFstatus <- getSymbolicLinkStatus from'
-  fromContent <- BS.readFile from'
-  fd          <- SPI.createFile to'
-                   (System.Posix.Files.fileMode fromFstatus)
-  _ <- fdWrite fd fromContent
-  SPI.closeFd fd
+-- TODO: implement for non-regular file? This would deprecate the logic
+--       in copyDir
+-- |Copies the given file to the given dir with the given filename.
+-- Excludes symlinks.
+copyFile :: CopyMode
+         -> AnchoredFile FileInfo  -- ^ source file
+         -> AnchoredFile FileInfo  -- ^ destination dir
+         -> Path Fn                -- ^ destination file name
+         -> IO ()
+copyFile _ AFileInvFN _ _ = throw InvalidFileName
+copyFile _ _ AFileInvFN _ = throw InvalidFileName
+copyFile _ _ _ InvFN      = throw InvalidFileName
+copyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
+  = do
+    let from' = fullPath from
+        to'   = fullPath to P.</> fn
+    throwCantOpenDirectory $ fullPath to
+    case cm of
+      Strict -> throwFileDoesExist to'
+      _      -> return ()
+
+    throwCantOpenDirectory . P.dirname . fullPath $ from
+    throwCantOpenDirectory . fullPath $ to
+    fromFstatus <- getSymbolicLinkStatus (P.fromAbs from')
+    fromContent <- BS.readFile (P.fromAbs from')
+    fd          <- SPI.createFile (P.fromAbs to')
+                     (System.Posix.Files.fileMode fromFstatus)
+    _ <- onException (fdWrite fd fromContent) (SPI.closeFd fd)
+    SPI.closeFd fd
+
+copyFile _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Copies the given file to the given file destination, overwriting it.
@@ -267,29 +285,8 @@ overwriteFile from@(_ :/ RegFile {})
     throwCantOpenDirectory $ P.dirname from'
     throwCantOpenDirectory $ P.dirname to'
     throwSameFile from' to'
-    copyFile' from' to'
+    copyFile Replace from to (name . file $ to)
 overwriteFile _ _ = throw $ InvalidOperation "wrong input type"
-
-
--- |Copies the given file to the given dir with the same filename.
--- Excludes symlinks.
-copyFileToDir :: CopyMode
-              -> AnchoredFile FileInfo
-              -> AnchoredFile FileInfo
-              -> IO ()
-copyFileToDir _ AFileInvFN _ = throw InvalidFileName
-copyFileToDir _ _ AFileInvFN = throw InvalidFileName
-copyFileToDir cm from@(_ :/ RegFile fn _)
-                   to@(_ :/ Dir {})
-  = do
-    let from' = fullPath from
-        to'   = fullPath to P.</> fn
-    throwCantOpenDirectory $ fullPath to
-    case cm of
-      Strict -> throwFileDoesExist to'
-      _      -> return ()
-    copyFile' from' to'
-copyFileToDir _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Copies a file, directory or symlink. In case of a symlink, it is just
@@ -300,10 +297,10 @@ easyCopy :: CopyMode
          -> IO ()
 easyCopy cm from@(_ :/ SymLink{})
               to@(_ :/ Dir{})
-  = recreateSymlink cm from to
+  = recreateSymlink cm from to (name . file $ from)
 easyCopy cm from@(_ :/ RegFile{})
               to@(_ :/ Dir{})
-  = copyFileToDir cm from to
+  = copyFile cm from to (name . file $ from)
 easyCopy cm from@(_ :/ Dir{})
               to@(_ :/ Dir{})
   = copyDir cm from to
