@@ -111,11 +111,11 @@ throwSameFile fp1 fp2 = do
 
 
 throwDestinationInSource :: Path Abs -- ^ will be canonicalized
-                         -> Path Abs -- ^ will be canonicalized
+                         -> Path Abs -- ^ `dirname dest` will be canonicalized
                          -> IO ()
 throwDestinationInSource source dest = do
-  source'  <- P.canonicalizePath source
-  cDestbase <- fmap P.dirname $ P.canonicalizePath dest
+  source'   <- P.canonicalizePath source
+  cDestbase <- P.canonicalizePath $ P.dirname dest
   let dest' = cDestbase P.</> P.basename dest
   when (source' `P.isParentOf` dest')
        (throw $ DestinationInSource (P.fromAbs dest') (P.fromAbs source'))
