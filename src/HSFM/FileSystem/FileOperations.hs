@@ -16,8 +16,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
-{-# OPTIONS_HADDOCK ignore-exports #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
+{-# OPTIONS_HADDOCK ignore-exports #-}
 
 -- |This module provides all the atomic IO related file operations like
 -- copy, delete, move and so on. It operates primarily on `AnchoredFile`, which
@@ -38,6 +39,10 @@ import Control.Monad
   (
     unless
   )
+import Data.ByteString
+  (
+    ByteString
+  )
 import Data.Foldable
   (
     for_
@@ -55,12 +60,12 @@ import qualified HPath as P
 import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileType
 import HSFM.Utils.IO
-import System.Posix.Directory
+import System.Posix.Directory.ByteString
   (
     createDirectory
   , removeDirectory
   )
-import System.Posix.Files
+import System.Posix.Files.ByteString
   (
     createSymbolicLink
   , fileMode
@@ -79,22 +84,17 @@ import System.Posix.Files
   , unionFileModes
   , removeLink
   )
-import qualified "unix" System.Posix.IO as SPI
+import qualified "unix" System.Posix.IO.ByteString as SPI
 import "unix-bytestring" System.Posix.IO.ByteString
   (
     fdWrite
   )
+import qualified System.Posix.Process.ByteString as SPP
 import System.Posix.Types
   (
     FileMode
+  , ProcessID
   )
-import System.Process
-  (
-    spawnProcess
-  , ProcessHandle
-  )
-
-import qualified Data.ByteString  as BS
 
 
 
@@ -110,7 +110,7 @@ data FileOperation = FCopy    Copy
                    | FMove    Move
                    | FDelete  (AnchoredFile FileInfo)
                    | FOpen    (AnchoredFile FileInfo)
-                   | FExecute (AnchoredFile FileInfo) [String]
+                   | FExecute (AnchoredFile FileInfo) [ByteString]
                    | None
 
 
@@ -264,9 +264,9 @@ copyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
     throwCantOpenDirectory . P.dirname . fullPath $ from
     throwCantOpenDirectory . fullPath $ to
     fromFstatus <- getSymbolicLinkStatus (P.fromAbs from')
-    fromContent <- BS.readFile (P.fromAbs from')
+    fromContent <- readFileContents from
     fd          <- SPI.createFile (P.fromAbs to')
-                     (System.Posix.Files.fileMode fromFstatus)
+                     (System.Posix.Files.ByteString.fileMode fromFstatus)
     _ <- onException (fdWrite fd fromContent) (SPI.closeFd fd)
     SPI.closeFd fd
 
@@ -335,7 +335,9 @@ deleteDirRecursive f@(_ :/ Dir {}) = do
       (_ :/ SymLink {}) -> deleteSymlink file
       (_ :/ Dir {})     -> deleteDirRecursive file
       (_ :/ RegFile {}) -> removeLink (P.toFilePath . fullPath $ file)
-      _                 -> throw $ FileDoesExist (P.toFilePath . fullPath $ file)
+      _                 -> throw $ FileDoesExist
+                                   (P.fpToString . P.toFilePath . fullPath
+                                                 $ file)
   removeDirectory . P.toFilePath $ fp
 deleteDirRecursive _ = throw $ InvalidOperation "wrong input type"
 
@@ -361,18 +363,19 @@ easyDelete _ = throw $ InvalidOperation "wrong input type"
 
 -- |Opens a file appropriately by invoking xdg-open.
 openFile :: AnchoredFile a
-         -> IO ProcessHandle
+         -> IO ProcessID
 openFile AFileInvFN = throw InvalidFileName
-openFile f = spawnProcess "xdg-open" [fullPathS f]
+openFile f =
+  SPP.forkProcess $ SPP.executeFile "xdg-open" True [fullPathS f] Nothing
 
 
 -- |Executes a program with the given arguments.
 executeFile :: AnchoredFile FileInfo  -- ^ program
-            -> [String]               -- ^ arguments
-            -> IO ProcessHandle
+            -> [ByteString]           -- ^ arguments
+            -> IO ProcessID
 executeFile AFileInvFN _ = throw InvalidFileName
 executeFile prog@(_ :/ RegFile {}) args
-  = spawnProcess (fullPathS prog) args
+  = SPP.forkProcess $ SPP.executeFile (fullPathS prog) True args Nothing
 executeFile _ _ = throw $ InvalidOperation "wrong input type"
 
 

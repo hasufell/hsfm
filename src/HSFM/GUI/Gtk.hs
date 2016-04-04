@@ -16,6 +16,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 module Main where
@@ -35,24 +36,21 @@ import Safe
   (
     headDef
   )
-import System.Environment
-  (
-    getArgs
-  )
+import qualified System.Posix.Env.ByteString as SPE
 
 
 main :: IO ()
 main = do
   _ <- initGUI
 
-  args <- getArgs
+  args <- SPE.getArgs
 
   mygui <- createMyGUI
 
   myview <- createMyView mygui createTreeView
 
   let mdir = fromMaybe (fromJust $ P.parseAbs "/")
-                       (P.parseAbs $ headDef "/" args)
+                       (P.parseAbs . headDef "/" $ args)
   refreshView mygui myview (Just $ mdir)
 
   widgetShowAll (rootWin mygui)

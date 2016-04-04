@@ -16,7 +16,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
+
 
 module HSFM.GUI.Gtk.MyView where
 
@@ -55,6 +57,7 @@ import HPath
 import qualified HPath as P
 import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
+import HSFM.GUI.Glib.GlibString()
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Icons
 import HSFM.GUI.Gtk.Utils
@@ -157,7 +160,7 @@ createTreeView = do
 
   -- filename column
   cF <- treeViewColumnNew
-  treeViewColumnSetTitle        cF "Filename"
+  treeViewColumnSetTitle        cF ("Filename" :: String)
   treeViewColumnSetResizable    cF True
   treeViewColumnSetClickable    cF True
   treeViewColumnSetSortColumnId cF 1
@@ -169,7 +172,7 @@ createTreeView = do
 
   -- date column
   cMD <- treeViewColumnNew
-  treeViewColumnSetTitle        cMD "Date"
+  treeViewColumnSetTitle        cMD ("Date" :: String)
   treeViewColumnSetResizable    cMD True
   treeViewColumnSetClickable    cMD True
   treeViewColumnSetSortColumnId cMD 2
@@ -179,7 +182,7 @@ createTreeView = do
 
   -- permissions column
   cP <- treeViewColumnNew
-  treeViewColumnSetTitle        cP "Permission"
+  treeViewColumnSetTitle        cP ("Permission" :: String)
   treeViewColumnSetResizable    cP True
   treeViewColumnSetClickable    cP True
   treeViewColumnSetSortColumnId cP 3

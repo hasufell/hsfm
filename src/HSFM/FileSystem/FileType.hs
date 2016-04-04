@@ -16,6 +16,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PackageImports #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 -- |This module provides data types for representing directories/files
@@ -30,6 +32,7 @@ module HSFM.FileSystem.FileType where
 import Control.Exception
   (
     handle
+  , bracket
   )
 import Control.Exception.Base
   (
@@ -40,11 +43,8 @@ import Control.Monad.State.Lazy
   (
 
   )
+import Data.ByteString(ByteString)
 import Data.Default
-import Data.List
-  (
-    isPrefixOf
-  )
 import Data.Time.Clock.POSIX
   (
     POSIXTime
@@ -60,12 +60,6 @@ import HPath
     )
 import qualified HPath as P
 import HSFM.Utils.MyPrelude
-import System.FilePath
-  (
-    isAbsolute
-  , pathSeparator
-  , (</>)
-  )
 import System.IO.Error
   (
     ioeGetErrorType
@@ -83,8 +77,13 @@ import System.Posix.Types
   , UserID
   )
 
-import qualified System.Posix.Files as PF
-import qualified System.Posix.Directory as PFD
+import qualified Data.ByteString as B
+import qualified System.Posix.Directory.ByteString as PFD
+import qualified System.Posix.Files.ByteString as PF
+import qualified "unix" System.Posix.IO.ByteString as PIO
+import qualified "unix-bytestring" System.Posix.IO.ByteString as PIOB
+
+
 
 
 
@@ -124,7 +123,7 @@ data File a =
   , fvar    :: a
   , sdest   :: AnchoredFile a  -- ^ symlink madness,
                                --   we need to know where it points to
-  , rawdest :: FilePath
+  , rawdest :: ByteString
   }
   | BlockDev {
     name :: Path Fn
@@ -250,7 +249,7 @@ invalidFileName :: Path Fn -> (Bool, Path Fn)
 invalidFileName p@(Path "")   = (True, p)
 invalidFileName p@(Path ".")  = (True, p)
 invalidFileName p@(Path "..") = (True, p)
-invalidFileName p             = (elem pathSeparator (P.fromRel p), p)
+invalidFileName p             = (B.elem P.pathSeparator (P.fromRel p), p)
 
 
 -- |Matches on invalid filesnames, such as ".", ".." and anything
@@ -409,7 +408,7 @@ readWith ff p = do
             -- watch out, we call </> from 'filepath' here, but it is safe
             -- TODO: could it happen that too many '..' lead
             -- to something like '/' after normalization?
-            let sfp = if isAbsolute x then x else (P.fromAbs bd') </> x
+            let sfp = (P.fromAbs bd') `P.combine` x
             rsfp <- P.realPath sfp
             readWith ff =<< P.parseAbs rsfp
           return $ SymLink fn' fv resolvedSyml x
@@ -508,6 +507,26 @@ comparingConstr t t'  = compare (name t) (name t')
 
 
 ---- OTHER ----
+
+
+
+    ---------------------------
+    --[ LOW LEVEL FUNCTIONS ]--
+    ---------------------------
+
+
+-- |Follows symbolic links.
+readFileContents :: AnchoredFile a -> IO ByteString
+readFileContents af@(_ :/ RegFile{}) =
+    bracket (PIO.openFd f PIO.ReadOnly Nothing PIO.defaultFileFlags)
+            PIO.closeFd
+    $ \fd -> do
+      filesz   <- fmap PF.fileSize $ PF.getFdStatus fd
+      PIOB.fdRead fd ((fromIntegral filesz `max` 0) + 1)
+  where
+    f = fullPathS af
+readFileContents _ = return B.empty
+
 
 
 
@@ -684,7 +703,7 @@ isBrokenSymlink _ = False
 hiddenFile :: Path Fn -> Bool
 hiddenFile (Path ".")  = False
 hiddenFile (Path "..") = False
-hiddenFile p           = "." `isPrefixOf` (P.fromRel p)
+hiddenFile p           = "." `B.isPrefixOf` (P.fromRel p)
 
 
 -- |Apply a function on the free variable. If there is no free variable
@@ -711,7 +730,7 @@ fullPath (bp :/ f) = bp P.</> name f
 
 
 -- |Get the full path of the file, converted to a `FilePath`.
-fullPathS :: AnchoredFile a -> FilePath
+fullPathS :: AnchoredFile a -> ByteString
 fullPathS = P.fromAbs . fullPath
 
 
@@ -728,6 +747,7 @@ packPermissions :: File FileInfo
                 -> String
 packPermissions dt = fromFreeVar (pStr . fileMode) dt
   where
+    pStr :: FileMode -> String
     pStr ffm = typeModeStr ++ ownerModeStr ++ groupModeStr ++ otherModeStr
       where
         typeModeStr = case dt of

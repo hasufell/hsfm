@@ -16,8 +16,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
-{-# OPTIONS_HADDOCK ignore-exports #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# OPTIONS_HADDOCK ignore-exports #-}
 
 -- |Provides error handling.
 module HSFM.FileSystem.Errors where
@@ -42,17 +42,13 @@ import HPath
     , Path
     )
 import HSFM.Utils.IO
-import System.FilePath
-  (
-    equalFilePath
-  )
 import System.IO.Error
   (
     catchIOError
   )
 
-import qualified System.Posix.Files as PF
-import qualified System.Posix.Directory as PFD
+import qualified System.Posix.Files.ByteString as PF
+import qualified System.Posix.Directory.ByteString as PFD
 
 
 data FmIOException = FileDoesNotExist String
@@ -84,22 +80,26 @@ instance Exception FmIOException
 
 throwFileDoesExist :: Path Abs -> IO ()
 throwFileDoesExist fp =
-  whenM (doesFileExist fp) (throw $ FileDoesExist $ P.fromAbs fp)
+  whenM (doesFileExist fp) (throw . FileDoesExist
+                                  . P.fpToString . P.fromAbs $ fp)
 
 
 throwDirDoesExist :: Path Abs -> IO ()
 throwDirDoesExist fp =
-  whenM (doesDirectoryExist fp) (throw $ DirDoesExist $ P.fromAbs fp)
+  whenM (doesDirectoryExist fp) (throw . DirDoesExist
+                                       . P.fpToString . P.fromAbs $ fp)
 
 
 throwFileDoesNotExist :: Path Abs -> IO ()
 throwFileDoesNotExist fp =
-  whenM (doesFileExist fp) (throw $ FileDoesExist $ P.fromAbs fp)
+  whenM (doesFileExist fp) (throw . FileDoesExist
+                                  . P.fpToString . P.fromAbs $ fp)
 
 
 throwDirDoesNotExist :: Path Abs -> IO ()
 throwDirDoesNotExist fp =
-  whenM (doesDirectoryExist fp) (throw $ DirDoesExist $ P.fromAbs fp)
+  whenM (doesDirectoryExist fp) (throw . DirDoesExist
+                                       . P.fpToString . P.fromAbs $ fp)
 
 
 throwSameFile :: Path Abs -- ^ will be canonicalized
@@ -113,7 +113,8 @@ throwSameFile fp1 fp2 = do
                        (\_ -> fmap P.fromAbs
                               $ (P.</> P.basename fp2)
                                 <$> (P.canonicalizePath $ P.dirname fp2))
-  when (equalFilePath fp1' fp2') (throw $ SameFile fp1' fp2')
+  when (P.equalFilePath fp1' fp2') (throw $ SameFile (P.fpToString fp1')
+                                                     (P.fpToString fp2'))
 
 
 -- |Checks whether the destination directory is contained
@@ -133,7 +134,8 @@ throwDestinationInSource source dest = do
   sid <- fmap (\x -> (PF.deviceID x, PF.fileID x))
               $ PF.getSymbolicLinkStatus (P.fromAbs source')
   when (elem sid dids)
-       (throw $ DestinationInSource (P.fromAbs dest) (P.fromAbs source))
+       (throw $ DestinationInSource (P.fpToString $ P.fromAbs dest)
+                                    (P.fpToString $ P.fromAbs source))
 
 
 -- |Checks if the given file exists and is not a directory. This follows
@@ -166,7 +168,8 @@ canOpenDirectory fp =
 
 throwCantOpenDirectory :: Path Abs -> IO ()
 throwCantOpenDirectory fp =
-  unlessM (canOpenDirectory fp) (throw $ Can'tOpenDirectory $ P.fromAbs fp)
+  unlessM (canOpenDirectory fp)
+          (throw . Can'tOpenDirectory . show . P.fromAbs $ fp)
 
 
 
