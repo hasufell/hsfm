@@ -52,6 +52,10 @@ import Data.Time.Clock.POSIX
   , posixSecondsToUTCTime
   )
 import Data.Time()
+import Foreign.C.Error
+  (
+    eACCES
+  )
 import HPath
     (
       Abs
@@ -60,6 +64,7 @@ import HPath
     , pattern Path
     )
 import qualified HPath as P
+import HSFM.FileSystem.Errors
 import HSFM.Utils.MyPrelude
 import Prelude hiding(readFile)
 import System.IO.Error
@@ -608,7 +613,8 @@ getDirsFiles' :: (Path Fn -> [Path Fn] -> [Path Fn]) -- ^ filter function
               -> Path Abs                            -- ^ dir to read
               -> IO [Path Fn]
 getDirsFiles' filterf fp =
-  bracket (PFD.openDirStream . P.toFilePath $ fp)
+  rethrowErrnoAs eACCES (Can'tOpenDirectory . P.fpToString . P.fromAbs $ fp)
+  $ bracket (PFD.openDirStream . P.toFilePath $ fp)
           PFD.closeDirStream
           $ \dirstream ->
             let mdirs :: [Path Fn] -> IO [Path Fn]

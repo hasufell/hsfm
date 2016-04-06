@@ -199,6 +199,15 @@ catchErrno en a1 a2 =
       else ioError e
 
 
+-- |Execute the given action and retrow IO exceptions that have the given errno.
+rethrowErrnoAs :: Errno         -- ^ errno to catch
+               -> FmIOException -- ^ rethrow as
+               -> IO a          -- ^ action to try
+               -> IO a
+rethrowErrnoAs en fmex action = catchErrno en action (throw fmex)
+
+
+
 -- |Like `catchIOError`, with arguments swapped.
 handleIOError :: (IOError -> IO a) -> IO a -> IO a
 handleIOError a1 a2 = catchIOError a2 a1
