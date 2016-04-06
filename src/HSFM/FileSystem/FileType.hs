@@ -21,7 +21,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 -- |This module provides data types for representing directories/files
--- and related operations on it, mostly internal stuff, not actual IO actions.
+-- and related operations on it, mostly internal stuff.
 --
 -- It doesn't allow to represent the whole filesystem, since that's only
 -- possible through IO laziness, which introduces too much internal state.
@@ -44,6 +44,7 @@ import Control.Monad.State.Lazy
 
   )
 import Data.ByteString(ByteString)
+import qualified Data.ByteString as B
 import Data.Default
 import Data.Time.Clock.POSIX
   (
@@ -60,11 +61,16 @@ import HPath
     )
 import qualified HPath as P
 import HSFM.Utils.MyPrelude
+import Prelude hiding(readFile)
 import System.IO.Error
   (
     ioeGetErrorType
   , isDoesNotExistErrorType
   )
+import qualified System.Posix.Directory.ByteString as PFD
+import qualified System.Posix.Files.ByteString as PF
+import qualified "unix" System.Posix.IO.ByteString as PIO
+import qualified "unix-bytestring" System.Posix.IO.ByteString as PIOB
 import System.Posix.Types
   (
     DeviceID
@@ -77,11 +83,6 @@ import System.Posix.Types
   , UserID
   )
 
-import qualified Data.ByteString as B
-import qualified System.Posix.Directory.ByteString as PFD
-import qualified System.Posix.Files.ByteString as PF
-import qualified "unix" System.Posix.IO.ByteString as PIO
-import qualified "unix-bytestring" System.Posix.IO.ByteString as PIOB
 
 
 
@@ -117,7 +118,6 @@ data File a =
     name :: Path Fn
   , fvar :: a
   }
-  -- TODO: add raw symlink dest (not normalized) to SymLink?
   | SymLink {
     name    :: Path Fn
   , fvar    :: a
@@ -143,7 +143,7 @@ data File a =
   } deriving (Show, Eq)
 
 
--- |All possible file information we could ever need.
+-- |Low-level file information.
 data FileInfo = FileInfo {
     deviceID :: DeviceID
   , fileID :: FileID
@@ -383,11 +383,11 @@ instance Ord (AnchoredFile FileInfo) where
 -- anchor of `AnchoredFile` is always canonicalized.
 --
 -- Exceptions: when `canonicalizePath` fails, throws IOError
-readWith :: (Path Abs -> IO a)  -- ^ function that fills the free
+readFile :: (Path Abs -> IO a)  -- ^ function that fills the free
                                 --   a variable
          -> Path Abs            -- ^ Path to read
          -> IO (AnchoredFile a)
-readWith ff p = do
+readFile ff p = do
   let fn = P.basename p
       bd = P.dirname p
       p' = P.toFilePath p
@@ -410,7 +410,7 @@ readWith ff p = do
             -- to something like '/' after normalization?
             let sfp = (P.fromAbs bd') `P.combine` x
             rsfp <- P.realPath sfp
-            readWith ff =<< P.parseAbs rsfp
+            readFile ff =<< P.parseAbs rsfp
           return $ SymLink fn' fv resolvedSyml x
       | PF.isDirectory       fs = return $ Dir       fn' fv
       | PF.isRegularFile     fs = return $ RegFile   fn' fv
@@ -421,39 +421,62 @@ readWith ff p = do
       | otherwise               = return $ Failed    fn' (userError
                                                           "Unknown filetype!")
 
-
--- |Reads a file Path into an AnchoredFile.
-readFile :: (Path Abs -> IO a) -> Path Abs -> IO (AnchoredFile a)
-readFile ff fp = readWith ff fp
-
+-- |Reads a file via `readFile` and fills the free variable via `getFileInfo`.
 readFileWithFileInfo :: Path Abs -> IO (AnchoredFile FileInfo)
-readFileWithFileInfo = HSFM.FileSystem.FileType.readFile getFileInfo
+readFileWithFileInfo = readFile getFileInfo
+
+
+-- |Same as readDirectoryContents but allows us to, for example, use
+-- ByteString.readFile to return a tree of ByteStrings.
+readDirectoryContents :: (Path Abs -> IO [Path Fn])
+                      -> (Path Abs -> IO a)
+                      -> Path Abs
+                      -> IO [AnchoredFile a]
+readDirectoryContents getfiles ff p = do
+  files <- getfiles p
+  fcs <- mapM (\x -> readFile ff $ p P.</> x) files
+  return $ removeNonexistent fcs
+
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
 -- the free variables via `getFileInfo`. This includes the "." and ".."
 -- directories.
-readDirectoryContents :: Path Abs -> IO [AnchoredFile FileInfo]
-readDirectoryContents fp = readDirectoryContentsWith getAllDirsFiles getFileInfo fp
+readDirectoryContentsWithFileInfo :: Path Abs -> IO [AnchoredFile FileInfo]
+readDirectoryContentsWithFileInfo fp
+  = readDirectoryContents getAllDirsFiles getFileInfo fp
 
 
 -- |Build a list of AnchoredFile, given the path to a directory, filling
 -- the free variables via `getFileInfo`. This excludes the "." and ".."
 -- directories.
-readDirectoryContents' :: Path Abs -> IO [AnchoredFile FileInfo]
-readDirectoryContents' fp = readDirectoryContentsWith getDirsFiles getFileInfo fp
+readDirectoryContentsWithFileInfo' :: Path Abs -> IO [AnchoredFile FileInfo]
+readDirectoryContentsWithFileInfo' fp
+  = readDirectoryContents getDirsFiles getFileInfo fp
 
 
--- |Same as readDirectoryContents but allows us to, for example, use
--- ByteString.readFile to return a tree of ByteStrings.
-readDirectoryContentsWith :: (Path Abs -> IO [Path Fn])
-                          -> (Path Abs -> IO a)
-                          -> Path Abs
-                          -> IO [AnchoredFile a]
-readDirectoryContentsWith getfiles ff p = do
-  files <- getfiles p
-  fcs <- mapM (\x -> HSFM.FileSystem.FileType.readFile ff $ p P.</> x) files
-  return $ removeNonexistent fcs
+-- |Get the contents of a directory, including "." and "..".
+getContents :: AnchoredFile FileInfo
+            -> IO [AnchoredFile FileInfo]
+getContents (ADirOrSym af) = readDirectoryContentsWithFileInfo (fullPath af)
+getContents _              = return []
 
+
+-- |Get the contents of a directory, including "." and "..".
+getContents' :: AnchoredFile FileInfo
+             -> IO [AnchoredFile FileInfo]
+getContents' (ADirOrSym af) = readDirectoryContentsWithFileInfo' (fullPath af)
+getContents' _              = return []
+
+
+-- |Go up one directory in the filesystem hierarchy.
+goUp :: AnchoredFile FileInfo -> IO (AnchoredFile FileInfo)
+goUp af@(Path "" :/ _) = return af
+goUp    (bp      :/ _) = readFile getFileInfo bp
+
+
+-- |Go up one directory in the filesystem hierarchy.
+goUp' :: Path Abs -> IO (AnchoredFile FileInfo)
+goUp' fp = readFile getFileInfo $ P.dirname fp
 
 
 
@@ -467,22 +490,22 @@ readDirectoryContentsWith getfiles ff p = do
 ---- HANDLING FAILURES ----
 
 
--- | True if any Failed constructors in the tree
+-- |True if any Failed constructors in the tree.
 anyFailed :: [File a] -> Bool
 anyFailed = not . successful
 
--- | True if there are no Failed constructors in the tree
+-- |True if there are no Failed constructors in the tree.
 successful :: [File a] -> Bool
 successful = null . failures
 
 
--- | returns true if argument is a `Failed` constructor:
+-- |Returns true if argument is a `Failed` constructor.
 failed :: File a -> Bool
 failed (Failed _ _) = True
 failed _            = False
 
 
--- | returns a list of 'Failed' constructors only:
+-- |Returns a list of 'Failed' constructors only.
 failures :: [File a] -> [File a]
 failures = filter failed
 
@@ -515,14 +538,15 @@ comparingConstr t t'  = compare (name t) (name t')
     ---------------------------
 
 
--- |Follows symbolic links.
+-- |Reads a file and returns the content as a ByteString.
+-- Follows symbolic links.
 readFileContents :: AnchoredFile a -> IO ByteString
 readFileContents af@(_ :/ RegFile{}) =
     bracket (PIO.openFd f PIO.ReadOnly Nothing PIO.defaultFileFlags)
             PIO.closeFd
-    $ \fd -> do
-      filesz   <- fmap PF.fileSize $ PF.getFdStatus fd
-      PIOB.fdRead fd ((fromIntegral filesz `max` 0) + 1)
+            $ \fd -> do
+              filesz   <- fmap PF.fileSize $ PF.getFdStatus fd
+              PIOB.fdRead fd ((fromIntegral filesz `max` 0) + 1)
   where
     f = fullPathS af
 readFileContents _ = return B.empty
@@ -562,7 +586,6 @@ isCharC (CharDev _ _) = True
 isCharC _             = False
 
 
-
 isNamedC :: File a -> Bool
 isNamedC (NamedPipe _ _) = True
 isNamedC _               = False
@@ -578,44 +601,29 @@ isSocketC _            = False
 ---- IO HELPERS: ----
 
 
--- |Go up one directory in the filesystem hierarchy.
-goUp :: AnchoredFile FileInfo -> IO (AnchoredFile FileInfo)
-goUp af@(Path "" :/ _) = return af
-goUp    (bp :/ _)      = HSFM.FileSystem.FileType.readFile getFileInfo bp
-
-
--- |Go up one directory in the filesystem hierarchy.
-goUp' :: Path Abs -> IO (AnchoredFile FileInfo)
-goUp' fp = HSFM.FileSystem.FileType.readFile getFileInfo $ P.dirname fp
-
-
--- |Get the contents of a directory.
-getContents :: AnchoredFile FileInfo
-            -> IO [AnchoredFile FileInfo]
-getContents (ADirOrSym af) = readDirectoryContents (fullPath af)
-getContents _              = return []
-
-
-getDirsFiles' :: (Path Fn -> [Path Fn] -> [Path Fn])
-              -> Path Abs
+-- |Gets all filenames of the given directory.
+-- The first argument is a filter function that allows to exclude
+-- filenames from the result.
+getDirsFiles' :: (Path Fn -> [Path Fn] -> [Path Fn]) -- ^ filter function
+              -> Path Abs                            -- ^ dir to read
               -> IO [Path Fn]
-getDirsFiles' filterf fp = do
-  dirstream <- PFD.openDirStream . P.toFilePath $ fp
-  let mdirs :: [Path Fn] -> IO [Path Fn]
-      mdirs dirs = do
-        -- make sure we close the directory stream in case of errors
-        -- TODO: more explicit error handling?
-        --       both the parsing and readin the stream can fail!
-        dir <- onException (PFD.readDirStream dirstream)
-                           (PFD.closeDirStream dirstream)
-        case dir of
-          "" -> return dirs
-          _  -> do
-                  pdir <- P.parseFn dir
-                  mdirs $ pdir `filterf` dirs
-  dirs <- mdirs []
-  PFD.closeDirStream dirstream
-  return dirs
+getDirsFiles' filterf fp =
+  bracket (PFD.openDirStream . P.toFilePath $ fp)
+          PFD.closeDirStream
+          $ \dirstream ->
+            let mdirs :: [Path Fn] -> IO [Path Fn]
+                mdirs dirs = do
+                  -- make sure we close the directory stream in case of errors
+                  -- TODO: more explicit error handling?
+                  --       both the parsing and readin the stream can fail!
+                  dir <- onException (PFD.readDirStream dirstream)
+                                     (PFD.closeDirStream dirstream)
+                  case dir of
+                    "" -> return dirs
+                    _  -> do
+                            pdir <- P.parseFn dir
+                            mdirs $ pdir `filterf` dirs
+            in mdirs []
 
 
 -- |Get all files of a given directory and return them as a List.
@@ -772,3 +780,4 @@ packPermissions dt = fromFreeVar (pStr . fileMode) dt
           | hasFM fm  = str
           | otherwise = "-"
         hasFM fm = ffm `PF.intersectFileModes` fm == fm
+

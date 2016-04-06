@@ -1,6 +1,6 @@
 {--
 HSFM, a filemanager written in Haskell.
-Copyright (C) 2015 Julian Ospald
+Copyright (C) 2016 Julian Ospald
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -24,6 +24,9 @@ import Data.List
 
 
 
+-- |Turns any list into a list of the same length with the values
+-- being the indices.
+-- E.g.: "abdasd" -> [0,1,2,3,4,5]
 listIndices :: [a] -> [Int]
 listIndices = findIndices (const True)
 

@@ -158,14 +158,19 @@ doesDirectoryExist fp =
     return $ PF.isDirectory fs
 
 
+-- |Checks whether the directory at the given path exists and can be
+-- opened. This invokes `openDirStream`.
 canOpenDirectory :: Path Abs -> IO Bool
 canOpenDirectory fp =
   handleIOError (\_ -> return False) $ do
-    dirstream <- PFD.openDirStream . P.fromAbs $ fp
-    PFD.closeDirStream dirstream
+    bracket (PFD.openDirStream . P.fromAbs $ fp)
+            PFD.closeDirStream
+            (\_ -> return ())
     return True
 
 
+-- |Throws a `Can'tOpenDirectory` FmIOException if the directory at the given
+-- path cannot be opened.
 throwCantOpenDirectory :: Path Abs -> IO ()
 throwCantOpenDirectory fp =
   unlessM (canOpenDirectory fp)
@@ -194,6 +199,7 @@ catchErrno en a1 a2 =
       else ioError e
 
 
+-- |Like `catchIOError`, with arguments swapped.
 handleIOError :: (IOError -> IO a) -> IO a -> IO a
 handleIOError a1 a2 = catchIOError a2 a1
 

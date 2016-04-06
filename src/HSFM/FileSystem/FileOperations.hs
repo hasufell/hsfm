@@ -32,12 +32,13 @@ module HSFM.FileSystem.FileOperations where
 
 import Control.Exception
   (
-    throw
-  , onException
+    bracket
+  , throw
   )
 import Control.Monad
   (
     unless
+  , void
   )
 import Data.ByteString
   (
@@ -185,7 +186,7 @@ copyDir cm from@(_ :/ Dir _ FileInfo{ fileMode = fmode })
     createDestdir destdirp fmode
     destdir <- HSFM.FileSystem.FileType.readFileWithFileInfo destdirp
 
-    contents <- readDirectoryContents' (fullPath from)
+    contents <- readDirectoryContentsWithFileInfo' (fullPath from)
 
     for_ contents $ \f ->
       case f of
@@ -240,9 +241,7 @@ recreateSymlink _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |TODO: handle EAGAIN exception for non-blocking IO
--- TODO: implement for non-regular file? This would deprecate the logic
---       in copyDir
--- |Copies the given file to the given dir with the given filename.
+-- |Copies the given regular file to the given dir with the given filename.
 -- Excludes symlinks.
 copyFile :: CopyMode
          -> AnchoredFile FileInfo  -- ^ source file
@@ -265,16 +264,16 @@ copyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
     throwCantOpenDirectory . fullPath $ to
     fromFstatus <- getSymbolicLinkStatus (P.fromAbs from')
     fromContent <- readFileContents from
-    fd          <- SPI.createFile (P.fromAbs to')
-                     (System.Posix.Files.ByteString.fileMode fromFstatus)
-    _ <- onException (fdWrite fd fromContent) (SPI.closeFd fd)
-    SPI.closeFd fd
+    bracket (SPI.createFile (P.fromAbs to')
+                $ System.Posix.Files.ByteString.fileMode fromFstatus)
+            SPI.closeFd
+            (\fd -> void $ fdWrite fd fromContent)
 
 copyFile _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
--- |Copies a file, directory or symlink. In case of a symlink, it is just
--- recreated, even if it points to a directory.
+-- |Copies a regular file, directory or symlink. In case of a symlink,
+-- it is just recreated, even if it points to a directory.
 easyCopy :: CopyMode
          -> AnchoredFile FileInfo
          -> AnchoredFile FileInfo
@@ -307,7 +306,7 @@ deleteSymlink f@(_ :/ SymLink {})
 deleteSymlink _ = throw $ InvalidOperation "wrong input type"
 
 
--- |Deletes the given file, never symlinks.
+-- |Deletes the given regular file, never symlinks.
 deleteFile :: AnchoredFile FileInfo -> IO ()
 deleteFile AFileInvFN = throw InvalidFileName
 deleteFile f@(_ :/ RegFile {})
@@ -329,7 +328,7 @@ deleteDirRecursive AFileInvFN = throw InvalidFileName
 deleteDirRecursive f@(_ :/ Dir {}) = do
   let fp = fullPath f
   throwCantOpenDirectory fp
-  files <- readDirectoryContents' fp
+  files <- readDirectoryContentsWithFileInfo' fp
   for_ files $ \file ->
     case file of
       (_ :/ SymLink {}) -> deleteSymlink file
@@ -361,7 +360,8 @@ easyDelete _ = throw $ InvalidOperation "wrong input type"
     --------------------
 
 
--- |Opens a file appropriately by invoking xdg-open.
+-- |Opens a file appropriately by invoking xdg-open. The file type
+-- is not checked.
 openFile :: AnchoredFile a
          -> IO ProcessID
 openFile AFileInvFN = throw InvalidFileName
@@ -376,6 +376,8 @@ executeFile :: AnchoredFile FileInfo  -- ^ program
 executeFile AFileInvFN _ = throw InvalidFileName
 executeFile prog@(_ :/ RegFile {}) args
   = SPP.forkProcess $ SPP.executeFile (fullPathS prog) True args Nothing
+executeFile prog@(_ :/ SymLink { sdest = (_ :/ RegFile {}) }) args
+  = SPP.forkProcess $ SPP.executeFile (fullPathS prog) True args Nothing
 executeFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -386,6 +388,7 @@ executeFile _ _ = throw $ InvalidOperation "wrong input type"
     ---------------------
 
 
+-- |Create an empty regular file at the given directory with the given filename.
 createFile :: AnchoredFile FileInfo -> Path Fn -> IO ()
 createFile AFileInvFN _ = throw InvalidFileName
 createFile _ InvFN      = throw InvalidFileName
@@ -397,6 +400,7 @@ createFile (ADirOrSym td) (ValFN fn) = do
 createFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
+-- |Create an empty directory at the given directory with the given filename.
 createDir :: AnchoredFile FileInfo -> Path Fn -> IO ()
 createDir AFileInvFN _ = throw InvalidFileName
 createDir _ InvFN      = throw InvalidFileName
@@ -414,6 +418,7 @@ createDir _ _ = throw $ InvalidOperation "wrong input type"
     ----------------------------
 
 
+-- |Rename a given file with the provided filename.
 renameFile :: AnchoredFile FileInfo -> Path Fn -> IO ()
 renameFile AFileInvFN _ = throw InvalidFileName
 renameFile _ InvFN      = throw InvalidFileName
@@ -461,6 +466,7 @@ moveFile _ _ _ = throw $ InvalidOperation "wrong input type"
     -----------------------
 
 
+-- |Default permissions for a new file.
 newFilePerms :: FileMode
 newFilePerms
   =                  ownerWriteMode
@@ -471,6 +477,7 @@ newFilePerms
     `unionFileModes` otherReadMode
 
 
+-- |Default permissions for a new directory.
 newDirPerms :: FileMode
 newDirPerms
   =                  ownerModes
@@ -478,3 +485,4 @@ newDirPerms
     `unionFileModes` groupReadMode
     `unionFileModes` otherExecuteMode
     `unionFileModes` otherReadMode
+
