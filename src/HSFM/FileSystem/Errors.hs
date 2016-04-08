@@ -200,8 +200,9 @@ catchErrno en a1 a2 =
 
 
 -- |Execute the given action and retrow IO exceptions that have the given errno.
-rethrowErrnoAs :: Errno         -- ^ errno to catch
-               -> FmIOException -- ^ rethrow as
+rethrowErrnoAs :: Exception e
+               => Errno         -- ^ errno to catch
+               -> e             -- ^ rethrow as
                -> IO a          -- ^ action to try
                -> IO a
 rethrowErrnoAs en fmex action = catchErrno en action (throw fmex)
