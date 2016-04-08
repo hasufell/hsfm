@@ -36,8 +36,7 @@ import Control.Exception
   )
 import Control.Exception.Base
   (
-    onException
-  , IOException
+    IOException
   )
 import Control.Monad.State.Lazy
   (
@@ -622,8 +621,7 @@ getDirsFiles' filterf fp =
                   -- make sure we close the directory stream in case of errors
                   -- TODO: more explicit error handling?
                   --       both the parsing and readin the stream can fail!
-                  dir <- onException (PFD.readDirStream dirstream)
-                                     (PFD.closeDirStream dirstream)
+                  dir <- PFD.readDirStream dirstream
                   case dir of
                     "" -> return dirs
                     _  -> do
