@@ -251,25 +251,31 @@ del _ _ _ = withErrorDialog
 
 -- |Initializes a file move operation.
 moveInit :: [Item] -> MyGUI -> MyView -> IO ()
-moveInit [item] mygui myview = do
-  writeTVarIO (operationBuffer myview) (FMove . MP1 $ item)
-  let sbmsg = "Move buffer: " ++ P.fpToString (fullPathS item)
+moveInit items@(_:_) mygui myview = do
+  writeTVarIO (operationBuffer myview) (FMove . MP1 $ items)
+  let sbmsg = case items of
+              (item:[]) -> "Move buffer: " ++ P.fpToString (fullPathS item)
+              _         -> "Move buffer: " ++ (show . length $ items)
+                                           ++ " items"
   popStatusbar mygui
   void $ pushStatusBar mygui sbmsg
 moveInit _ _ _ = withErrorDialog
                    . throw $ InvalidOperation
-                             "Operation not supported on multiple files"
+                             "No file selected!"
 
 -- |Supposed to be used with 'withRows'. Initializes a file copy operation.
 copyInit :: [Item] -> MyGUI -> MyView -> IO ()
-copyInit [item] mygui myview = do
-  writeTVarIO (operationBuffer myview) (FCopy . CP1 $ item)
-  let sbmsg = "Copy buffer: " ++ P.fpToString (fullPathS item)
+copyInit items@(_:_) mygui myview = do
+  writeTVarIO (operationBuffer myview) (FCopy . CP1 $ items)
+  let sbmsg = case items of
+              (item:[]) -> "Copy buffer: " ++ P.fpToString (fullPathS item)
+              _         -> "Copy buffer: " ++ (show . length $ items)
+                                           ++ " items"
   popStatusbar mygui
   void $ pushStatusBar mygui sbmsg
 copyInit _ _ _ = withErrorDialog
                    . throw $ InvalidOperation
-                             "Operation not supported on multiple files"
+                             "No file selected!"
 
 
 -- |Finalizes a file operation, such as copy or move.
@@ -279,20 +285,24 @@ operationFinal _ myview = withErrorDialog $ do
   cdir <- getCurrentDir myview
   case op of
     FMove (MP1 s) -> do
-      let cmsg = "Really move \"" ++ P.fpToString (fullPathS s)
-                  ++ "\"" ++ " to \"" ++ P.fpToString (fullPathS cdir)
+      let cmsg = "Really move " ++ imsg s
+                  ++ " to \"" ++ P.fpToString (fullPathS cdir)
                   ++ "\"?"
       withConfirmationDialog cmsg . withCopyModeDialog
         $ \cm -> void $ runFileOp (FMove . MC s cdir $ cm)
       return ()
     FCopy (CP1 s) -> do
-      let cmsg = "Really copy \"" ++ P.fpToString (fullPathS s)
-                 ++ "\"" ++ " to \"" ++ P.fpToString (fullPathS cdir)
+      let cmsg = "Really copy " ++ imsg s
+                 ++ " to \"" ++ P.fpToString (fullPathS cdir)
                  ++ "\"?"
       withConfirmationDialog cmsg . withCopyModeDialog
         $ \cm -> void $ runFileOp (FCopy . CC s cdir $ cm)
       return ()
     _ -> return ()
+  where
+    imsg s = case s of
+               (item:[]) -> "\"" ++ P.fpToString (fullPathS item) ++ "\""
+               items     -> (show . length $ items) ++ " items"
 
 
 -- |Go up one directory and visualize it in the treeView.

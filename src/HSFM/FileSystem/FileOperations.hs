@@ -109,7 +109,7 @@ import System.Posix.Types
 -- or delay operations.
 data FileOperation = FCopy    Copy
                    | FMove    Move
-                   | FDelete  (AnchoredFile FileInfo)
+                   | FDelete  [AnchoredFile FileInfo]
                    | FOpen    (AnchoredFile FileInfo)
                    | FExecute (AnchoredFile FileInfo) [ByteString]
                    | None
@@ -117,18 +117,18 @@ data FileOperation = FCopy    Copy
 
 -- |Data type describing partial or complete file copy operation.
 -- CC stands for a complete operation and can be used for `runFileOp`.
-data Copy = CP1 (AnchoredFile FileInfo)
-          | CP2 (AnchoredFile FileInfo)
+data Copy = CP1 [AnchoredFile FileInfo]
+          | CP2 [AnchoredFile FileInfo]
                 (AnchoredFile FileInfo)
-          | CC  (AnchoredFile FileInfo)
+          | CC  [AnchoredFile FileInfo]
                 (AnchoredFile FileInfo)
                 CopyMode
 
 
 -- |Data type describing partial or complete file move operation.
 -- MC stands for a complete operation and can be used for `runFileOp`.
-data Move = MP1 (AnchoredFile FileInfo)
-          | MC  (AnchoredFile FileInfo)
+data Move = MP1 [AnchoredFile FileInfo]
+          | MC  [AnchoredFile FileInfo]
                 (AnchoredFile FileInfo)
                 CopyMode
 
@@ -144,14 +144,16 @@ data CopyMode = Strict  -- ^ fail if the target already exists
 -- |Run a given FileOperation. If the FileOperation is partial, it will
 -- be returned.
 runFileOp :: FileOperation -> IO (Maybe FileOperation)
-runFileOp (FCopy (CC from to cm)) = easyCopy cm from to >> return Nothing
-runFileOp (FCopy fo)              = return              $ Just $ FCopy fo
-runFileOp (FMove (MC from to cm)) = moveFile cm from to >> return Nothing
-runFileOp (FMove fo)              = return              $ Just $ FMove fo
-runFileOp (FDelete fp)            = easyDelete fp       >> return Nothing
-runFileOp (FOpen fp)              = openFile fp         >> return Nothing
-runFileOp (FExecute fp args)      = executeFile fp args >> return Nothing
-runFileOp _                       = return Nothing
+runFileOp (FCopy (CC froms to cm)) = mapM_ (\x -> easyCopy cm x to) froms
+                                       >> return Nothing
+runFileOp (FCopy fo)               = return              $ Just $ FCopy fo
+runFileOp (FMove (MC froms to cm)) = mapM_ (\x -> moveFile cm x to) froms
+                                       >> return Nothing
+runFileOp (FMove fo)               = return              $ Just $ FMove fo
+runFileOp (FDelete fp)             = mapM_ easyDelete fp >> return Nothing
+runFileOp (FOpen fp)               = openFile fp         >> return Nothing
+runFileOp (FExecute fp args)       = executeFile fp args >> return Nothing
+runFileOp _                        = return Nothing
 
 
 
@@ -268,7 +270,6 @@ copyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
                 $ System.Posix.Files.ByteString.fileMode fromFstatus)
             SPI.closeFd
             (\fd -> void $ fdWrite fd fromContent)
-
 copyFile _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
