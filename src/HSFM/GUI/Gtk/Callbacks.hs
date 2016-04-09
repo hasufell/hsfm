@@ -76,15 +76,15 @@ setCallbacks :: MyGUI -> MyView -> IO ()
 setCallbacks mygui myview = do
   view' <- readTVarIO $ view myview
   case view' of
-    FMTreeView treeView -> do
+    fmv@(FMTreeView treeView) -> do
       _ <- treeView `on` rowActivated
              $ (\_ _ -> withItems mygui myview open)
-      commonGuiEvents treeView
+      commonGuiEvents fmv
       return ()
-    FMIconView iconView -> do
+    fmv@(FMIconView iconView) -> do
       _ <- iconView `on` itemActivated
              $ (\_ -> withItems mygui myview open)
-      commonGuiEvents iconView
+      commonGuiEvents fmv
       return ()
   menubarCallbacks
   where
@@ -120,7 +120,9 @@ setCallbacks mygui myview = do
       _ <- menubarHelpAbout mygui `on` menuItemActivated $
         liftIO showAboutDialog
       return ()
-    commonGuiEvents view = do
+    commonGuiEvents fmv = do
+      let view = fmViewToContainer fmv
+
       -- GUI events
       _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
 
@@ -172,10 +174,25 @@ setCallbacks mygui myview = do
         eb <- eventButton
         t  <- eventTime
         case eb of
-          RightButton -> liftIO $ menuPopup (rcMenu mygui)
-            $ Just (RightButton, t)
-          _           -> return ()
-        return False
+          RightButton -> do
+              _ <- liftIO $ menuPopup (rcMenu mygui)
+                          $ Just (RightButton, t)
+              -- this is just to not screw with current selection
+              -- on right-click
+              -- TODO: this misbehaves under IconView
+              (x, y) <- eventCoordinates
+              mpath  <- liftIO $ getPathAtPos fmv (x, y)
+              case mpath of
+                -- item under the cursor, only pass on the signal
+                -- if the item under the cursor is not within the current
+                -- selection
+                (Just tp) -> do
+                  selectedTps <- liftIO $ getSelectedTreePaths mygui myview
+                  return $ elem tp selectedTps
+                -- no item under the cursor, pass on the signal
+                Nothing -> return False
+          -- not right-click, so pass on the signal
+          _ -> return False
       _ <- rcFileOpen mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview open
       _ <- rcFileExecute mygui `on` menuItemActivated $
@@ -192,8 +209,16 @@ setCallbacks mygui myview = do
         liftIO $ withItems mygui myview del
       _ <- rcFileCut mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview moveInit
-
       return ()
+    getPathAtPos fmv (x, y) =
+      case fmv of
+        FMTreeView treeView -> do
+          mp <- treeViewGetPathAtPos treeView (round x, round y)
+          return $ fmap (\(p, _, _) -> p) mp
+        FMIconView iconView ->
+           fmap (\tp -> if null tp then Nothing else Just tp)
+                  $ iconViewGetPathAtPos iconView (round x) (round y)
+
 
 
 -- |Go to the url given at the 'urlBar' and visualize it in the given
