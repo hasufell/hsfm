@@ -550,7 +550,7 @@ readFileContents af@(_ :/ RegFile{}) =
             PIO.closeFd
             $ \fd -> do
               filesz   <- fmap PF.fileSize $ PF.getFdStatus fd
-              PIOB.fdRead fd ((fromIntegral filesz `max` 0) + 1)
+              PIOB.fdRead fd (fromIntegral filesz `max` 0)
   where
     f = fullPathS af
 readFileContents _ = return B.empty
