@@ -30,7 +30,8 @@ import Control.Exception
   )
 import Control.Monad
   (
-    when
+    forM
+  , when
   )
 import Data.Version
   (
@@ -55,6 +56,7 @@ import Distribution.Verbosity
     silent
   )
 import Graphics.UI.Gtk
+import qualified HPath as P
 import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileOperations
 import HSFM.GUI.Gtk.Errors
@@ -101,7 +103,7 @@ showConfirmationDialog str = do
 
 -- |Asks the user which directory copy mode he wants via dialog popup
 -- and returns 'DirCopyMode'.
-showCopyModeDialog :: IO CopyMode
+showCopyModeDialog :: IO (Maybe CopyMode)
 showCopyModeDialog = do
   chooserDialog <- messageDialogNew Nothing
                                     [DialogDestroyWithParent]
@@ -111,12 +113,18 @@ showCopyModeDialog = do
   _ <- dialogAddButton chooserDialog "Cancel"  (ResponseUser 0)
   _ <- dialogAddButton chooserDialog "Merge"   (ResponseUser 1)
   _ <- dialogAddButton chooserDialog "Replace" (ResponseUser 2)
+  _ <- dialogAddButton chooserDialog "Rename"  (ResponseUser 3)
   rID <- dialogRun chooserDialog
   widgetDestroy chooserDialog
   case rID of
-    ResponseUser 0 -> return Strict
-    ResponseUser 1 -> return Merge
-    ResponseUser 2 -> return Replace
+    ResponseUser 0 -> return (Just Strict)
+    ResponseUser 1 -> return (Just Merge)
+    ResponseUser 2 -> return (Just Replace)
+    ResponseUser 3 -> do
+      mfn   <- textInputDialog "Enter new name"
+      forM mfn $ \fn -> do
+        pfn <- P.parseFn (P.userStringToFP fn)
+        return $ Rename pfn
     _              -> throw  UnknownDialogButton
 
 
@@ -130,12 +138,14 @@ withCopyModeDialog fa =
     case e of
       FileDoesExist _ -> doIt
       DirDoesExist  _ -> doIt
+      SameFile _ _    -> doIt
       e'              -> throw e'
   where
-    doIt = do cm <- showCopyModeDialog
-              case cm of
-                Strict -> return () -- don't try again
-                _      -> fa cm
+    doIt = do mcm <- showCopyModeDialog
+              case mcm of
+                (Just Strict) -> return () -- don't try again
+                (Just cm)     -> fa cm
+                Nothing       -> return ()
 
 
 -- |Shows the about dialog from the help menu.

@@ -139,6 +139,7 @@ data CopyMode = Strict  -- ^ fail if the target already exists
                         --   is the same as Replace
               | Replace -- ^ remove targets before copying, this is
                         --   only useful if the target is a directorty
+              | Rename (Path Fn)
 
 
 -- |Run a given FileOperation. If the FileOperation is partial, it will
@@ -147,7 +148,7 @@ runFileOp :: FileOperation -> IO (Maybe FileOperation)
 runFileOp (FCopy (CC froms to cm)) = mapM_ (\x -> easyCopy cm x to) froms
                                        >> return Nothing
 runFileOp (FCopy fo)               = return              $ Just $ FCopy fo
-runFileOp (FMove (MC froms to cm)) = mapM_ (\x -> moveFile cm x to) froms
+runFileOp (FMove (MC froms to cm)) = mapM_ (\x -> easyMove cm x to) froms
                                        >> return Nothing
 runFileOp (FMove fo)               = return              $ Just $ FMove fo
 runFileOp (FDelete fp)             = mapM_ easyDelete fp >> return Nothing
@@ -162,7 +163,6 @@ runFileOp _                        = return Nothing
     --------------------
 
 
--- TODO: allow renaming
 -- |Copies a directory to the given destination with the specified
 -- `DirCopyMode`. Excludes symlinks.
 copyDir :: CopyMode
@@ -173,6 +173,12 @@ copyDir :: CopyMode
 copyDir _ AFileInvFN _ _ = throw InvalidFileName
 copyDir _ _ AFileInvFN _ = throw InvalidFileName
 copyDir _ _ _ InvFN      = throw InvalidFileName
+copyDir       (Rename fn)
+         from@(_ :/ Dir {})
+           to@(_ :/ Dir {})
+           _
+  = copyDir Strict from to fn
+-- this branch must never get `Rename` as CopyMode
 copyDir cm from@(_ :/ Dir _ FileInfo{ fileMode = fmode })
              to@(_ :/ Dir {})
              fn
@@ -211,6 +217,7 @@ copyDir cm from@(_ :/ Dir _ FileInfo{ fileMode = fmode })
                 (deleteDirRecursive =<<
                    HSFM.FileSystem.FileType.readFileWithFileInfo destdir)
           createDirectory destdir' fmode'
+        _ -> throw $ InvalidOperation "Internal error, wrong CopyMode!"
 copyDir _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -224,6 +231,8 @@ recreateSymlink :: CopyMode
 recreateSymlink _ AFileInvFN _ _ = throw InvalidFileName
 recreateSymlink _ _ AFileInvFN _ = throw InvalidFileName
 recreateSymlink _ _ _ InvFN      = throw InvalidFileName
+recreateSymlink (Rename pn) symf@(_ :/ SymLink {}) symdest@(_ :/ Dir {}) _
+  = recreateSymlink Strict symf symdest pn
 recreateSymlink cm symf@(_ :/ SymLink {}) symdest@(_ :/ Dir {}) fn
   = do
     throwCantOpenDirectory $ fullPath symdest
@@ -253,6 +262,8 @@ copyFile :: CopyMode
 copyFile _ AFileInvFN _ _ = throw InvalidFileName
 copyFile _ _ AFileInvFN _ = throw InvalidFileName
 copyFile _ _ _ InvFN      = throw InvalidFileName
+copyFile (Rename pn) from@(_ :/ RegFile {}) to@(_ :/ Dir {}) _
+  = copyFile Strict from to pn
 copyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
   = do
     let from' = fullPath from
@@ -436,18 +447,22 @@ renameFile _ _ = throw $ InvalidOperation "wrong input type"
 moveFile :: CopyMode
          -> AnchoredFile FileInfo -- ^ file to move
          -> AnchoredFile FileInfo -- ^ base target directory
+         -> Path Fn               -- ^ target file name
          -> IO ()
-moveFile _ AFileInvFN _ = throw InvalidFileName
-moveFile _ _ AFileInvFN = throw InvalidFileName
-moveFile cm from to@(_ :/ Dir {}) = do
+moveFile _ AFileInvFN _ _ = throw InvalidFileName
+moveFile _ _ AFileInvFN _ = throw InvalidFileName
+moveFile (Rename pn) from to@(_ :/ Dir {}) _ =
+  moveFile Strict from to pn
+moveFile cm from to@(_ :/ Dir {}) fn = do
   let from'  = fullPath from
       froms' = fullPathS from
-      to'    = fullPath to P.</> (name . file $ from)
-      tos'   = P.fromAbs (fullPath to P.</> (name . file $ from))
+      to'    = fullPath to P.</> fn
+      tos'   = P.fromAbs (fullPath to P.</> fn)
   case cm of
-    Strict  -> throwFileDoesExist to'
-    Merge   -> delOld to'
-    Replace -> delOld to'
+    Strict   -> throwFileDoesExist to'
+    Merge    -> delOld to'
+    Replace  -> delOld to'
+    Rename _ -> throw $ InvalidOperation "Internal error! Wrong CopyMode!"
   throwSameFile from' to'
   catchErrno eXDEV (rename froms' tos') $ do
     easyCopy Strict from to
@@ -456,9 +471,15 @@ moveFile cm from to@(_ :/ Dir {}) = do
     delOld fp = do
       to' <- HSFM.FileSystem.FileType.readFileWithFileInfo fp
       unless (failed . file $ to') (easyDelete to')
-moveFile _ _ _ = throw $ InvalidOperation "wrong input type"
+moveFile _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
+-- |Like `moveFile` except it uses the filename of the source as target.
+easyMove :: CopyMode
+         -> AnchoredFile FileInfo -- ^ file to move
+         -> AnchoredFile FileInfo -- ^ base target directory
+         -> IO ()
+easyMove cm from to = moveFile cm from to (name . file $ from)
 
 
 
