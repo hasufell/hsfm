@@ -32,10 +32,6 @@ import Control.Exception
   (
     bracket
   )
-import Control.Monad.State.Lazy
-  (
-
-  )
 import Data.ByteString(ByteString)
 import qualified Data.ByteString as B
 import Data.Default
@@ -50,12 +46,12 @@ import Foreign.C.Error
     eACCES
   )
 import HPath
-    (
-      Abs
-    , Path
-    , Fn
-    , pattern Path
-    )
+  (
+    Abs
+  , Path
+  , Fn
+  , pattern Path
+  )
 import qualified HPath as P
 import HSFM.FileSystem.Errors
 import HSFM.Utils.MyPrelude
@@ -64,7 +60,6 @@ import System.IO.Error
   (
     ioeGetErrorType
   , isDoesNotExistErrorType
-  , catchIOError
   )
 import qualified System.Posix.Directory.ByteString as PFD
 import qualified System.Posix.Files.ByteString as PF
@@ -215,7 +210,7 @@ sdir f@SymLink{ sdest = (_ :/ s@SymLink{} )}
   -- we have to follow a chain of symlinks here, but
   -- return only the very first level
   -- TODO: this is probably obsolete now
-  = case (sdir s) of
+  = case sdir s of
       (True, _) -> (True, f)
       _         -> (False, f)
 sdir f@SymLink{ sdest = (_ :/ Dir {} )}
@@ -277,7 +272,7 @@ afileLikeSym f = convertViewP fileLikeSym f
 
 fileLikeSym :: File FileInfo -> (Bool, File FileInfo)
 fileLikeSym f@SymLink{ sdest = (_ :/ s@SymLink{} )}
-  = case (fileLikeSym s) of
+  = case fileLikeSym s of
       (True, _) -> (True, f)
       _         -> (False, f)
 fileLikeSym f@SymLink{ sdest = (_ :/ RegFile {} )}   = (True, f)
@@ -294,7 +289,7 @@ adirSym f = convertViewP dirSym f
 
 dirSym :: File FileInfo -> (Bool, File FileInfo)
 dirSym f@SymLink{ sdest = (_ :/ s@SymLink{} )}
-  = case (dirSym s) of
+  = case dirSym s of
       (True, _) -> (True, f)
       _         -> (False, f)
 dirSym f@SymLink{ sdest = (_ :/ Dir {} )} = (True, f)
@@ -415,7 +410,7 @@ readFileUnsafe ff p = do
             -- watch out, we call </> from 'filepath' here, but it is safe
             -- TODO: could it happen that too many '..' lead
             -- to something like '/' after normalization?
-            let sfp = (P.fromAbs bd') `P.combine` x
+            let sfp = P.fromAbs bd' `P.combine` x
             rsfp <- P.realPath sfp
             readFile ff =<< P.parseAbs rsfp
           return $ SymLink fn' fv resolvedSyml x
@@ -560,38 +555,38 @@ comparingConstr t t'  = compare (name t) (name t')
 ---- CONSTRUCTOR IDENTIFIERS ----
 
 isFileC :: File a -> Bool
-isFileC (RegFile _ _) = True
-isFileC _             = False
+isFileC RegFile{} = True
+isFileC _         = False
 
 
 isDirC :: File a -> Bool
-isDirC (Dir _ _) = True
-isDirC _         = False
+isDirC Dir{} = True
+isDirC _     = False
 
 
 isSymC :: File a -> Bool
-isSymC (SymLink _ _ _ _) = True
-isSymC _                 = False
+isSymC SymLink{} = True
+isSymC _         = False
 
 
 isBlockC :: File a -> Bool
-isBlockC (BlockDev _ _) = True
-isBlockC _              = False
+isBlockC BlockDev{} = True
+isBlockC _          = False
 
 
 isCharC :: File a -> Bool
-isCharC (CharDev _ _) = True
-isCharC _             = False
+isCharC CharDev{} = True
+isCharC _         = False
 
 
 isNamedC :: File a -> Bool
-isNamedC (NamedPipe _ _) = True
-isNamedC _               = False
+isNamedC NamedPipe{} = True
+isNamedC _           = False
 
 
 isSocketC :: File a -> Bool
-isSocketC (Socket _ _) = True
-isSocketC _            = False
+isSocketC Socket{} = True
+isSocketC _        = False
 
 
 
@@ -673,7 +668,7 @@ handleDT :: Path Abs
          -> IO (AnchoredFile a)
          -> IO (AnchoredFile a)
 handleDT bp n
-  = flip catchIOError $ (\e -> return $ bp :/ Failed n e)
+  = handleIOError $ \e -> return $ bp :/ Failed n e
 
 
 -- DoesNotExist errors not present at the topmost level could happen if a

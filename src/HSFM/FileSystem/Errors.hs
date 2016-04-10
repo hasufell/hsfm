@@ -215,5 +215,5 @@ rethrowErrnoAs en fmex action = catchErrno en action (throw fmex)
 
 -- |Like `catchIOError`, with arguments swapped.
 handleIOError :: (IOError -> IO a) -> IO a -> IO a
-handleIOError a1 a2 = catchIOError a2 a1
+handleIOError = flip catchIOError
 

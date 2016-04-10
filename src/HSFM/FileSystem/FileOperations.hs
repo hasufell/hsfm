@@ -38,8 +38,8 @@ import Control.Exception
 import Control.Monad
   (
     unless
-  , when
   , void
+  , when
   )
 import Data.ByteString
   (
@@ -95,7 +95,6 @@ import System.Posix.Directory.ByteString
 import System.Posix.Files.ByteString
   (
     createSymbolicLink
-  , readSymbolicLink
   , fileMode
   , getFdStatus
   , groupExecuteMode
@@ -107,9 +106,10 @@ import System.Posix.Files.ByteString
   , ownerModes
   , ownerReadMode
   , ownerWriteMode
+  , readSymbolicLink
+  , removeLink
   , rename
   , unionFileModes
-  , removeLink
   )
 import qualified System.Posix.Files.ByteString as PF
 import qualified "unix" System.Posix.IO.ByteString as SPI
@@ -294,7 +294,7 @@ recreateSymlink (Rename pn) symf@(_ :/ SymLink {}) symdest@(_ :/ Dir {}) _
 recreateSymlink cm symf@(_ :/ SymLink {}) symdest@(_ :/ Dir {}) fn
   = do
     throwCantOpenDirectory $ fullPath symdest
-    sympoint <- readSymbolicLink (fullPathS $ symf)
+    sympoint <- readSymbolicLink (fullPathS symf)
     let symname = fullPath symdest P.</> fn
     case cm of
       Merge   -> delOld symname
@@ -391,7 +391,7 @@ unsafeCopyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
         write' :: Fd -> Fd -> Ptr Word8 -> Int -> IO Int
         write' sfd dfd buf totalsize = do
             size <- SPB.fdReadBuf sfd buf bufSize
-            if (size == 0)
+            if size == 0
               then return $ fromIntegral totalsize
               else do rsize <- SPB.fdWriteBuf dfd buf size
                       when (rsize /= size) (throw . CopyFailed $ "wrong size!")
