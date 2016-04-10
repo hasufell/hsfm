@@ -17,7 +17,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PackageImports #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 -- |This module provides data types for representing directories/files
@@ -31,12 +30,7 @@ module HSFM.FileSystem.FileType where
 
 import Control.Exception
   (
-    handle
-  , bracket
-  )
-import Control.Exception.Base
-  (
-    IOException
+    bracket
   )
 import Control.Monad.State.Lazy
   (
@@ -70,11 +64,10 @@ import System.IO.Error
   (
     ioeGetErrorType
   , isDoesNotExistErrorType
+  , catchIOError
   )
 import qualified System.Posix.Directory.ByteString as PFD
 import qualified System.Posix.Files.ByteString as PF
-import qualified "unix" System.Posix.IO.ByteString as PIO
-import qualified "unix-bytestring" System.Posix.IO.ByteString as PIOB
 import System.Posix.Types
   (
     DeviceID
@@ -112,7 +105,7 @@ data AnchoredFile a =
 data File a =
     Failed {
     name :: Path Fn
-  , err  :: IOException
+  , err  :: IOError
   }
   | Dir {
     name :: Path Fn
@@ -550,29 +543,6 @@ comparingConstr t t'  = compare (name t) (name t')
 
 
 
----- OTHER ----
-
-
-
-    ---------------------------
-    --[ LOW LEVEL FUNCTIONS ]--
-    ---------------------------
-
-
--- |Reads a file and returns the content as a ByteString.
--- Follows symbolic links.
--- TODO: maybe make this lazy?! The strict form will likely blow up memory
-readFileContents :: AnchoredFile a -> IO ByteString
-readFileContents af@(_ :/ RegFile{}) =
-    bracket (PIO.openFd f PIO.ReadOnly Nothing PIO.defaultFileFlags)
-            PIO.closeFd
-            $ \fd -> do
-              filesz   <- fmap PF.fileSize $ PF.getFdStatus fd
-              PIOB.fdRead fd (fromIntegral filesz `max` 0)
-  where
-    f = fullPathS af
-readFileContents _ = return B.empty
-
 
 
 
@@ -692,13 +662,12 @@ getFileInfo fp = do
 
 -- Handles an IO exception by returning a Failed constructor filled with that
 -- exception.
--- TODO: only handle IO exceptions
 handleDT :: Path Abs
          -> Path Fn
          -> IO (AnchoredFile a)
          -> IO (AnchoredFile a)
 handleDT bp n
-  = handle (\e -> return $ bp :/ Failed n e)
+  = flip catchIOError $ (\e -> return $ bp :/ Failed n e)
 
 
 -- DoesNotExist errors not present at the topmost level could happen if a

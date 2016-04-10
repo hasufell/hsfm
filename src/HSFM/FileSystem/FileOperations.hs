@@ -309,7 +309,6 @@ recreateSymlink cm symf@(_ :/ SymLink {}) symdest@(_ :/ Dir {}) fn
 recreateSymlink _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
--- |TODO: handle EAGAIN exception for non-blocking IO
 -- |Copies the given regular file to the given dir with the given filename.
 -- Excludes symlinks.
 copyFile :: CopyMode
@@ -359,8 +358,9 @@ unsafeCopyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
                (void $ fallbackCopy (fullPathS from) (P.fromAbs to'))
   where
     -- this is low-level stuff utilizing sendfile(2) for speed
-    -- TODO: preserve permissions
     sendFileCopy source dest =
+      -- NOTE: we are not blocking IO here, O_NONBLOCK is false
+      -- for `defaultFileFlags`
       bracket (SPI.openFd source SPI.ReadOnly Nothing SPI.defaultFileFlags)
               SPI.closeFd
               $ \sfd -> do
