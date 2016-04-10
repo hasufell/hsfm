@@ -303,7 +303,7 @@ constructView mygui myview = do
      item    <- (name . file) <$> treeModelGetRow rawModel' iter
      if hidden
        then return True
-       else return $ not . hiddenFile $ item
+       else return $ not . P.hiddenFile $ item
 
   -- sorting
   sortedModel' <- treeModelSortNewWithModel filteredModel'

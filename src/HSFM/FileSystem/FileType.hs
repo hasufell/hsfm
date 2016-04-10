@@ -704,13 +704,6 @@ isBrokenSymlink _ = False
 ---- OTHER: ----
 
 
--- |Check whether the given file is a hidden file.
-hiddenFile :: Path Fn -> Bool
-hiddenFile (Path ".")  = False
-hiddenFile (Path "..") = False
-hiddenFile p           = "." `B.isPrefixOf` (P.fromRel p)
-
-
 -- |Apply a function on the free variable. If there is no free variable
 -- for the given constructor the value from the `Default` class is used.
 fromFreeVar :: (Default d) => (a -> d) -> File a -> d
