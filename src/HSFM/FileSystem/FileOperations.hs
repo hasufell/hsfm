@@ -59,6 +59,10 @@ import Foreign.C.Error
   , eINVAL
   , eNOSYS
   )
+import Foreign.C.Types
+  (
+    CSize
+  )
 import Foreign.Marshal.Alloc
   (
     allocaBytes
@@ -377,12 +381,14 @@ unsafeCopyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
                 bracket (SPI.openFd dest SPI.WriteOnly (Just fileM)
                                     SPI.defaultFileFlags)
                         SPI.closeFd
-                        $ \dfd -> allocaBytes 8192 $ \buf ->
+                        $ \dfd -> allocaBytes (fromIntegral bufSize) $ \buf ->
                                     write' sfd dfd buf 0
       where
+        bufSize :: CSize
+        bufSize = 8192
         write' :: Fd -> Fd -> Ptr Word8 -> Int -> IO Int
         write' sfd dfd buf totalsize = do
-            size <- SPB.fdReadBuf sfd buf 8192
+            size <- SPB.fdReadBuf sfd buf bufSize
             if (size == 0)
               then return $ fromIntegral totalsize
               else do rsize <- SPB.fdWriteBuf dfd buf size
