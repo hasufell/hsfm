@@ -392,15 +392,22 @@ readFile :: (Path Abs -> IO a)  -- ^ function that fills the free
          -> Path Abs            -- ^ Path to read
          -> IO (AnchoredFile a)
 readFile ff p = do
+  cdp <- P.canonicalizePath (P.dirname p)
+  readFileUnsafe ff (cdp P.</> P.basename p)
+
+
+readFileUnsafe :: (Path Abs -> IO a)
+               -> Path Abs
+               -> IO (AnchoredFile a)
+readFileUnsafe ff p = do
   let fn = P.basename p
       bd = P.dirname p
       p' = P.toFilePath p
-  bd' <- P.canonicalizePath bd
-  handleDT bd' fn $ do
+  handleDT bd fn $ do
     fs   <- PF.getSymbolicLinkStatus p'
     fv   <- ff p
-    file <- constructFile fs fv bd' fn
-    return (bd' :/ file)
+    file <- constructFile fs fv bd fn
+    return (bd :/ file)
   where
     constructFile fs fv bd' fn'
       | PF.isSymbolicLink    fs = do
@@ -439,6 +446,16 @@ readDirectoryContents :: (Path Abs -> IO [Path Fn])
 readDirectoryContents getfiles ff p = do
   files <- getfiles p
   fcs <- mapM (\x -> readFile ff $ p P.</> x) files
+  return $ removeNonexistent fcs
+
+
+readDirectoryContentsUnsafe :: (Path Abs -> IO [Path Fn])
+                            -> (Path Abs -> IO a)
+                            -> Path Abs
+                            -> IO [AnchoredFile a]
+readDirectoryContentsUnsafe getfiles ff p = do
+  files <- getfiles p
+  fcs <- mapM (\x -> readFileUnsafe ff $ p P.</> x) files
   return $ removeNonexistent fcs
 
 
@@ -544,6 +561,7 @@ comparingConstr t t'  = compare (name t) (name t')
 
 -- |Reads a file and returns the content as a ByteString.
 -- Follows symbolic links.
+-- TODO: maybe make this lazy?! The strict form will likely blow up memory
 readFileContents :: AnchoredFile a -> IO ByteString
 readFileContents af@(_ :/ RegFile{}) =
     bracket (PIO.openFd f PIO.ReadOnly Nothing PIO.defaultFileFlags)
@@ -612,7 +630,7 @@ getDirsFiles' :: (Path Fn -> [Path Fn] -> [Path Fn]) -- ^ filter function
               -> Path Abs                            -- ^ dir to read
               -> IO [Path Fn]
 getDirsFiles' filterf fp =
-  rethrowErrnoAs eACCES (Can'tOpenDirectory . P.fpToString . P.fromAbs $ fp)
+  rethrowErrnoAs [eACCES] (Can'tOpenDirectory . P.fpToString . P.fromAbs $ fp)
   $ bracket (PFD.openDirStream . P.toFilePath $ fp)
           PFD.closeDirStream
           $ \dirstream ->

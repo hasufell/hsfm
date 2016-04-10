@@ -65,6 +65,7 @@ data FmIOException = FileDoesNotExist String
                    | InvalidOperation String
                    | InvalidFileName
                    | Can'tOpenDirectory String
+                   | CopyFailed String
   deriving (Show, Typeable)
 
 
@@ -186,7 +187,7 @@ throwCantOpenDirectory fp =
 -- |Carries out an action, then checks if there is an IOException and
 -- a specific errno. If so, then it carries out another action, otherwise
 -- it rethrows the error.
-catchErrno :: Errno   -- ^ errno to catch
+catchErrno :: [Errno] -- ^ errno to catch
            -> IO a    -- ^ action to try, which can raise an IOException
            -> IO a    -- ^ action to carry out in case of an IOException and
                       --   if errno matches
@@ -194,7 +195,7 @@ catchErrno :: Errno   -- ^ errno to catch
 catchErrno en a1 a2 =
   catchIOError a1 $ \e -> do
     errno <- getErrno
-    if errno == en
+    if errno `elem` en
       then a2
       else ioError e
 
@@ -203,7 +204,7 @@ catchErrno en a1 a2 =
 -- that have the given errno. If errno does not match the exception is rethrown
 -- as is.
 rethrowErrnoAs :: Exception e
-               => Errno         -- ^ errno to catch
+               => [Errno]       -- ^ errno to catch
                -> e             -- ^ rethrow as if errno matches
                -> IO a          -- ^ action to try
                -> IO a
