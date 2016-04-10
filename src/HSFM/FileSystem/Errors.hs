@@ -29,6 +29,10 @@ import Control.Monad
     when
   , forM
   )
+import Data.ByteString
+  (
+    ByteString
+  )
 import Data.Typeable
 import Foreign.C.Error
   (
@@ -51,23 +55,50 @@ import qualified System.Posix.Files.ByteString as PF
 import qualified System.Posix.Directory.ByteString as PFD
 
 
-data FmIOException = FileDoesNotExist String
-                   | DirDoesNotExist String
-                   | PathNotAbsolute String
-                   | FileNotExecutable String
-                   | SameFile String String
-                   | NotAFile String
-                   | NotADir String
-                   | DestinationInSource String String
-                   | FileDoesExist String
-                   | DirDoesExist String
-                   | IsSymlink String
+data FmIOException = FileDoesNotExist ByteString
+                   | DirDoesNotExist ByteString
+                   | PathNotAbsolute ByteString
+                   | FileNotExecutable ByteString
+                   | SameFile ByteString ByteString
+                   | NotAFile ByteString
+                   | NotADir ByteString
+                   | DestinationInSource ByteString ByteString
+                   | FileDoesExist ByteString
+                   | DirDoesExist ByteString
+                   | IsSymlink ByteString
                    | InvalidOperation String
                    | InvalidFileName
-                   | Can'tOpenDirectory String
+                   | Can'tOpenDirectory ByteString
                    | CopyFailed String
                    | MoveFailed String
-  deriving (Show, Typeable)
+  deriving (Typeable)
+
+
+instance Show FmIOException where
+  show (FileDoesNotExist fp) = "File does not exist:" ++ P.fpToString fp
+  show (DirDoesNotExist fp) = "Directory does not exist: "
+                              ++ P.fpToString fp
+  show (PathNotAbsolute fp) = "Path not absolute: " ++ P.fpToString fp
+  show (FileNotExecutable fp) = "File not executable: "
+                                ++ P.fpToString fp
+  show (SameFile fp1 fp2) = P.fpToString fp1
+                            ++ " and " ++ P.fpToString fp2
+                            ++ " are the same file!"
+  show (NotAFile fp) = "Not a file: " ++ P.fpToString fp
+  show (NotADir fp) = "Not a directory: " ++ P.fpToString fp
+  show (DestinationInSource fp1 fp2) = P.fpToString fp1
+                                       ++ " is contained in "
+                                       ++ P.fpToString fp2
+  show (FileDoesExist fp) = "File does exist: " ++ P.fpToString fp
+  show (DirDoesExist fp) = "Directory does exist: " ++ P.fpToString fp
+  show (IsSymlink fp) = "Is a symlink: " ++ P.fpToString fp
+  show (InvalidOperation str) = "Invalid operation: " ++ str
+  show InvalidFileName = "Invalid file name!"
+  show (Can'tOpenDirectory fp) = "Can't open directory: "
+                                 ++ P.fpToString fp
+  show (CopyFailed str) = "Copying failed: " ++ show str
+  show (MoveFailed str) = "Movinf failed: " ++ show str
+
 
 
 instance Exception FmIOException
@@ -83,25 +114,25 @@ instance Exception FmIOException
 throwFileDoesExist :: Path Abs -> IO ()
 throwFileDoesExist fp =
   whenM (doesFileExist fp) (throw . FileDoesExist
-                                  . P.fpToString . P.fromAbs $ fp)
+                                  . P.fromAbs $ fp)
 
 
 throwDirDoesExist :: Path Abs -> IO ()
 throwDirDoesExist fp =
   whenM (doesDirectoryExist fp) (throw . DirDoesExist
-                                       . P.fpToString . P.fromAbs $ fp)
+                                       . P.fromAbs $ fp)
 
 
 throwFileDoesNotExist :: Path Abs -> IO ()
 throwFileDoesNotExist fp =
   whenM (doesFileExist fp) (throw . FileDoesExist
-                                  . P.fpToString . P.fromAbs $ fp)
+                                  . P.fromAbs $ fp)
 
 
 throwDirDoesNotExist :: Path Abs -> IO ()
 throwDirDoesNotExist fp =
   whenM (doesDirectoryExist fp) (throw . DirDoesExist
-                                       . P.fpToString . P.fromAbs $ fp)
+                                       . P.fromAbs $ fp)
 
 
 throwSameFile :: Path Abs -- ^ will be canonicalized
@@ -115,8 +146,7 @@ throwSameFile fp1 fp2 = do
                        (\_ -> fmap P.fromAbs
                               $ (P.</> P.basename fp2)
                                 <$> (P.canonicalizePath $ P.dirname fp2))
-  when (P.equalFilePath fp1' fp2') (throw $ SameFile (P.fpToString fp1')
-                                                     (P.fpToString fp2'))
+  when (P.equalFilePath fp1' fp2') (throw $ SameFile fp1' fp2')
 
 
 -- |Checks whether the destination directory is contained
@@ -136,8 +166,8 @@ throwDestinationInSource source dest = do
   sid <- fmap (\x -> (PF.deviceID x, PF.fileID x))
               $ PF.getSymbolicLinkStatus (P.fromAbs source')
   when (elem sid dids)
-       (throw $ DestinationInSource (P.fpToString $ P.fromAbs dest)
-                                    (P.fpToString $ P.fromAbs source))
+       (throw $ DestinationInSource (P.fromAbs dest)
+                                    (P.fromAbs source))
 
 
 -- |Checks if the given file exists and is not a directory. This follows
@@ -176,7 +206,7 @@ canOpenDirectory fp =
 throwCantOpenDirectory :: Path Abs -> IO ()
 throwCantOpenDirectory fp =
   unlessM (canOpenDirectory fp)
-          (throw . Can'tOpenDirectory . show . P.fromAbs $ fp)
+          (throw . Can'tOpenDirectory . P.fromAbs $ fp)
 
 
 

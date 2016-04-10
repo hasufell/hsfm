@@ -468,7 +468,7 @@ deleteDirRecursive f'@(_ :/ Dir {}) = do
           (_ :/ Dir {})     -> go file
           (_ :/ RegFile {}) -> removeLink (P.toFilePath . fullPath $ file)
           _                 -> throw $ FileDoesExist
-                                       (P.fpToString . P.toFilePath . fullPath
+                                       (P.toFilePath . fullPath
                                                      $ file)
       removeDirectory . P.toFilePath $ fp
     go _ = throw $ InvalidOperation "wrong input type"

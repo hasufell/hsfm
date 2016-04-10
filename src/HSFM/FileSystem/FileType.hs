@@ -601,7 +601,7 @@ getDirsFiles' :: (Path Fn -> [Path Fn] -> [Path Fn]) -- ^ filter function
               -> Path Abs                            -- ^ dir to read
               -> IO [Path Fn]
 getDirsFiles' filterf fp =
-  rethrowErrnoAs [eACCES] (Can'tOpenDirectory . P.fpToString . P.fromAbs $ fp)
+  rethrowErrnoAs [eACCES] (Can'tOpenDirectory . P.fromAbs $ fp)
   $ bracket (PFD.openDirStream . P.toFilePath $ fp)
           PFD.closeDirStream
           $ \dirstream ->
@@ -662,7 +662,7 @@ getFileInfo fp = do
 
 
 -- Handles an IO exception by returning a Failed constructor filled with that
--- exception.
+-- exception. Does not handle FmIOExceptions.
 handleDT :: Path Abs
          -> Path Fn
          -> IO (AnchoredFile a)

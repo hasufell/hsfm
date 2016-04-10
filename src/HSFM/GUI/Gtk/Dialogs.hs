@@ -24,14 +24,17 @@ module HSFM.GUI.Gtk.Dialogs where
 import Control.Exception
   (
     catch
+  , displayException
   , throw
-  , try
-  , SomeException
+  , IOException
+  , catches
+  , Handler(..)
   )
 import Control.Monad
   (
     forM
   , when
+  , void
   )
 import Data.Version
   (
@@ -209,11 +212,13 @@ withConfirmationDialog str io = do
 -- |Execute the given IO action. If the action throws exceptions,
 -- visualize them via 'showErrorDialog'.
 withErrorDialog :: IO a -> IO ()
-withErrorDialog io = do
-  r <- try io
-  either (\e -> showErrorDialog $ show (e :: SomeException))
-         (\_ -> return ())
-         r
+withErrorDialog io =
+  catches (void io)
+    [ Handler (\e -> showErrorDialog
+                       $ displayException (e :: IOException))
+    , Handler (\e -> showErrorDialog
+                       $ displayException (e :: FmIOException))
+    ]
 
 
 -- |Asks the user which directory copy mode he wants via dialog popup
