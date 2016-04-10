@@ -323,6 +323,9 @@ unsafeCopyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
       Strict -> throwFileDoesExist to'
       _      -> return ()
 
+    -- from sendfile(2) manpage:
+    --   Applications  may  wish  to  fall back to read(2)/write(2) in the case
+    --   where sendfile() fails with EINVAL or ENOSYS.
     catchErrno [eINVAL, eNOSYS]
                (sendFileCopy (fullPathS from) (P.fromAbs to'))
                (void $ fallbackCopy (fullPathS from) (P.fromAbs to'))
