@@ -277,7 +277,7 @@ del _ _ _ = withErrorDialog
 -- |Initializes a file move operation.
 moveInit :: [Item] -> MyGUI -> MyView -> IO ()
 moveInit items@(_:_) mygui myview = do
-  writeTVarIO (operationBuffer myview) (FMove . MP1 $ items)
+  writeTVarIO (operationBuffer myview) (FMove . MP1 . map fullPath $ items)
   let sbmsg = case items of
               (item:[]) -> "Move buffer: " ++ P.fpToString (fullPathS item)
               _         -> "Move buffer: " ++ (show . length $ items)
@@ -291,7 +291,7 @@ moveInit _ _ _ = withErrorDialog
 -- |Supposed to be used with 'withRows'. Initializes a file copy operation.
 copyInit :: [Item] -> MyGUI -> MyView -> IO ()
 copyInit items@(_:_) mygui myview = do
-  writeTVarIO (operationBuffer myview) (FCopy . CP1 $ items)
+  writeTVarIO (operationBuffer myview) (FCopy . CP1 . map fullPath $ items)
   let sbmsg = case items of
               (item:[]) -> "Copy buffer: " ++ P.fpToString (fullPathS item)
               _         -> "Copy buffer: " ++ (show . length $ items)
@@ -307,18 +307,18 @@ copyInit _ _ _ = withErrorDialog
 operationFinal :: MyGUI -> MyView -> IO ()
 operationFinal _ myview = withErrorDialog $ do
   op <- readTVarIO (operationBuffer myview)
-  cdir <- getCurrentDir myview
+  cdir <- fullPath <$> getCurrentDir myview
   case op of
     FMove (MP1 s) -> do
       let cmsg = "Really move " ++ imsg s
-                  ++ " to \"" ++ P.fpToString (fullPathS cdir)
+                  ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
                   ++ "\"?"
       withConfirmationDialog cmsg . withCopyModeDialog
         $ \cm -> void $ runFileOp (FMove . MC s cdir $ cm)
       return ()
     FCopy (CP1 s) -> do
       let cmsg = "Really copy " ++ imsg s
-                 ++ " to \"" ++ P.fpToString (fullPathS cdir)
+                 ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
                  ++ "\"?"
       withConfirmationDialog cmsg . withCopyModeDialog
         $ \cm -> void $ runFileOp (FCopy . CC s cdir $ cm)
@@ -326,7 +326,7 @@ operationFinal _ myview = withErrorDialog $ do
     _ -> return ()
   where
     imsg s = case s of
-               (item:[]) -> "\"" ++ P.fpToString (fullPathS item) ++ "\""
+               (item:[]) -> "\"" ++ P.fpToString (P.fromAbs item) ++ "\""
                items     -> (show . length $ items) ++ " items"
 
 

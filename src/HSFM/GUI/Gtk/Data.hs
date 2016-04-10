@@ -101,7 +101,7 @@ data MyView = MkMyView {
   , rawModel        :: TVar (ListStore Item)
   , sortedModel     :: TVar (TypedTreeModelSort Item)
   , filteredModel   :: TVar (TypedTreeModelFilter Item)
-  , operationBuffer :: TVar (FileOperation FileInfo)
+  , operationBuffer :: TVar FileOperation
   , inotify         :: MVar INotify
 }
 

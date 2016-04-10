@@ -70,12 +70,14 @@ import Foreign.Ptr
 import HPath
   (
     Path
+  , Abs
   , Fn
   )
 import qualified HPath as P
 import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileType
 import HSFM.Utils.IO
+import Prelude hiding (readFile)
 import Network.Sendfile
   (
     sendfileFd
@@ -126,30 +128,30 @@ import System.Posix.Types
 -- |Data type describing an actual file operation that can be
 -- carried out via `doFile`. Useful to build up a list of operations
 -- or delay operations.
-data FileOperation a = FCopy    (Copy a)
-                     | FMove    (Move a)
-                     | FDelete  [AnchoredFile a]
-                     | FOpen    (AnchoredFile a)
-                     | FExecute (AnchoredFile a) [ByteString]
-                     | None
+data FileOperation = FCopy    Copy
+                   | FMove    Move
+                   | FDelete  [Path Abs]
+                   | FOpen    (Path Abs)
+                   | FExecute (Path Abs) [ByteString]
+                   | None
 
 
 -- |Data type describing partial or complete file copy operation.
 -- CC stands for a complete operation and can be used for `runFileOp`.
-data Copy a = CP1 [AnchoredFile a]
-            | CP2 [AnchoredFile a]
-                  (AnchoredFile a)
-            | CC  [AnchoredFile a]
-                  (AnchoredFile a)
-                  CopyMode
+data Copy = CP1 [Path Abs]
+          | CP2 [Path Abs]
+                (Path Abs)
+          | CC  [Path Abs]
+                (Path Abs)
+                CopyMode
 
 
 -- |Data type describing partial or complete file move operation.
 -- MC stands for a complete operation and can be used for `runFileOp`.
-data Move a = MP1 [AnchoredFile a]
-            | MC  [AnchoredFile a]
-                  (AnchoredFile a)
-                  CopyMode
+data Move = MP1 [Path Abs]
+          | MC  [Path Abs]
+                (Path Abs)
+                CopyMode
 
 
 -- |Copy modes.
@@ -162,18 +164,40 @@ data CopyMode = Strict  -- ^ fail if the target already exists
 
 
 -- |Run a given FileOperation. If the FileOperation is partial, it will
--- be returned.
-runFileOp :: FileOperation a -> IO (Maybe (FileOperation a))
-runFileOp (FCopy (CC froms to cm)) = mapM_ (\x -> easyCopy cm x to) froms
-                                       >> return Nothing
-runFileOp (FCopy fo)               = return              $ Just $ FCopy fo
-runFileOp (FMove (MC froms to cm)) = mapM_ (\x -> easyMove cm x to) froms
-                                       >> return Nothing
-runFileOp (FMove fo)               = return              $ Just $ FMove fo
-runFileOp (FDelete fp)             = mapM_ easyDelete fp >> return Nothing
-runFileOp (FOpen fp)               = openFile fp         >> return Nothing
-runFileOp (FExecute fp args)       = executeFile fp args >> return Nothing
-runFileOp _                        = return Nothing
+-- be returned. Returns `Nothing` on success.
+--
+-- Since file operations can be delayed, this is `Path Abs` based, not
+-- `AnchoredFile` based. This makes sure we don't have stale
+-- file information.
+runFileOp :: FileOperation -> IO (Maybe FileOperation)
+runFileOp fo' =
+  case fo' of
+    (FCopy (CC froms to cm)) -> do
+      froms' <- mapM toAfile froms
+      to'    <- toAfile to
+      when (anyFailed $ file <$> froms')
+           (throw . CopyFailed $ "File in copy buffer does not exist anymore!")
+      mapM_ (\x -> easyCopy cm x to') froms'
+        >> return Nothing
+    (FCopy fo) -> return $ Just $ FCopy fo
+    (FMove (MC froms to cm)) -> do
+      froms' <- mapM toAfile froms
+      to'   <- toAfile to
+      when (anyFailed $ file <$> froms')
+           (throw . MoveFailed $ "File in move buffer does not exist anymore!")
+      mapM_ (\x -> easyMove cm x to') froms'
+        >> return Nothing
+    (FMove fo) -> return $ Just $ FMove fo
+    (FDelete fps) -> do
+      fps' <- mapM toAfile fps
+      mapM_ easyDelete fps' >> return Nothing
+    (FOpen fp) ->
+      toAfile fp >>= openFile >> return Nothing
+    (FExecute fp args) ->
+      toAfile fp >>= flip executeFile args >> return Nothing
+    _ -> return Nothing
+  where
+    toAfile = readFile (\_ -> return undefined)
 
 
 

@@ -66,6 +66,7 @@ data FmIOException = FileDoesNotExist String
                    | InvalidFileName
                    | Can'tOpenDirectory String
                    | CopyFailed String
+                   | MoveFailed String
   deriving (Show, Typeable)
 
 
