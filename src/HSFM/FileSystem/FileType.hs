@@ -389,6 +389,9 @@ readFile ff p = do
   readFileUnsafe ff (cdp P.</> P.basename p)
 
 
+-- |A variant of `readFile` which does not use `realpath` at all.
+-- Suitable for cases where we know the paths are safe/correct
+-- and need the extra bit of performance.
 readFileUnsafe :: (Path Abs -> IO a)
                -> Path Abs
                -> IO (AnchoredFile a)
@@ -442,6 +445,9 @@ readDirectoryContents getfiles ff p = do
   return $ removeNonexistent fcs
 
 
+-- |A variant of `readDirectoryContents` which uses `readFileUnsafe`.
+-- Suitable for cases where we know the paths are safe/correct
+-- and need the extra bit of performance.
 readDirectoryContentsUnsafe :: (Path Abs -> IO [Path Fn])
                             -> (Path Abs -> IO a)
                             -> Path Abs

@@ -331,8 +331,10 @@ copyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
 copyFile _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
--- |Unsafe version of `copyFile` without initial sanity checks. Thise
+-- |Unsafe version of `copyFile` without initial sanity checks. This
 -- holds the actual copy logic though and is called by `copyFile` in the end.
+-- It's also used for cases where we don't need/want sanity checks
+-- and need the extra bit of performance.
 unsafeCopyFile :: CopyMode
                -> AnchoredFile a  -- ^ source file
                -> AnchoredFile a  -- ^ destination dir
