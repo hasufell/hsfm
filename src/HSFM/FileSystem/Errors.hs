@@ -97,7 +97,7 @@ instance Show FmIOException where
   show (Can'tOpenDirectory fp) = "Can't open directory: "
                                  ++ P.fpToString fp
   show (CopyFailed str) = "Copying failed: " ++ show str
-  show (MoveFailed str) = "Movinf failed: " ++ show str
+  show (MoveFailed str) = "Moving failed: " ++ show str
 
 
 
