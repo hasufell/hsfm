@@ -91,13 +91,14 @@ data FMSettings = MkFMSettings {
 data FMView = FMTreeView TreeView
             | FMIconView IconView
 
-type Item = AnchoredFile FileInfo
+type Item = File FileInfo
 
 
 -- |This describes the contents of the current vie and is separated from MyGUI,
 -- because we might want to have multiple views.
 data MyView = MkMyView {
     view            :: TVar FMView
+  , cwd             :: MVar Item
   , rawModel        :: TVar (ListStore Item)
   , sortedModel     :: TVar (TypedTreeModelSort Item)
   , filteredModel   :: TVar (TypedTreeModelFilter Item)

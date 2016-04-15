@@ -58,6 +58,7 @@ import HSFM.GUI.Gtk.Dialogs
 import HSFM.GUI.Gtk.MyView
 import HSFM.GUI.Gtk.Utils
 import HSFM.Utils.IO
+import Prelude hiding(readFile)
 import System.Glib.UTFString
   (
     glibToString
@@ -237,8 +238,8 @@ urlGoTo mygui myview = withErrorDialog $ do
 open :: [Item] -> MyGUI -> MyView -> IO ()
 open [item] mygui myview = withErrorDialog $
   case item of
-    ADirOrSym r -> do
-      nv <- HSFM.FileSystem.FileType.readFileWithFileInfo $ fullPath r
+    DirOrSym r -> do
+      nv <- readFile getFileInfo $ fullPath r
       refreshView' mygui myview nv
     r ->
       void $ openFile r
@@ -356,7 +357,8 @@ renameF [item] _ _ = withErrorDialog $ do
   for_ pmfn $ \fn -> do
     let cmsg = "Really rename \"" ++ P.fpToString (fullPathS item)
                ++ "\"" ++ " to \""
-               ++ P.fpToString (P.fromAbs (anchor item P.</> fn)) ++ "\"?"
+               ++ P.fpToString (P.fromAbs $ (P.dirname . path $ item)
+                                             P.</> fn) ++ "\"?"
     withConfirmationDialog cmsg $
       HSFM.FileSystem.FileOperations.renameFile item fn
 renameF _ _ _ = withErrorDialog

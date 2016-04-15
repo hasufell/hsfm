@@ -144,7 +144,7 @@ throwSameFile fp1 fp2 = do
   --       canonicalize `dirname fp2`
   fp2' <- catchIOError (fmap P.fromAbs $ P.canonicalizePath fp2)
                        (\_ -> fmap P.fromAbs
-                              $ (P.</> P.basename fp2)
+                       $ (\x -> maybe x (\y -> x P.</> y) $ P.basename fp2)
                                 <$> (P.canonicalizePath $ P.dirname fp2))
   when (P.equalFilePath fp1' fp2') (throw $ SameFile fp1' fp2')
 
@@ -159,7 +159,8 @@ throwDestinationInSource :: Path Abs -- ^ source dir
                          -> IO ()
 throwDestinationInSource source dest = do
   source' <- P.canonicalizePath source
-  dest'   <- (P.</> P.basename dest) <$> (P.canonicalizePath $ P.dirname dest)
+  dest'   <- (\x -> maybe x (\y -> x P.</> y) $ P.basename dest)
+             <$> (P.canonicalizePath $ P.dirname dest)
   dids <- forM (P.getAllParents dest') $ \p -> do
           fs <- PF.getSymbolicLinkStatus (P.fromAbs p)
           return (PF.deviceID fs, PF.fileID fs)

@@ -171,7 +171,7 @@ data CopyMode = Strict  -- ^ fail if the target already exists
 -- be returned. Returns `Nothing` on success.
 --
 -- Since file operations can be delayed, this is `Path Abs` based, not
--- `AnchoredFile` based. This makes sure we don't have stale
+-- `File` based. This makes sure we don't have stale
 -- file information.
 runFileOp :: FileOperation -> IO (Maybe FileOperation)
 runFileOp fo' =
@@ -179,7 +179,7 @@ runFileOp fo' =
     (FCopy (CC froms to cm)) -> do
       froms' <- mapM toAfile froms
       to'    <- toAfile to
-      when (anyFailed $ file <$> froms')
+      when (anyFailed froms')
            (throw . CopyFailed $ "File in copy buffer does not exist anymore!")
       mapM_ (\x -> easyCopy cm x to') froms'
         >> return Nothing
@@ -187,7 +187,7 @@ runFileOp fo' =
     (FMove (MC froms to cm)) -> do
       froms' <- mapM toAfile froms
       to'   <- toAfile to
-      when (anyFailed $ file <$> froms')
+      when (anyFailed froms')
            (throw . MoveFailed $ "File in move buffer does not exist anymore!")
       mapM_ (\x -> easyMove cm x to') froms'
         >> return Nothing
@@ -213,21 +213,18 @@ runFileOp fo' =
 -- |Copies a directory to the given destination with the specified
 -- `DirCopyMode`. Excludes symlinks.
 copyDir :: CopyMode
-        -> AnchoredFile a  -- ^ source dir
-        -> AnchoredFile a  -- ^ destination dir
-        -> Path Fn         -- ^ destination dir name
+        -> File a  -- ^ source dir
+        -> File a  -- ^ destination dir
+        -> Path Fn -- ^ destination dir name
         -> IO ()
-copyDir _ AFileInvFN _ _ = throw InvalidFileName
-copyDir _ _ AFileInvFN _ = throw InvalidFileName
-copyDir _ _ _ InvFN      = throw InvalidFileName
 copyDir       (Rename fn)
-         from@(_ :/ Dir {})
-           to@(_ :/ Dir {})
+         from@Dir{}
+           to@Dir{}
            _
   = copyDir Strict from to fn
 -- this branch must never get `Rename` as CopyMode
-copyDir cm from@(_ :/ Dir {})
-             to@(_ :/ Dir {})
+copyDir cm from@Dir{}
+             to@Dir{}
              fn
   = do
     let fromp    = fullPath from
@@ -240,23 +237,25 @@ copyDir cm from@(_ :/ Dir {})
     throwCantOpenDirectory top
     go cm from to fn
   where
-    go :: CopyMode -> AnchoredFile a -> AnchoredFile a -> Path Fn -> IO ()
-    go cm' from'@(_ :/ Dir {})
-             to'@(_ :/ Dir {})
+    go :: CopyMode -> File a -> File a -> Path Fn -> IO ()
+    go cm' from'@Dir{}
+             to'@Dir{}
              fn' = do
       fmode' <- PF.fileMode <$> PF.getSymbolicLinkStatus (fullPathS from')
       createDestdir (fullPath to' P.</> fn') fmode'
-      destdir <- readFileUnsafe (\_ -> return undefined)
+      destdir <- readFile (\_ -> return undefined)
                    (fullPath to' P.</> fn')
-      contents <- readDirectoryContentsUnsafe
-                    getDirsFiles (\_ -> return undefined) (fullPath from')
+      contents <- readDirectoryContents
+                    (\_ -> return undefined) (fullPath from')
 
       for_ contents $ \f ->
         case f of
-          (_ :/ SymLink {})  -> recreateSymlink cm' f destdir (name . file $ f)
-          (_ :/ Dir {})      -> go cm' f destdir (name . file $ f)
-          (_ :/ RegFile {})  -> unsafeCopyFile Replace f destdir
-                                               (name . file $ f)
+          SymLink{}  -> recreateSymlink cm' f destdir
+                          =<< (P.basename . path $ f)
+          Dir{}      -> go cm' f destdir
+                          =<< (P.basename . path $ f)
+          RegFile{}  -> unsafeCopyFile Replace f destdir
+                          =<< (P.basename . path $ f)
           _                  -> return ()
       where
         createDestdir destdir fmode' =
@@ -271,7 +270,7 @@ copyDir cm from@(_ :/ Dir {})
             Replace -> do
               whenM (doesDirectoryExist destdir)
                     (deleteDirRecursive =<<
-                       readFileUnsafe
+                       readFile
                          (\_ -> return undefined) destdir)
               createDirectory destdir' fmode'
             _ -> throw $ InvalidOperation "Internal error, wrong CopyMode!"
@@ -281,17 +280,14 @@ copyDir _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 -- |Recreate a symlink.
 recreateSymlink :: CopyMode
-                -> AnchoredFile a  -- ^ the old symlink file
-                -> AnchoredFile a  -- ^ destination dir of the
-                                   --   new symlink file
-                -> Path Fn         -- ^ destination file name
+                -> File a  -- ^ the old symlink file
+                -> File a  -- ^ destination dir of the
+                           --   new symlink file
+                -> Path Fn -- ^ destination file name
                 -> IO ()
-recreateSymlink _ AFileInvFN _ _ = throw InvalidFileName
-recreateSymlink _ _ AFileInvFN _ = throw InvalidFileName
-recreateSymlink _ _ _ InvFN      = throw InvalidFileName
-recreateSymlink (Rename pn) symf@(_ :/ SymLink {}) symdest@(_ :/ Dir {}) _
+recreateSymlink (Rename pn) symf@SymLink{} symdest@Dir{} _
   = recreateSymlink Strict symf symdest pn
-recreateSymlink cm symf@(_ :/ SymLink {}) symdest@(_ :/ Dir {}) fn
+recreateSymlink cm symf@SymLink{} symdest@Dir{} fn
   = do
     throwCantOpenDirectory $ fullPath symdest
     sympoint <- readSymbolicLink (fullPathS symf)
@@ -303,8 +299,8 @@ recreateSymlink cm symf@(_ :/ SymLink {}) symdest@(_ :/ Dir {}) fn
     createSymbolicLink sympoint (P.fromAbs symname)
   where
     delOld symname = do
-      f <- readFileUnsafe (\_ -> return undefined) symname
-      unless (failed . file $ f)
+      f <- readFile (\_ -> return undefined) symname
+      unless (failed f)
              (easyDelete f)
 recreateSymlink _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
@@ -312,16 +308,13 @@ recreateSymlink _ _ _ _ = throw $ InvalidOperation "wrong input type"
 -- |Copies the given regular file to the given dir with the given filename.
 -- Excludes symlinks.
 copyFile :: CopyMode
-         -> AnchoredFile a  -- ^ source file
-         -> AnchoredFile a  -- ^ destination dir
-         -> Path Fn         -- ^ destination file name
+         -> File a  -- ^ source file
+         -> File a  -- ^ destination dir
+         -> Path Fn -- ^ destination file name
          -> IO ()
-copyFile _ AFileInvFN _ _ = throw InvalidFileName
-copyFile _ _ AFileInvFN _ = throw InvalidFileName
-copyFile _ _ _ InvFN      = throw InvalidFileName
-copyFile (Rename pn) from@(_ :/ RegFile {}) to@(_ :/ Dir {}) _
+copyFile (Rename pn) from@RegFile{} to@Dir{} _
   = copyFile Strict from to pn
-copyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
+copyFile cm from@RegFile{} to@Dir{} fn
   = do
     let to'   = fullPath to P.</> fn
     throwCantOpenDirectory $ fullPath to
@@ -336,16 +329,13 @@ copyFile _ _ _ _ = throw $ InvalidOperation "wrong input type"
 -- It's also used for cases where we don't need/want sanity checks
 -- and need the extra bit of performance.
 unsafeCopyFile :: CopyMode
-               -> AnchoredFile a  -- ^ source file
-               -> AnchoredFile a  -- ^ destination dir
-               -> Path Fn         -- ^ destination file name
+               -> File a  -- ^ source file
+               -> File a  -- ^ destination dir
+               -> Path Fn -- ^ destination file name
                -> IO ()
-unsafeCopyFile _ AFileInvFN _ _ = throw InvalidFileName
-unsafeCopyFile _ _ AFileInvFN _ = throw InvalidFileName
-unsafeCopyFile _ _ _ InvFN      = throw InvalidFileName
-unsafeCopyFile (Rename pn) from@(_ :/ RegFile {}) to@(_ :/ Dir {}) _
+unsafeCopyFile (Rename pn) from@RegFile{} to@Dir{} _
   = copyFile Strict from to pn
-unsafeCopyFile cm from@(_ :/ RegFile {}) to@(_ :/ Dir {}) fn
+unsafeCopyFile cm from@RegFile{} to@Dir{} fn
   = do
     let to'   = fullPath to P.</> fn
     case cm of
@@ -402,18 +392,18 @@ unsafeCopyFile _ _ _ _ = throw $ InvalidOperation "wrong input type"
 -- |Copies a regular file, directory or symlink. In case of a symlink,
 -- it is just recreated, even if it points to a directory.
 easyCopy :: CopyMode
-         -> AnchoredFile a
-         -> AnchoredFile a
+         -> File a
+         -> File a
          -> IO ()
-easyCopy cm from@(_ :/ SymLink{})
-              to@(_ :/ Dir{})
-  = recreateSymlink cm from to (name . file $ from)
-easyCopy cm from@(_ :/ RegFile{})
-              to@(_ :/ Dir{})
-  = copyFile cm from to (name . file $ from)
-easyCopy cm from@(_ :/ Dir{})
-              to@(_ :/ Dir{})
-  = copyDir cm from to (name . file $ from)
+easyCopy cm from@SymLink{}
+              to@Dir{}
+  = recreateSymlink cm from to =<< (P.basename . path $ from)
+easyCopy cm from@RegFile{}
+              to@Dir{}
+  = copyFile cm from to =<< (P.basename . path $ from)
+easyCopy cm from@Dir{}
+              to@Dir{}
+  = copyDir cm from to =<< (P.basename . path $ from)
 easyCopy _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -426,47 +416,43 @@ easyCopy _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes a symlink, which can either point to a file or directory.
-deleteSymlink :: AnchoredFile a -> IO ()
-deleteSymlink AFileInvFN = throw InvalidFileName
-deleteSymlink f@(_ :/ SymLink {})
+deleteSymlink :: File a -> IO ()
+deleteSymlink f@SymLink{}
   = removeLink (P.toFilePath . fullPath $ f)
 deleteSymlink _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes the given regular file, never symlinks.
-deleteFile :: AnchoredFile a -> IO ()
-deleteFile AFileInvFN = throw InvalidFileName
-deleteFile f@(_ :/ RegFile {})
+deleteFile :: File a -> IO ()
+deleteFile f@RegFile{}
   = removeLink (P.toFilePath . fullPath $ f)
 deleteFile _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes the given directory, never symlinks.
-deleteDir :: AnchoredFile a -> IO ()
-deleteDir AFileInvFN = throw InvalidFileName
-deleteDir f@(_ :/ Dir {})
+deleteDir :: File a -> IO ()
+deleteDir f@Dir{}
   = removeDirectory (P.toFilePath . fullPath $ f)
 deleteDir _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes the given directory recursively.
-deleteDirRecursive :: AnchoredFile a -> IO ()
-deleteDirRecursive AFileInvFN = throw InvalidFileName
-deleteDirRecursive f'@(_ :/ Dir {}) = do
+deleteDirRecursive :: File a -> IO ()
+deleteDirRecursive f'@Dir{} = do
   let fp = fullPath f'
   throwCantOpenDirectory fp
   go f'
   where
-    go :: AnchoredFile a -> IO ()
-    go f@(_ :/ Dir {}) = do
+    go :: File a -> IO ()
+    go f@Dir{} = do
       let fp = fullPath f
-      files <- readDirectoryContentsUnsafe getDirsFiles
+      files <- readDirectoryContents
                  (\_ -> return undefined) fp
       for_ files $ \file ->
         case file of
-          (_ :/ SymLink {}) -> deleteSymlink file
-          (_ :/ Dir {})     -> go file
-          (_ :/ RegFile {}) -> removeLink (P.toFilePath . fullPath $ file)
+          SymLink{} -> deleteSymlink file
+          Dir{}     -> go file
+          RegFile{} -> removeLink (P.toFilePath . fullPath $ file)
           _                 -> throw $ FileDoesExist
                                        (P.toFilePath . fullPath
                                                      $ file)
@@ -478,11 +464,11 @@ deleteDirRecursive _ = throw $ InvalidOperation "wrong input type"
 -- |Deletes a file, directory or symlink, whatever it may be.
 -- In case of directory, performs recursive deletion. In case of
 -- a symlink, the symlink file is deleted.
-easyDelete :: AnchoredFile a -> IO ()
-easyDelete f@(_ :/ SymLink {}) = deleteSymlink f
-easyDelete f@(_ :/ RegFile {})
+easyDelete :: File a -> IO ()
+easyDelete f@SymLink{} = deleteSymlink f
+easyDelete f@RegFile{}
   = deleteFile f
-easyDelete f@(_ :/ Dir {})
+easyDelete f@Dir{}
   = deleteDirRecursive f
 easyDelete _ = throw $ InvalidOperation "wrong input type"
 
@@ -496,21 +482,19 @@ easyDelete _ = throw $ InvalidOperation "wrong input type"
 
 -- |Opens a file appropriately by invoking xdg-open. The file type
 -- is not checked.
-openFile :: AnchoredFile a
+openFile :: File a
          -> IO ProcessID
-openFile AFileInvFN = throw InvalidFileName
 openFile f =
   SPP.forkProcess $ SPP.executeFile "xdg-open" True [fullPathS f] Nothing
 
 
 -- |Executes a program with the given arguments.
-executeFile :: AnchoredFile a  -- ^ program
+executeFile :: File a  -- ^ program
             -> [ByteString]    -- ^ arguments
             -> IO ProcessID
-executeFile AFileInvFN _ = throw InvalidFileName
-executeFile prog@(_ :/ RegFile {}) args
+executeFile prog@RegFile{} args
   = SPP.forkProcess $ SPP.executeFile (fullPathS prog) True args Nothing
-executeFile prog@(_ :/ SymLink { sdest = (_ :/ RegFile {}) }) args
+executeFile prog@SymLink{ sdest = RegFile{} } args
   = SPP.forkProcess $ SPP.executeFile (fullPathS prog) True args Nothing
 executeFile _ _ = throw $ InvalidOperation "wrong input type"
 
@@ -523,10 +507,8 @@ executeFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Create an empty regular file at the given directory with the given filename.
-createFile :: AnchoredFile FileInfo -> Path Fn -> IO ()
-createFile AFileInvFN _ = throw InvalidFileName
-createFile _ InvFN      = throw InvalidFileName
-createFile (ADirOrSym td) (ValFN fn) = do
+createFile :: File FileInfo -> Path Fn -> IO ()
+createFile (DirOrSym td) fn = do
   let fullp = fullPath td P.</> fn
   throwFileDoesExist fullp
   fd <- SPI.createFile (P.fromAbs fullp) newFilePerms
@@ -535,10 +517,8 @@ createFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Create an empty directory at the given directory with the given filename.
-createDir :: AnchoredFile FileInfo -> Path Fn -> IO ()
-createDir AFileInvFN _ = throw InvalidFileName
-createDir _ InvFN      = throw InvalidFileName
-createDir (ADirOrSym td) (ValFN fn) = do
+createDir :: File FileInfo -> Path Fn -> IO ()
+createDir (DirOrSym td) fn = do
   let fullp = fullPath td P.</> fn
   throwDirDoesExist fullp
   createDirectory (P.fromAbs fullp) newFilePerms
@@ -553,29 +533,24 @@ createDir _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Rename a given file with the provided filename.
-renameFile :: AnchoredFile a -> Path Fn -> IO ()
-renameFile AFileInvFN _ = throw InvalidFileName
-renameFile _ InvFN      = throw InvalidFileName
-renameFile af (ValFN fn) = do
+renameFile :: File a -> Path Fn -> IO ()
+renameFile af fn = do
   let fromf = fullPath af
-      tof   = anchor af P.</> fn
+      tof   = (P.dirname . path $ af) P.</> fn
   throwFileDoesExist tof
   throwSameFile fromf tof
   rename (P.fromAbs fromf) (P.fromAbs tof)
-renameFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Move a given file to the given target directory.
 moveFile :: CopyMode
-         -> AnchoredFile a -- ^ file to move
-         -> AnchoredFile a -- ^ base target directory
-         -> Path Fn        -- ^ target file name
+         -> File a  -- ^ file to move
+         -> File a  -- ^ base target directory
+         -> Path Fn -- ^ target file name
          -> IO ()
-moveFile _ AFileInvFN _ _ = throw InvalidFileName
-moveFile _ _ AFileInvFN _ = throw InvalidFileName
-moveFile (Rename pn) from to@(_ :/ Dir {}) _ =
+moveFile (Rename pn) from to@Dir{} _ =
   moveFile Strict from to pn
-moveFile cm from to@(_ :/ Dir {}) fn = do
+moveFile cm from to@Dir{} fn = do
   let from'  = fullPath from
       froms' = fullPathS from
       to'    = fullPath to P.</> fn
@@ -591,17 +566,17 @@ moveFile cm from to@(_ :/ Dir {}) fn = do
     easyDelete from
   where
     delOld fp = do
-      to' <- readFileUnsafe (\_ -> return undefined) fp
-      unless (failed . file $ to') (easyDelete to')
+      to' <- readFile (\_ -> return undefined) fp
+      unless (failed to') (easyDelete to')
 moveFile _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Like `moveFile` except it uses the filename of the source as target.
 easyMove :: CopyMode
-         -> AnchoredFile a -- ^ file to move
-         -> AnchoredFile a -- ^ base target directory
+         -> File a -- ^ file to move
+         -> File a -- ^ base target directory
          -> IO ()
-easyMove cm from to = moveFile cm from to (name . file $ from)
+easyMove cm from to = moveFile cm from to =<< (P.basename . path $ from)
 
 
 

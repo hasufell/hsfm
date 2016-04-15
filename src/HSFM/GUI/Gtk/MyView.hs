@@ -46,6 +46,7 @@ import Data.Foldable
 import Data.Maybe
   (
     catMaybes
+  , fromJust
   )
 import Graphics.UI.Gtk
 import {-# SOURCE #-} HSFM.GUI.Gtk.Callbacks (setCallbacks)
@@ -62,6 +63,7 @@ import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Icons
 import HSFM.GUI.Gtk.Utils
 import HSFM.Utils.IO
+import Prelude hiding(readFile)
 import System.INotify
   (
     addWatch
@@ -79,7 +81,9 @@ import System.IO.Error
 
 -- |Constructs the initial MyView object with a few dummy models.
 -- It also initializes the callbacks.
-createMyView :: MyGUI -> IO FMView -> IO MyView
+createMyView :: MyGUI
+             -> IO FMView
+             -> IO MyView
 createMyView mygui iofmv = do
   operationBuffer <- newTVarIO None
 
@@ -91,7 +95,7 @@ createMyView mygui iofmv = do
                              =<< readTVarIO rawModel
   sortedModel <- newTVarIO =<< treeModelSortNewWithModel
                            =<< readTVarIO filteredModel
-
+  cwd <- newEmptyMVar
   view' <- iofmv
   view  <- newTVarIO view'
 
@@ -194,6 +198,7 @@ createTreeView = do
 
 
 -- |Re-reads the current directory or the given one and updates the View.
+-- This is more or less a wrapper around `refreshView'`
 --
 -- If the third argument is Nothing, it tries to re-read the current directory.
 -- If that fails, it reads "/" instead.
@@ -208,12 +213,12 @@ refreshView mygui myview mfp =
   case mfp of
     Just fp  -> do
       -- readFileWithFileInfo can just outright fail...
-      ecdir <- tryIOError (HSFM.FileSystem.FileType.readFileWithFileInfo fp)
+      ecdir <- tryIOError (readFile getFileInfo fp)
       case ecdir of
         Right cdir ->
           -- ...or return an `AnchordFile` with a Failed constructor,
           -- both of which need to be handled here
-          if (failed . file $ cdir)
+          if (failed cdir)
             then refreshView mygui myview =<< getAlternativeDir
             else refreshView' mygui myview cdir
         Left _ -> refreshView mygui myview =<< getAlternativeDir
@@ -221,7 +226,7 @@ refreshView mygui myview mfp =
     where
       getAlternativeDir = do
         ecd <- try (getCurrentDir myview) :: IO (Either SomeException
-                                                     (AnchoredFile FileInfo))
+                                                     Item)
         case ecd of
           Right dir -> return (Just $ fullPath dir)
           Left _    -> return (P.parseAbs "/")
@@ -233,13 +238,16 @@ refreshView mygui myview mfp =
 -- calls `refreshView` with the 3rd argument being Nothing.
 refreshView' :: MyGUI
              -> MyView
-             -> AnchoredFile FileInfo
+             -> Item
              -> IO ()
-refreshView' mygui myview dt@(ADirOrSym _) = do
+refreshView' mygui myview dt@(DirOrSym _) = do
   newRawModel  <- fileListStore dt myview
   writeTVarIO (rawModel myview) newRawModel
 
   view' <- readTVarIO $ view myview
+
+  _ <- tryTakeMVar (cwd myview)
+  putMVar (cwd myview) dt
 
   -- get selected items
   tps <- getSelectedTreePaths mygui myview
@@ -255,7 +263,7 @@ refreshView' mygui myview dt@(ADirOrSym _) = do
       ntps <- mapM treeRowReferenceGetPath trs
       mapM_ (treeSelectionSelectPath tvs) ntps
     _ -> return ()
-refreshView' mygui myview (_ :/ Failed{}) = refreshView mygui myview Nothing
+refreshView' mygui myview Failed{} = refreshView mygui myview Nothing
 refreshView' _ _ _ = return ()
 
 
@@ -288,7 +296,7 @@ constructView mygui myview = do
 
   view' <- readTVarIO $ view myview
 
-  cdirp <- anchor <$> getFirstItem myview
+  cdirp <- path <$> getCurrentDir myview
 
   -- update urlBar
   entrySetText (urlBar mygui) (P.fromAbs cdirp)
@@ -300,7 +308,7 @@ constructView mygui myview = do
   writeTVarIO (filteredModel myview) filteredModel'
   treeModelFilterSetVisibleFunc filteredModel' $ \iter -> do
      hidden <- showHidden <$> readTVarIO (settings mygui)
-     item    <- (name . file) <$> treeModelGetRow rawModel' iter
+     item   <- treeModelGetRow rawModel' iter >>= (P.basename . path)
      if hidden
        then return True
        else return $ not . P.hiddenFile $ item
@@ -318,13 +326,13 @@ constructView mygui myview = do
 
   -- set values
   treeModelSetColumn rawModel' (makeColumnIdPixbuf 0)
-                     (dirtreePix . file)
+                     dirtreePix
   treeModelSetColumn rawModel' (makeColumnIdString 1)
-                     (P.fromRel . name . file)
+                     (P.toFilePath . fromJust . P.basename . path)
   treeModelSetColumn rawModel' (makeColumnIdString 2)
-                     (packModTime . file)
+                     packModTime
   treeModelSetColumn rawModel' (makeColumnIdString 3)
-                     (packPermissions . file)
+                     packPermissions
 
   -- update model of view
   case view' of

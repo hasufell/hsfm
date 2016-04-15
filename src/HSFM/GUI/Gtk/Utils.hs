@@ -21,6 +21,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.GUI.Gtk.Utils where
 
 
+import Control.Concurrent.MVar
+  (
+    readMVar
+  )
 import Control.Concurrent.STM
   (
     readTVarIO
@@ -37,6 +41,7 @@ import Data.Traversable
 import Graphics.UI.Gtk
 import HSFM.FileSystem.FileType
 import HSFM.GUI.Gtk.Data
+import Prelude hiding(getContents)
 
 
 
@@ -100,29 +105,28 @@ withItems mygui myview io = do
 -- |Create the 'ListStore' of files/directories from the current directory.
 -- This is the function which maps the Data.DirTree data structures
 -- into the GTK+ data structures.
-fileListStore :: AnchoredFile FileInfo  -- ^ current dir
+fileListStore :: Item  -- ^ current dir
               -> MyView
               -> IO (ListStore Item)
 fileListStore dt _ = do
-  cs <- HSFM.FileSystem.FileType.getContents dt
+  cs <- getContents getFileInfo dt
   listStoreNew cs
 
 
--- |Currently unsafe. This is used to obtain any item (possibly the '.' item)
--- and extract the "current working directory" from it.
+-- |Currently unsafe. This is used to obtain any item, which will
+-- fail if there is none.
 getFirstItem :: MyView
-            -> IO (AnchoredFile FileInfo)
+             -> IO Item
 getFirstItem myview = do
   rawModel' <- readTVarIO $ rawModel myview
   iter      <- fromJust <$> treeModelGetIterFirst rawModel'
   treeModelGetRow rawModel' iter
 
 
--- |Currently unsafe. Gets the current directory via `getFirstItem` and
--- `goUp`.
+-- |Reads the current directory from MyView.
 getCurrentDir :: MyView
-              -> IO (AnchoredFile FileInfo)
-getCurrentDir myview = getFirstItem myview >>= goUp
+              -> IO Item
+getCurrentDir myview = readMVar (cwd myview)
 
 
 
