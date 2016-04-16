@@ -28,6 +28,8 @@ should be seen as a library. This is the entry point where
 and the File type in general [is constructed](./../src/HSFM/FileSystem/FileType.hs#L302).
 The File type uses a safe Path type under the hood instead of Strings,
 utilizing the [hpath](https://github.com/hasufell/hpath) library.
+Note that mostly only absolute paths are allowed on type level to improve
+path and thread safety.
 
 File operations (like copy, delete etc) are defined at
 [HSFM.FileSystem.FileOperation](./../src/HSFM/FileSystem/FileOperations.hs)
