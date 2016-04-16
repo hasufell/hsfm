@@ -27,13 +27,12 @@ module HSFM.FileSystem.FileType where
 
 
 
-import Control.Exception
-  (
-    bracket
-  )
 import Data.ByteString(ByteString)
-import qualified Data.ByteString as B
 import Data.Default
+import Data.Maybe
+  (
+    catMaybes
+  )
 import Data.Time.Clock.POSIX
   (
     POSIXTime
@@ -48,6 +47,7 @@ import HPath
   (
     Abs
   , Path
+  , Fn
   )
 import qualified HPath as P
 import HSFM.FileSystem.Errors
@@ -58,12 +58,15 @@ import System.IO.Error
     ioeGetErrorType
   , isDoesNotExistErrorType
   )
-import qualified System.Posix.Directory.ByteString as PFD
 import System.Posix.FilePath
   (
     (</>)
   )
-import System.Posix.Directory.Traversals (realpath)
+import System.Posix.Directory.Traversals
+  (
+    getDirectoryContents
+  , realpath
+  )
 import qualified System.Posix.Files.ByteString as PF
 import System.Posix.Types
   (
@@ -463,21 +466,13 @@ getDirsFiles :: Path Abs        -- ^ dir to read
              -> IO [Path Abs]
 getDirsFiles fp =
   rethrowErrnoAs [eACCES] (Can'tOpenDirectory . P.fromAbs $ fp)
-  $ bracket (PFD.openDirStream . P.toFilePath $ fp)
-          PFD.closeDirStream
-          $ \dirstream ->
-            let mdirs :: [Path Abs] -> IO [Path Abs]
-                mdirs dirs = do
-                  -- make sure we close the directory stream in case of errors
-                  -- TODO: more explicit error handling?
-                  --       both the parsing and readin the stream can fail!
-                  dir <- PFD.readDirStream dirstream
-                  if B.null dir
-                    then return dirs
-                    else mdirs $ maybe dirs
-                                       (\x -> fp P.</> x : dirs)
-                                       (P.parseFn dir)
-            in mdirs []
+  $ return
+      . catMaybes
+      .   fmap (\x -> (P.</>) fp <$> (parseMaybe . snd $ x))
+      =<< getDirectoryContents (P.toFilePath fp)
+  where
+    parseMaybe :: ByteString -> Maybe (Path Fn)
+    parseMaybe = P.parseFn
 
 
 -- |Gets all file information.
