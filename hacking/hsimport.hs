@@ -16,9 +16,9 @@ main = hsimport $ defaultConfig { prettyPrint = prettyPrint
       specprint :: Maybe (Bool, [HS.ImportSpec]) -> String
       specprint Nothing = ""
       specprint (Just (False, xs))
-        = "\n  (\n" ++ printImportSpecs xs ++ "\n  )"
+        = "\n  (\n" ++ printImportSpecs xs ++ "  )"
       specprint (Just (True, xs))
-        = "\n  hiding (\n" ++ printImportSpecs xs ++ "\n  )"
+        = "\n  hiding (\n" ++ printImportSpecs xs ++ "  )"
 
       printImportSpecs :: [HS.ImportSpec] -> String
       printImportSpecs ins
@@ -26,7 +26,7 @@ main = hsimport $ defaultConfig { prettyPrint = prettyPrint
             in  "    " ++ printSpec x ++ "\n" ++ go xs
         where
           go []       = ""
-          go [x']     = "  , " ++ printSpec x'
+          go [x']     = "  , " ++ printSpec x' ++ "\n"
           go (x':xs') = "  , " ++ printSpec x' ++ "\n" ++ go xs'
           printSpec :: HS.ImportSpec -> String
           printSpec = HS.prettyPrint
