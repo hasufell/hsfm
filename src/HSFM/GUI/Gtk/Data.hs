@@ -32,7 +32,7 @@ import Control.Concurrent.STM
 import Graphics.UI.Gtk
 import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
-import System.INotify
+import System.INotify.ByteString
   (
     INotify
   )

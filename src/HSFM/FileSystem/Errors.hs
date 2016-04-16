@@ -51,8 +51,9 @@ import System.IO.Error
     catchIOError
   )
 
-import qualified System.Posix.Files.ByteString as PF
 import qualified System.Posix.Directory.ByteString as PFD
+import System.Posix.FilePath
+import qualified System.Posix.Files.ByteString as PF
 
 
 data FmIOException = FileDoesNotExist ByteString
@@ -146,7 +147,7 @@ throwSameFile fp1 fp2 = do
                        (\_ -> fmap P.fromAbs
                        $ (\x -> maybe x (\y -> x P.</> y) $ P.basename fp2)
                                 <$> (P.canonicalizePath $ P.dirname fp2))
-  when (P.equalFilePath fp1' fp2') (throw $ SameFile fp1' fp2')
+  when (equalFilePath fp1' fp2') (throw $ SameFile fp1' fp2')
 
 
 -- |Checks whether the destination directory is contained

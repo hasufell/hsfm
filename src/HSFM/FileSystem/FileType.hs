@@ -59,6 +59,7 @@ import System.IO.Error
   , isDoesNotExistErrorType
   )
 import qualified System.Posix.Directory.ByteString as PFD
+import System.Posix.Directory.Traversals (realpath)
 import qualified System.Posix.Files.ByteString as PF
 import System.Posix.Types
   (
@@ -310,7 +311,7 @@ readFile ff p =
             -- TODO: could it happen that too many '..' lead
             -- to something like '/' after normalization?
             let sfp = (P.fromAbs . P.dirname $ p') `P.combine` x
-            rsfp <- P.realPath sfp
+            rsfp <- realpath sfp
             readFile ff =<< P.parseAbs rsfp
           return $ SymLink p' fv resolvedSyml x
       | PF.isDirectory       fs = return $ Dir       p' fv

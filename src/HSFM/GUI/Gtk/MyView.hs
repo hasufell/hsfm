@@ -64,7 +64,7 @@ import HSFM.GUI.Gtk.Icons
 import HSFM.GUI.Gtk.Utils
 import HSFM.Utils.IO
 import Prelude hiding(readFile)
-import System.INotify
+import System.INotify.ByteString
   (
     addWatch
   , initINotify

@@ -24,13 +24,9 @@ module HSFM.GUI.Glib.GlibString where
 
 
 import qualified Data.ByteString as BS
-import Data.Encoding
+import Data.ByteString.UTF8
   (
-    decodeStrictByteString
-  )
-import Data.Encoding.UTF8
-  (
-    UTF8(..)
+    toString
   )
 import Data.Word8
   (
@@ -67,9 +63,9 @@ instance GlibString BS.ByteString where
         BS.packCStringLen (s, fromIntegral len)
     maybePeekUTFString = maybePeek peekUTFString
     peekUTFStringLen = BS.packCStringLen
-    newUTFString = newUTFString . decodeStrictByteString UTF8
-    newUTFStringLen = newUTFStringLen . decodeStrictByteString UTF8
-    genUTFOfs = genUTFOfs . decodeStrictByteString UTF8
+    newUTFString = newUTFString . toString
+    newUTFStringLen = newUTFStringLen . toString
+    genUTFOfs = genUTFOfs . toString
     stringLength = BS.length
     unPrintf s = BS.intercalate "%%" (BS.split _percent s)
 

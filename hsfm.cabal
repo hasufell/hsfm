@@ -40,13 +40,15 @@ library
                        hpath,
                        mtl >= 2.2,
                        old-locale >= 1,
+                       posix-paths,
                        process,
                        safe,
                        simple-sendfile,
                        stm,
                        time >= 1.4.2,
                        unix,
-                       unix-bytestring
+                       unix-bytestring,
+                       utf8-string
   hs-source-dirs:      src
   default-language:    Haskell2010
   Default-Extensions:  RecordWildCards
@@ -79,7 +81,6 @@ executable hsfm-gtk
                        bytestring,
                        containers,
                        data-default,
-                       encoding,
                        filepath >= 1.3.0.0,
                        glib >= 0.13,
                        gtk3 >= 0.14.1,
@@ -88,6 +89,7 @@ executable hsfm-gtk
                        hsfm,
                        mtl >= 2.2,
                        old-locale >= 1,
+                       posix-paths,
                        process,
                        safe,
                        simple-sendfile,
@@ -96,6 +98,7 @@ executable hsfm-gtk
                        transformers,
                        unix,
                        unix-bytestring,
+                       utf8-string,
                        word8
   hs-source-dirs:      src
   default-language:    Haskell2010

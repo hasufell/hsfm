@@ -82,11 +82,6 @@ import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileType
 import HSFM.Utils.IO
 import Prelude hiding (readFile)
-import Network.Sendfile
-  (
-    sendfileFd
-  , FileRange(EntireFile)
-  )
 import System.Posix.Directory.ByteString
   (
     createDirectory
@@ -114,6 +109,11 @@ import System.Posix.Files.ByteString
 import qualified System.Posix.Files.ByteString as PF
 import qualified "unix" System.Posix.IO.ByteString as SPI
 import qualified "unix-bytestring" System.Posix.IO.ByteString as SPB
+import System.Posix.IO.Sendfile.ByteString
+  (
+    sendfileFd
+  , FileRange(EntireFile)
+  )
 import qualified System.Posix.Process.ByteString as SPP
 import System.Posix.Types
   (
@@ -361,7 +361,7 @@ unsafeCopyFile cm from@RegFile{} to@Dir{} fn
                 bracket (SPI.openFd dest SPI.WriteOnly (Just fileM)
                                     SPI.defaultFileFlags)
                         SPI.closeFd
-                        $ \dfd -> sendfileFd dfd sfd EntireFile (return ())
+                        $ \dfd -> sendfileFd dfd sfd EntireFile
     -- low-level copy operation utilizing read(2)/write(2)
     -- in case `sendFileCopy` fails/is unsupported
     fallbackCopy source dest =
