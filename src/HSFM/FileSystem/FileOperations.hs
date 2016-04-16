@@ -223,13 +223,11 @@ copyDir       (Rename fn)
            _
   = copyDir Strict from to fn
 -- this branch must never get `Rename` as CopyMode
-copyDir cm from@Dir{}
-             to@Dir{}
+copyDir cm from@Dir{ path = fromp }
+             to@Dir{ path = top }
              fn
   = do
-    let fromp    = fullPath from
-        top      = fullPath to
-        destdirp = top P.</> fn
+    let destdirp = top P.</> fn
     -- for performance, sanity checks are only done for the top dir
     throwDestinationInSource fromp destdirp
     throwSameFile fromp destdirp
@@ -238,25 +236,26 @@ copyDir cm from@Dir{}
     go cm from to fn
   where
     go :: CopyMode -> File a -> File a -> Path Fn -> IO ()
-    go cm' from'@Dir{}
-             to'@Dir{}
-             fn' = do
-      fmode' <- PF.fileMode <$> PF.getSymbolicLinkStatus (fullPathS from')
-      createDestdir (fullPath to' P.</> fn') fmode'
+    go cm' Dir{ path = fromp' }
+           Dir{ path = top' }
+           fn' = do
+      fmode' <- PF.fileMode <$> PF.getSymbolicLinkStatus
+                                   (P.fromAbs fromp')
+      createDestdir (top' P.</> fn') fmode'
       destdir <- readFile (\_ -> return undefined)
-                   (fullPath to' P.</> fn')
+                   (top' P.</> fn')
       contents <- readDirectoryContents
-                    (\_ -> return undefined) (fullPath from')
+                    (\_ -> return undefined) fromp'
 
       for_ contents $ \f ->
         case f of
-          SymLink{}  -> recreateSymlink cm' f destdir
-                          =<< (P.basename . path $ f)
-          Dir{}      -> go cm' f destdir
-                          =<< (P.basename . path $ f)
-          RegFile{}  -> unsafeCopyFile Replace f destdir
-                          =<< (P.basename . path $ f)
-          _                  -> return ()
+          SymLink{ path = fp' }  -> recreateSymlink cm' f destdir
+                                      =<< (P.basename fp')
+          Dir{ path = fp' }      -> go cm' f destdir
+                                      =<< (P.basename fp')
+          RegFile{ path = fp' }  -> unsafeCopyFile Replace f destdir
+                                      =<< (P.basename fp')
+          _                      -> return ()
       where
         createDestdir destdir fmode' =
           let destdir' = P.toFilePath destdir
@@ -287,11 +286,11 @@ recreateSymlink :: CopyMode
                 -> IO ()
 recreateSymlink (Rename pn) symf@SymLink{} symdest@Dir{} _
   = recreateSymlink Strict symf symdest pn
-recreateSymlink cm symf@SymLink{} symdest@Dir{} fn
+recreateSymlink cm SymLink{ path = sfp } Dir{ path = sdp } fn
   = do
-    throwCantOpenDirectory $ fullPath symdest
-    sympoint <- readSymbolicLink (fullPathS symf)
-    let symname = fullPath symdest P.</> fn
+    throwCantOpenDirectory sdp
+    sympoint <- readSymbolicLink (P.fromAbs sfp)
+    let symname = sdp P.</> fn
     case cm of
       Merge   -> delOld symname
       Replace -> delOld symname
@@ -314,13 +313,13 @@ copyFile :: CopyMode
          -> IO ()
 copyFile (Rename pn) from@RegFile{} to@Dir{} _
   = copyFile Strict from to pn
-copyFile cm from@RegFile{} to@Dir{} fn
+copyFile cm from@RegFile{ path = fromp }
+             tod@Dir{ path = todp } fn
   = do
-    let to'   = fullPath to P.</> fn
-    throwCantOpenDirectory $ fullPath to
-    throwCantOpenDirectory . P.dirname . fullPath $ from
-    throwSameFile (fullPath from) to'
-    unsafeCopyFile cm from to fn
+    throwCantOpenDirectory todp
+    throwCantOpenDirectory . P.dirname $ fromp
+    throwSameFile fromp (todp P.</> fn)
+    unsafeCopyFile cm from tod fn
 copyFile _ _ _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -335,19 +334,21 @@ unsafeCopyFile :: CopyMode
                -> IO ()
 unsafeCopyFile (Rename pn) from@RegFile{} to@Dir{} _
   = copyFile Strict from to pn
-unsafeCopyFile cm from@RegFile{} to@Dir{} fn
+unsafeCopyFile cm RegFile{ path = fromp }
+                  Dir{ path = todp } fn
   = do
-    let to'   = fullPath to P.</> fn
+    let to = todp P.</> fn
     case cm of
-      Strict -> throwFileDoesExist to'
+      Strict -> throwFileDoesExist to
       _      -> return ()
 
     -- from sendfile(2) manpage:
     --   Applications  may  wish  to  fall back to read(2)/write(2) in the case
     --   where sendfile() fails with EINVAL or ENOSYS.
-    catchErrno [eINVAL, eNOSYS]
-               (sendFileCopy (fullPathS from) (P.fromAbs to'))
-               (void $ fallbackCopy (fullPathS from) (P.fromAbs to'))
+    P.withAbsPath to $ \to' -> P.withAbsPath fromp $ \from' ->
+      catchErrno [eINVAL, eNOSYS]
+                 (sendFileCopy from' to')
+                 (void $ fallbackCopy from' to')
   where
     -- this is low-level stuff utilizing sendfile(2) for speed
     sendFileCopy source dest =
@@ -417,45 +418,43 @@ easyCopy _ _ _ = throw $ InvalidOperation "wrong input type"
 
 -- |Deletes a symlink, which can either point to a file or directory.
 deleteSymlink :: File a -> IO ()
-deleteSymlink f@SymLink{}
-  = removeLink (P.toFilePath . fullPath $ f)
+deleteSymlink SymLink{ path = fp }
+  = P.withAbsPath fp removeLink
 deleteSymlink _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes the given regular file, never symlinks.
 deleteFile :: File a -> IO ()
-deleteFile f@RegFile{}
-  = removeLink (P.toFilePath . fullPath $ f)
+deleteFile RegFile{ path = fp }
+  = P.withAbsPath fp removeLink
 deleteFile _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes the given directory, never symlinks.
 deleteDir :: File a -> IO ()
-deleteDir f@Dir{}
-  = removeDirectory (P.toFilePath . fullPath $ f)
+deleteDir Dir{ path = fp }
+  = P.withAbsPath fp removeDirectory
 deleteDir _ = throw $ InvalidOperation "wrong input type"
 
 
 -- |Deletes the given directory recursively.
 deleteDirRecursive :: File a -> IO ()
-deleteDirRecursive f'@Dir{} = do
-  let fp = fullPath f'
-  throwCantOpenDirectory fp
+deleteDirRecursive f'@Dir{ path = fp' } = do
+  throwCantOpenDirectory fp'
   go f'
   where
     go :: File a -> IO ()
-    go f@Dir{} = do
-      let fp = fullPath f
+    go Dir{ path = fp } = do
       files <- readDirectoryContents
                  (\_ -> return undefined) fp
       for_ files $ \file ->
         case file of
           SymLink{} -> deleteSymlink file
           Dir{}     -> go file
-          RegFile{} -> removeLink (P.toFilePath . fullPath $ file)
-          _                 -> throw $ FileDoesExist
-                                       (P.toFilePath . fullPath
-                                                     $ file)
+          RegFile{ path = rfp }
+                    -> P.withAbsPath rfp removeLink
+          _         -> throw $ FileDoesExist
+                               (P.toFilePath . path $ file)
       removeDirectory . P.toFilePath $ fp
     go _ = throw $ InvalidOperation "wrong input type"
 deleteDirRecursive _ = throw $ InvalidOperation "wrong input type"
@@ -485,17 +484,22 @@ easyDelete _ = throw $ InvalidOperation "wrong input type"
 openFile :: File a
          -> IO ProcessID
 openFile f =
-  SPP.forkProcess $ SPP.executeFile "xdg-open" True [fullPathS f] Nothing
+  P.withAbsPath (path f) $ \fp ->
+    SPP.forkProcess $ SPP.executeFile "xdg-open" True [fp] Nothing
 
 
 -- |Executes a program with the given arguments.
 executeFile :: File a  -- ^ program
             -> [ByteString]    -- ^ arguments
             -> IO ProcessID
-executeFile prog@RegFile{} args
-  = SPP.forkProcess $ SPP.executeFile (fullPathS prog) True args Nothing
-executeFile prog@SymLink{ sdest = RegFile{} } args
-  = SPP.forkProcess $ SPP.executeFile (fullPathS prog) True args Nothing
+executeFile RegFile{ path = fp } args
+  = P.withAbsPath fp $ \fpb ->
+      SPP.forkProcess
+      $ SPP.executeFile fpb True args Nothing
+executeFile SymLink{ path = fp, sdest = RegFile{} } args
+  = P.withAbsPath fp $ \fpb ->
+      SPP.forkProcess
+      $ SPP.executeFile fpb True args Nothing
 executeFile _ _ = throw $ InvalidOperation "wrong input type"
 
 
@@ -509,7 +513,7 @@ executeFile _ _ = throw $ InvalidOperation "wrong input type"
 -- |Create an empty regular file at the given directory with the given filename.
 createFile :: File FileInfo -> Path Fn -> IO ()
 createFile (DirOrSym td) fn = do
-  let fullp = fullPath td P.</> fn
+  let fullp = path td P.</> fn
   throwFileDoesExist fullp
   fd <- SPI.createFile (P.fromAbs fullp) newFilePerms
   SPI.closeFd fd
@@ -519,7 +523,7 @@ createFile _ _ = throw $ InvalidOperation "wrong input type"
 -- |Create an empty directory at the given directory with the given filename.
 createDir :: File FileInfo -> Path Fn -> IO ()
 createDir (DirOrSym td) fn = do
-  let fullp = fullPath td P.</> fn
+  let fullp = path td P.</> fn
   throwDirDoesExist fullp
   createDirectory (P.fromAbs fullp) newFilePerms
 createDir _ _ = throw $ InvalidOperation "wrong input type"
@@ -535,7 +539,7 @@ createDir _ _ = throw $ InvalidOperation "wrong input type"
 -- |Rename a given file with the provided filename.
 renameFile :: File a -> Path Fn -> IO ()
 renameFile af fn = do
-  let fromf = fullPath af
+  let fromf = path af
       tof   = (P.dirname . path $ af) P.</> fn
   throwFileDoesExist tof
   throwSameFile fromf tof
@@ -551,10 +555,10 @@ moveFile :: CopyMode
 moveFile (Rename pn) from to@Dir{} _ =
   moveFile Strict from to pn
 moveFile cm from to@Dir{} fn = do
-  let from'  = fullPath from
-      froms' = fullPathS from
-      to'    = fullPath to P.</> fn
-      tos'   = P.fromAbs (fullPath to P.</> fn)
+  let from'  = path from
+      froms' = P.fromAbs from'
+      to'    = path to P.</> fn
+      tos'   = P.fromAbs to'
   case cm of
     Strict   -> throwFileDoesExist to'
     Merge    -> delOld to'

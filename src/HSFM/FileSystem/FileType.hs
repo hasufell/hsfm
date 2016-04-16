@@ -346,7 +346,7 @@ getContents :: (Path Abs -> IO a)
             -> File FileInfo
             -> IO [File a]
 getContents ff (DirOrSym af)
-  = readDirectoryContents ff (fullPath af)
+  = readDirectoryContents ff (path af)
 getContents _ _ = return []
 
 
@@ -464,12 +464,13 @@ isSocketC _        = False
 -- |Gets all filenames of the given directory. This excludes "." and "..".
 getDirsFiles :: Path Abs        -- ^ dir to read
              -> IO [Path Abs]
-getDirsFiles fp =
-  rethrowErrnoAs [eACCES] (Can'tOpenDirectory . P.fromAbs $ fp)
-  $ return
-      . catMaybes
-      .   fmap (\x -> (P.</>) fp <$> (parseMaybe . snd $ x))
-      =<< getDirectoryContents (P.toFilePath fp)
+getDirsFiles p =
+  P.withAbsPath p $ \fp ->
+    rethrowErrnoAs [eACCES] (Can'tOpenDirectory fp)
+    $ return
+        . catMaybes
+        .   fmap (\x -> (P.</>) p <$> (parseMaybe . snd $ x))
+        =<< getDirectoryContents fp
   where
     parseMaybe :: ByteString -> Maybe (Path Fn)
     parseMaybe = P.parseFn
@@ -543,6 +544,10 @@ fromFreeVar :: (Default d) => (a -> d) -> File a -> d
 fromFreeVar f df = maybeD f $ getFreeVar df
 
 
+getFPasStr :: File a -> String
+getFPasStr = P.fpToString . P.fromAbs . path
+
+
 -- |Gets the free variable. Returns Nothing if the constructor is of `Failed`.
 getFreeVar :: File a -> Maybe a
 getFreeVar (Dir _  d)         = Just d
@@ -553,16 +558,6 @@ getFreeVar (CharDev _  d)     = Just d
 getFreeVar (NamedPipe _  d)   = Just d
 getFreeVar (Socket _  d)      = Just d
 getFreeVar _                  = Nothing
-
-
--- |Get the full path of the file.
-fullPath :: File a -> Path Abs
-fullPath f = path f
-
-
--- |Get the full path of the file, converted to a `FilePath`.
-fullPathS :: File a -> ByteString
-fullPathS = P.fromAbs . fullPath
 
 
 -- |Pack the modification time into a string.

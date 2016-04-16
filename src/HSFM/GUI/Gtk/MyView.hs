@@ -228,7 +228,7 @@ refreshView mygui myview mfp =
         ecd <- try (getCurrentDir myview) :: IO (Either SomeException
                                                      Item)
         case ecd of
-          Right dir -> return (Just $ fullPath dir)
+          Right dir -> return (Just $ path dir)
           Left _    -> return (P.parseAbs "/")
 
 

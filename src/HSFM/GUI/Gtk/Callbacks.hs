@@ -239,7 +239,7 @@ open :: [Item] -> MyGUI -> MyView -> IO ()
 open [item] mygui myview = withErrorDialog $
   case item of
     DirOrSym r -> do
-      nv <- readFile getFileInfo $ fullPath r
+      nv <- readFile getFileInfo $ path r
       refreshView' mygui myview nv
     r ->
       void $ openFile r
@@ -263,7 +263,7 @@ execute _ _ _ = withErrorDialog
 -- |Supposed to be used with 'withRows'. Deletes a file or directory.
 del :: [Item] -> MyGUI -> MyView -> IO ()
 del [item] _ _ = withErrorDialog $ do
-  let cmsg  = "Really delete \"" ++ P.fpToString (fullPathS item) ++ "\"?"
+  let cmsg  = "Really delete \"" ++ getFPasStr item ++ "\"?"
   withConfirmationDialog cmsg
     $ easyDelete item
 -- this throws on the first error that occurs
@@ -279,9 +279,9 @@ del _ _ _ = withErrorDialog
 -- |Initializes a file move operation.
 moveInit :: [Item] -> MyGUI -> MyView -> IO ()
 moveInit items@(_:_) mygui myview = do
-  writeTVarIO (operationBuffer myview) (FMove . MP1 . map fullPath $ items)
+  writeTVarIO (operationBuffer myview) (FMove . MP1 . map path $ items)
   let sbmsg = case items of
-              (item:[]) -> "Move buffer: " ++ P.fpToString (fullPathS item)
+              (item:[]) -> "Move buffer: " ++ getFPasStr item
               _         -> "Move buffer: " ++ (show . length $ items)
                                            ++ " items"
   popStatusbar mygui
@@ -293,9 +293,9 @@ moveInit _ _ _ = withErrorDialog
 -- |Supposed to be used with 'withRows'. Initializes a file copy operation.
 copyInit :: [Item] -> MyGUI -> MyView -> IO ()
 copyInit items@(_:_) mygui myview = do
-  writeTVarIO (operationBuffer myview) (FCopy . CP1 . map fullPath $ items)
+  writeTVarIO (operationBuffer myview) (FCopy . CP1 . map path $ items)
   let sbmsg = case items of
-              (item:[]) -> "Copy buffer: " ++ P.fpToString (fullPathS item)
+              (item:[]) -> "Copy buffer: " ++ getFPasStr item
               _         -> "Copy buffer: " ++ (show . length $ items)
                                            ++ " items"
   popStatusbar mygui
@@ -309,7 +309,7 @@ copyInit _ _ _ = withErrorDialog
 operationFinal :: MyGUI -> MyView -> IO ()
 operationFinal _ myview = withErrorDialog $ do
   op <- readTVarIO (operationBuffer myview)
-  cdir <- fullPath <$> getCurrentDir myview
+  cdir <- path <$> getCurrentDir myview
   case op of
     FMove (MP1 s) -> do
       let cmsg = "Really move " ++ imsg s
@@ -355,7 +355,7 @@ renameF [item] _ _ = withErrorDialog $ do
   mfn  <- textInputDialog "Enter new file name"
   let pmfn = P.parseFn =<< P.userStringToFP <$> mfn
   for_ pmfn $ \fn -> do
-    let cmsg = "Really rename \"" ++ P.fpToString (fullPathS item)
+    let cmsg = "Really rename \"" ++ getFPasStr item
                ++ "\"" ++ " to \""
                ++ P.fpToString (P.fromAbs $ (P.dirname . path $ item)
                                              P.</> fn) ++ "\"?"
