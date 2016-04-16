@@ -6,9 +6,6 @@ main :: IO ()
 main = hsimport $ defaultConfig { prettyPrint = prettyPrint
                                 , findImportPos = findImportPos }
    where
-      -- This is a bogus implementation of prettyPrint, because it doesn't
-      -- handle the qualified import case nor does it considers any explicitely
-      -- imported or hidden symbols.
       prettyPrint :: HS.ImportDecl -> String
       prettyPrint (HS.ImportDecl sloc modname qual _ _ mpkg mas mspec) =
         "import " ++ (ifStr qual "qualified") ++
@@ -35,9 +32,6 @@ main = hsimport $ defaultConfig { prettyPrint = prettyPrint
           printSpec = HS.prettyPrint
     
 
-      -- This findImportPos implementation will always add the new import
-      -- declaration at the end of the current ones. The data type ImportPos
-      -- has the two constructors After and Before.
       findImportPos :: HS.ImportDecl -> [HS.ImportDecl] -> Maybe ImportPos
       findImportPos _         []             = Nothing
       findImportPos newImport currentImports = Just findPos
