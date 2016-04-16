@@ -15,7 +15,7 @@ Design goals:
 Screenshots
 -----------
 
-![Image missing](https://cloud.githubusercontent.com/assets/1241845/12013136/abd4c01a-ad10-11e5-86a9-ea8e52ca5610.png "hsfm-gtk") ![Image missing](https://cloud.githubusercontent.com/assets/1241845/12054174/1ba90164-af21-11e5-8068-b480a487249f.png "hsfm-gtk")
+![Image missing](https://cloud.githubusercontent.com/assets/1241845/14584163/6dbef950-0439-11e6-8a6e-2352c048775e.png "hsfm-gtk")
 
 Installation
 ------------
