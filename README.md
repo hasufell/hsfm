@@ -28,4 +28,4 @@ cabal install
 Contributing
 ------------
 
-See [HACKING.md](HACKING.md).
+See [HACKING.md](hacking/HACKING.md).
