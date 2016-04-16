@@ -63,7 +63,10 @@ import System.Glib.UTFString
   (
     glibToString
   )
-
+import System.Posix.Env.ByteString
+  (
+    getEnv
+  )
 
 
 
@@ -128,6 +131,10 @@ setCallbacks mygui myview = do
       -- GUI events
       _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
 
+      _ <- upViewB mygui `on` buttonActivated $
+           upDir mygui myview
+      _ <- homeViewB mygui `on` buttonActivated $
+           goHome mygui myview
       _ <- refreshViewB mygui `on` buttonActivated $ do
            cdir <- liftIO $ getCurrentDir myview
            refreshView' mygui myview cdir
@@ -232,6 +239,12 @@ urlGoTo mygui myview = withErrorDialog $ do
   fp <- entryGetText (urlBar mygui)
   forM_ (P.parseAbs fp :: Maybe (Path Abs)) $ \fp' ->
       refreshView mygui myview (Just fp')
+
+
+goHome :: MyGUI -> MyView -> IO ()
+goHome mygui myview =  withErrorDialog $ do
+  mhomedir <- getEnv "HOME"
+  refreshView mygui myview (P.parseAbs =<< mhomedir)
 
 
 -- |Supposed to be used with 'withRows'. Opens a file or directory.

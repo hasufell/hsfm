@@ -99,6 +99,10 @@ createMyGUI = do
                        "rcFilePaste"
   rcFileDelete      <- builderGetObject builder castToImageMenuItem
                        "rcFileDelete"
+  upViewB           <- builderGetObject builder castToButton
+                       "upViewB"
+  homeViewB         <- builderGetObject builder castToButton
+                       "homeViewB"
   refreshViewB      <- builderGetObject builder castToButton
                        "refreshViewB"
   menubarViewTree   <- builderGetObject builder castToImageMenuItem

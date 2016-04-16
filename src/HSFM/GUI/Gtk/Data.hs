@@ -72,6 +72,8 @@ data MyGUI = MkMyGUI {
   , rcFileRename :: ImageMenuItem
   , rcFilePaste :: ImageMenuItem
   , rcFileDelete :: ImageMenuItem
+  , upViewB :: Button
+  , homeViewB :: Button
   , refreshViewB :: Button
   , urlBar :: Entry
   , statusBar :: Statusbar
