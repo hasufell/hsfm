@@ -59,6 +59,10 @@ import System.IO.Error
   , isDoesNotExistErrorType
   )
 import qualified System.Posix.Directory.ByteString as PFD
+import System.Posix.FilePath
+  (
+    (</>)
+  )
 import System.Posix.Directory.Traversals (realpath)
 import qualified System.Posix.Files.ByteString as PF
 import System.Posix.Types
@@ -304,13 +308,11 @@ readFile ff p =
     constructFile fs fv p'
       | PF.isSymbolicLink    fs = do
           -- symlink madness, we need to make sure we save the correct
-          -- AnchoredFile
+          -- File
           x <- PF.readSymbolicLink (P.fromAbs p')
           resolvedSyml <- handleDT p' $ do
             -- watch out, we call </> from 'filepath' here, but it is safe
-            -- TODO: could it happen that too many '..' lead
-            -- to something like '/' after normalization?
-            let sfp = (P.fromAbs . P.dirname $ p') `P.combine` x
+            let sfp = (P.fromAbs . P.dirname $ p') </> x
             rsfp <- realpath sfp
             readFile ff =<< P.parseAbs rsfp
           return $ SymLink p' fv resolvedSyml x
