@@ -67,24 +67,7 @@ getSelectedItems :: MyGUI
                  -> IO [Item]
 getSelectedItems mygui myview = do
   tps   <- getSelectedTreePaths mygui myview
-  getSelectedItems' mygui myview tps
-
-
-getSelectedItems' :: MyGUI
-                  -> MyView
-                  -> [TreePath]
-                  -> IO [Item]
-getSelectedItems' _ myview tps = do
-  rawModel'      <- readTVarIO $ rawModel myview
-  sortedModel'   <- readTVarIO $ sortedModel myview
-  filteredModel' <- readTVarIO $ filteredModel myview
-  iters <- catMaybes <$> mapM (treeModelGetIter sortedModel') tps
-  forM iters $ \iter -> do
-    cIter' <- treeModelSortConvertIterToChildIter sortedModel' iter
-    cIter  <- treeModelFilterConvertIterToChildIter filteredModel' cIter'
-    treeModelGetRow rawModel' cIter
-
-
+  catMaybes <$> mapM (rawPathToItem myview) tps
 
 
 -- |Carry out an action on the currently selected item.
@@ -129,8 +112,6 @@ getCurrentDir :: MyView
 getCurrentDir myview = readMVar (cwd myview)
 
 
-
-
 -- |Push a message to the status bar.
 pushStatusBar :: MyGUI -> String -> IO (ContextId, MessageId)
 pushStatusBar mygui str = do
@@ -146,3 +127,25 @@ popStatusbar mygui = do
   let sb = statusBar mygui
   cid <- statusbarGetContextId sb "FM Status"
   statusbarPop sb cid
+
+
+-- |Turn a path on the rawModel into a path that we can
+-- use at the outermost model layer.
+rawPathToIter :: MyView -> TreePath -> IO (Maybe TreeIter)
+rawPathToIter myview tp = do
+  fmodel <- readTVarIO (filteredModel myview)
+  smodel <- readTVarIO (sortedModel myview)
+  msiter <- treeModelGetIter smodel tp
+  forM msiter $ \siter -> do
+    cIter <- treeModelSortConvertIterToChildIter smodel siter
+    treeModelFilterConvertIterToChildIter fmodel cIter
+
+
+-- |Turn a path on the rawModel into the corresponding item
+-- that we can use at the outermost model layer.
+rawPathToItem :: MyView -> TreePath -> IO (Maybe Item)
+rawPathToItem myview tp = do
+  rawModel' <- readTVarIO $ rawModel myview
+  miter     <- rawPathToIter myview tp
+  forM miter $ \iter -> treeModelGetRow rawModel' iter
+

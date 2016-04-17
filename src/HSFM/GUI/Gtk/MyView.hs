@@ -156,6 +156,13 @@ createTreeView = do
   tvs <- treeViewGetSelection treeView
   treeSelectionSetMode tvs SelectionMultiple
 
+  -- set drag and drop
+  tl <- targetListNew
+  atom <- atomNew ("HSFM" :: String)
+  targetListAdd tl atom [TargetSameApp] 0
+  treeViewEnableModelDragDest treeView tl [ActionCopy]
+  treeViewEnableModelDragSource treeView [Button1] tl [ActionCopy]
+
   -- create final tree model columns
   renderTxt <- cellRendererTextNew
   renderPix <- cellRendererPixbufNew

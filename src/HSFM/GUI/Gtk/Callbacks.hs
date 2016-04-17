@@ -84,6 +84,36 @@ setCallbacks mygui myview = do
     fmv@(FMTreeView treeView) -> do
       _ <- treeView `on` rowActivated
              $ (\_ _ -> withItems mygui myview open)
+
+      -- drag events
+      _ <- treeView `on` dragBegin $
+        \_ -> withItems mygui myview moveInit
+      _ <- treeView `on` dragDrop $
+         \dc p ts -> do
+           atom  <- atomNew ("HSFM" :: String)
+           p'    <- treeViewConvertWidgetToTreeCoords treeView p
+           mpath <- treeViewGetPathAtPos treeView p'
+           case mpath of
+             Nothing -> do
+               dragFinish dc False False ts
+               return False
+             Just _  -> do
+               dragGetData treeView dc atom ts
+               return True
+      _ <- treeView `on` dragDataReceived $
+        \dc p _ ts ->
+          liftIO $ do
+            signalStopEmission treeView "drag_data_received"
+            p'    <- treeViewConvertWidgetToTreeCoords treeView p
+            mpath <- treeViewGetPathAtPos treeView p'
+            case mpath of
+              Nothing         -> dragFinish dc False False ts
+              Just (tp, _, _) -> do
+                mitem <- rawPathToItem myview tp
+                forM_ mitem $ \item ->
+                  operationFinal mygui myview (Just item)
+                dragFinish dc True False ts
+
       commonGuiEvents fmv
       return ()
     fmv@(FMIconView iconView) -> do
@@ -111,7 +141,7 @@ setCallbacks mygui myview = do
       _ <- menubarEditRename mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview renameF
       _ <- menubarEditPaste mygui `on` menuItemActivated $
-        liftIO $ operationFinal mygui myview
+        liftIO $ operationFinal mygui myview Nothing
       _ <- menubarEditDelete mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview del
 
@@ -176,7 +206,7 @@ setCallbacks mygui myview = do
       _ <- view `on` keyPressEvent $ tryEvent $ do
         [Control] <- eventModifier
         "v"       <- fmap glibToString eventKeyName
-        liftIO $ operationFinal mygui myview
+        liftIO $ operationFinal mygui myview Nothing
 
       -- righ-click
       _ <- view `on` buttonPressEvent $ do
@@ -215,7 +245,7 @@ setCallbacks mygui myview = do
       _ <- rcFileRename mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview renameF
       _ <- rcFilePaste mygui `on` menuItemActivated $
-        liftIO $ operationFinal mygui myview
+        liftIO $ operationFinal mygui myview Nothing
       _ <- rcFileDelete mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview del
       _ <- rcFileCut mygui `on` menuItemActivated $
@@ -321,10 +351,12 @@ copyInit _ _ _ = withErrorDialog
 
 
 -- |Finalizes a file operation, such as copy or move.
-operationFinal :: MyGUI -> MyView -> IO ()
-operationFinal _ myview = withErrorDialog $ do
+operationFinal :: MyGUI -> MyView -> Maybe Item -> IO ()
+operationFinal _ myview mitem = withErrorDialog $ do
   op <- readTVarIO (operationBuffer myview)
-  cdir <- path <$> getCurrentDir myview
+  cdir <- case mitem of
+            Nothing -> path <$> getCurrentDir myview
+            Just x  -> return $ path x
   case op of
     FMove (MP1 s) -> do
       let cmsg = "Really move " ++ imsg s
