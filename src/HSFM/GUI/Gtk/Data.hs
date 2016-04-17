@@ -66,7 +66,8 @@ data MyGUI = MkMyGUI {
   , rcMenu :: Menu
   , rcFileOpen :: ImageMenuItem
   , rcFileExecute :: ImageMenuItem
-  , rcFileNew :: ImageMenuItem
+  , rcFileNewRegFile :: ImageMenuItem
+  , rcFileNewDir :: ImageMenuItem
   , rcFileCut :: ImageMenuItem
   , rcFileCopy :: ImageMenuItem
   , rcFileRename :: ImageMenuItem

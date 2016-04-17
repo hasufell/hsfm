@@ -206,8 +206,10 @@ setCallbacks mygui myview = do
         liftIO $ withItems mygui myview open
       _ <- rcFileExecute mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview execute
-      _ <- rcFileNew mygui `on` menuItemActivated $
+      _ <- rcFileNewRegFile mygui `on` menuItemActivated $
         liftIO $ newFile mygui myview
+      _ <- rcFileNewDir mygui `on` menuItemActivated $
+        liftIO $ newDir mygui myview
       _ <- rcFileCopy mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview copyInit
       _ <- rcFileRename mygui `on` menuItemActivated $
@@ -353,7 +355,7 @@ upDir mygui myview = withErrorDialog $ do
   refreshView' mygui myview nv
 
 
--- |Go up one directory and visualize it in the treeView.
+-- |Create a new file.
 newFile :: MyGUI -> MyView -> IO ()
 newFile _ myview = withErrorDialog $ do
   mfn   <- textInputDialog "Enter file name"
@@ -361,6 +363,16 @@ newFile _ myview = withErrorDialog $ do
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
     createFile cdir fn
+
+
+-- |Create a new directory.
+newDir :: MyGUI -> MyView -> IO ()
+newDir _ myview = withErrorDialog $ do
+  mfn   <- textInputDialog "Enter directory name"
+  let pmfn = P.parseFn =<< P.userStringToFP <$> mfn
+  for_ pmfn $ \fn -> do
+    cdir  <- getCurrentDir myview
+    createDir cdir fn
 
 
 renameF :: [Item] -> MyGUI -> MyView -> IO ()

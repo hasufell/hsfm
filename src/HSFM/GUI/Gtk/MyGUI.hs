@@ -87,8 +87,10 @@ createMyGUI = do
                        "rcFileOpen"
   rcFileExecute     <- builderGetObject builder castToImageMenuItem
                        "rcFileExecute"
-  rcFileNew         <- builderGetObject builder castToImageMenuItem
-                       "rcFileNew"
+  rcFileNewRegFile  <- builderGetObject builder castToImageMenuItem
+                       "rcFileNewRegFile"
+  rcFileNewDir      <- builderGetObject builder castToImageMenuItem
+                       "rcFileNewDir"
   rcFileCut         <- builderGetObject builder castToImageMenuItem
                        "rcFileCut"
   rcFileCopy        <- builderGetObject builder castToImageMenuItem
