@@ -352,7 +352,7 @@ copyInit _ _ _ = withErrorDialog
 
 -- |Finalizes a file operation, such as copy or move.
 operationFinal :: MyGUI -> MyView -> Maybe Item -> IO ()
-operationFinal _ myview mitem = withErrorDialog $ do
+operationFinal mygui myview mitem = withErrorDialog $ do
   op <- readTVarIO (operationBuffer myview)
   cdir <- case mitem of
             Nothing -> path <$> getCurrentDir myview
@@ -363,15 +363,16 @@ operationFinal _ myview mitem = withErrorDialog $ do
                   ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
                   ++ "\"?"
       withConfirmationDialog cmsg . withCopyModeDialog
-        $ \cm -> void $ runFileOp (FMove . MC s cdir $ cm)
-      return ()
+        $ \cm -> do
+             void $ runFileOp (FMove . MC s cdir $ cm)
+             popStatusbar mygui
+             writeTVarIO (operationBuffer myview) None
     FCopy (CP1 s) -> do
       let cmsg = "Really copy " ++ imsg s
                  ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
                  ++ "\"?"
       withConfirmationDialog cmsg . withCopyModeDialog
         $ \cm -> void $ runFileOp (FCopy . CC s cdir $ cm)
-      return ()
     _ -> return ()
   where
     imsg s = case s of
