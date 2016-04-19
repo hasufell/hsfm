@@ -39,6 +39,10 @@ import Control.Exception
     try
   , SomeException
   )
+import Control.Monad
+  (
+    void
+  )
 import Data.Foldable
   (
     for_
@@ -47,6 +51,10 @@ import Data.Maybe
   (
     catMaybes
   , fromJust
+  )
+import HSFM.FileSystem.Errors
+  (
+    canOpenDirectory
   )
 import Graphics.UI.Gtk
 import {-# SOURCE #-} HSFM.GUI.Gtk.Callbacks (setCallbacks)
@@ -71,10 +79,6 @@ import System.INotify.ByteString
   , killINotify
   , EventVariety(..)
   )
-import System.IO.Error
-  (
-    tryIOError
-  )
 
 
 
@@ -88,6 +92,7 @@ createMyView mygui iofmv = do
   operationBuffer <- newTVarIO None
 
   inotify <- newEmptyMVar
+  history <- newTVarIO ([],[])
 
   -- create dummy models, so we don't have to use MVar
   rawModel <- newTVarIO =<< listStoreNew []
@@ -130,7 +135,7 @@ switchView mygui myview iofmv = do
   containerAdd (scroll mygui) nview
   widgetShow nview
 
-  refreshView mygui myview Nothing
+  void $ refreshView mygui myview Nothing
 
 
 -- |Createss an IconView.
@@ -219,16 +224,10 @@ refreshView :: MyGUI
 refreshView mygui myview mfp =
   case mfp of
     Just fp  -> do
-      -- readFileWithFileInfo can just outright fail...
-      ecdir <- tryIOError (readFile getFileInfo fp)
-      case ecdir of
-        Right cdir ->
-          -- ...or return an `AnchordFile` with a Failed constructor,
-          -- both of which need to be handled here
-          if (failed cdir)
-            then refreshView mygui myview =<< getAlternativeDir
-            else refreshView' mygui myview cdir
-        Left _ -> refreshView mygui myview =<< getAlternativeDir
+      canopen <- canOpenDirectory fp
+      if canopen
+         then refreshView' mygui myview =<< readFile getFileInfo fp
+         else refreshView mygui myview =<< getAlternativeDir
     Nothing  -> refreshView mygui myview =<< getAlternativeDir
     where
       getAlternativeDir = do
@@ -361,7 +360,7 @@ constructView mygui myview = do
          newi
          [Move, MoveIn, MoveOut, MoveSelf, Create, Delete, DeleteSelf]
          (P.fromAbs cdirp)
-         (\_ -> postGUIAsync $ refreshView mygui myview (Just $ cdirp))
+         (\_ -> postGUIAsync $ void $refreshView mygui myview (Just $ cdirp))
   putMVar (inotify myview) newi
 
   return ()

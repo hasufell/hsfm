@@ -190,6 +190,14 @@ setCallbacks mygui myview = do
         "Up"  <- fmap glibToString eventKeyName
         liftIO $ upDir mygui myview
       _ <- view `on` keyPressEvent $ tryEvent $ do
+        [Alt] <- eventModifier
+        "Left"  <- fmap glibToString eventKeyName
+        liftIO $ goHistoryPrev mygui myview
+      _ <- view `on` keyPressEvent $ tryEvent $ do
+        [Alt] <- eventModifier
+        "Right"  <- fmap glibToString eventKeyName
+        liftIO $ goHistoryNext mygui myview
+      _ <- view `on` keyPressEvent $ tryEvent $ do
         "Delete"  <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview del
       _ <- view `on` keyPressEvent $ tryEvent $ do
@@ -231,6 +239,12 @@ setCallbacks mygui myview = do
                   return $ elem tp selectedTps
                 -- no item under the cursor, pass on the signal
                 Nothing -> return False
+          OtherButton 8 -> do
+            liftIO $ goHistoryPrev mygui myview
+            return False
+          OtherButton 9 -> do
+            liftIO $ goHistoryNext mygui myview
+            return False
           -- not right-click, so pass on the signal
           _ -> return False
       _ <- (rcFileOpen . rcmenu) mygui `on` menuItemActivated $
@@ -273,7 +287,8 @@ urlGoTo :: MyGUI -> MyView -> IO ()
 urlGoTo mygui myview = withErrorDialog $ do
   fp <- entryGetText (urlBar mygui)
   forM_ (P.parseAbs fp :: Maybe (Path Abs)) $ \fp' ->
-      refreshView mygui myview (Just fp')
+      whenM (canOpenDirectory fp')
+            (goDir mygui myview =<< (readFile getFileInfo $ fp'))
 
 
 goHome :: MyGUI -> MyView -> IO ()
@@ -288,7 +303,7 @@ open [item] mygui myview = withErrorDialog $
   case item of
     DirOrSym r -> do
       nv <- readFile getFileInfo $ path r
-      refreshView' mygui myview nv
+      goDir mygui myview nv
     r ->
       void $ openFile r
 -- this throws on the first error that occurs
@@ -388,7 +403,7 @@ upDir :: MyGUI -> MyView -> IO ()
 upDir mygui myview = withErrorDialog $ do
   cdir <- getCurrentDir myview
   nv <- goUp cdir
-  refreshView' mygui myview nv
+  goDir mygui myview nv
 
 
 -- |Create a new file.
@@ -425,3 +440,41 @@ renameF [item] _ _ = withErrorDialog $ do
 renameF _ _ _ = withErrorDialog
                   . throw $ InvalidOperation
                             "Operation not supported on multiple files"
+
+
+-- |Helper that is invoked for any directory change operations.
+goDir :: MyGUI -> MyView -> Item -> IO ()
+goDir mygui myview item = do
+  cdir <- getCurrentDir myview
+  modifyTVarIO (history myview)
+    (\(p, n) -> (path cdir `addHistory` p, n))
+  refreshView' mygui myview item
+
+
+-- |Go "back" in the history.
+goHistoryPrev :: MyGUI -> MyView -> IO ()
+goHistoryPrev mygui myview = do
+  hs <- readTVarIO (history myview)
+  case hs of
+    ([], _) -> return ()
+    (x:xs, _) -> do
+      cdir <- getCurrentDir myview
+      nv <- readFile getFileInfo $ x
+      modifyTVarIO (history myview)
+        (\(_, n) -> (xs, path cdir `addHistory` n))
+      refreshView' mygui myview nv
+
+
+-- |Go "forth" in the history.
+goHistoryNext :: MyGUI -> MyView -> IO ()
+goHistoryNext mygui myview = do
+  hs <- readTVarIO (history myview)
+  case hs of
+    (_, []) -> return ()
+    (_, x:xs) -> do
+      cdir <- getCurrentDir myview
+      nv <- readFile getFileInfo $ x
+      modifyTVarIO (history myview)
+        (\(p, _) -> (path cdir `addHistory` p, xs))
+      refreshView' mygui myview nv
+

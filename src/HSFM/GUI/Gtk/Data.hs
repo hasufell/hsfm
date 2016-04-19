@@ -31,6 +31,11 @@ import Control.Concurrent.STM
   )
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk hiding (MenuBar)
+import HPath
+  (
+    Abs
+  , Path
+  )
 import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
 import System.INotify.ByteString
@@ -60,7 +65,6 @@ data MyGUI = MkMyGUI {
   , urlBar :: Entry
   , statusBar :: Statusbar
   , clearStatusBar :: Button
-  , settings :: TVar FMSettings
   , scroll :: ScrolledWindow
 
   , fprop :: FilePropertyGrid
@@ -68,6 +72,9 @@ data MyGUI = MkMyGUI {
   -- sub-widgets
   , menubar :: MenuBar
   , rcmenu :: RightClickMenu
+
+  -- other
+  , settings :: TVar FMSettings
 }
 
 data MenuBar = MkMenuBar {
@@ -132,6 +139,10 @@ data MyView = MkMyView {
   , filteredModel   :: TVar (TypedTreeModelFilter Item)
   , operationBuffer :: TVar FileOperation
   , inotify         :: MVar INotify
+
+  -- the first part of the tuple represents the "go back"
+  -- the second part the "go forth" in the history
+  , history         :: TVar ([Path Abs], [Path Abs])
 }
 
 
