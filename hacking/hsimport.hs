@@ -8,7 +8,7 @@ main = hsimport $ defaultConfig { prettyPrint = prettyPrint
    where
       prettyPrint :: HS.ImportDecl -> String
       prettyPrint (HS.ImportDecl sloc modname qual _ _ mpkg mas mspec) =
-        "import " ++ (ifStr qual "qualified") ++
+        "import " ++ (ifStr qual "qualified ") ++
         (maybe "" (\pkg -> " \"" ++ pkg ++ "\" ") mpkg)  ++
         getMN modname ++ (maybe "" (\name -> " as " ++ getMN name) $ mas) ++
         specprint mspec
