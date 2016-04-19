@@ -294,7 +294,9 @@ urlGoTo mygui myview = withErrorDialog $ do
 goHome :: MyGUI -> MyView -> IO ()
 goHome mygui myview =  withErrorDialog $ do
   mhomedir <- getEnv "HOME"
-  refreshView mygui myview (P.parseAbs =<< mhomedir)
+  forM_ (P.parseAbs =<< mhomedir :: Maybe (Path Abs)) $ \fp' ->
+      whenM (canOpenDirectory fp')
+            (goDir mygui myview =<< (readFile getFileInfo $ fp'))
 
 
 -- |Supposed to be used with 'withRows'. Opens a file or directory.
