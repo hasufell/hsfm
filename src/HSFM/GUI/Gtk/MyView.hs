@@ -39,10 +39,6 @@ import Control.Exception
     try
   , SomeException
   )
-import Control.Monad
-  (
-    void
-  )
 import Data.Foldable
   (
     for_
@@ -135,7 +131,7 @@ switchView mygui myview iofmv = do
   containerAdd (scroll mygui) nview
   widgetShow nview
 
-  void $ refreshView mygui myview Nothing
+  refreshView mygui myview Nothing
 
 
 -- |Createss an IconView.
@@ -360,7 +356,7 @@ constructView mygui myview = do
          newi
          [Move, MoveIn, MoveOut, MoveSelf, Create, Delete, DeleteSelf]
          (P.fromAbs cdirp)
-         (\_ -> postGUIAsync $ void $refreshView mygui myview (Just $ cdirp))
+         (\_ -> postGUIAsync $ refreshView mygui myview (Just $ cdirp))
   putMVar (inotify myview) newi
 
   return ()
