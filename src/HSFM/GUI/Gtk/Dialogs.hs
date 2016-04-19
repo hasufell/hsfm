@@ -36,6 +36,7 @@ import Control.Monad
   , when
   , void
   )
+import qualified Data.ByteString as BS
 import Data.Version
   (
     showVersion
@@ -62,6 +63,9 @@ import Graphics.UI.Gtk
 import qualified HPath as P
 import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileOperations
+import HSFM.FileSystem.FileType
+import HSFM.GUI.Glib.GlibString()
+import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Errors
 import Paths_hsfm
   (
@@ -180,7 +184,7 @@ withCopyModeDialog fa =
 showAboutDialog :: IO ()
 showAboutDialog = do
   ad       <- aboutDialogNew
-  lstr     <- readFile =<< getDataFileName "LICENSE"
+  lstr     <- Prelude.readFile =<< getDataFileName "LICENSE"
   hsfmicon <- pixbufNewFromFile =<< getDataFileName "data/Gtk/icons/hsfm.png"
   pdesc    <- fmap packageDescription
                    (readPackageDescription silent
@@ -244,3 +248,39 @@ textInputDialog title = do
            _              -> throw  UnknownDialogButton
   widgetDestroy chooserDialog
   return ret
+
+
+showFilePropertyDialog :: [Item] -> MyGUI -> MyView -> IO ()
+showFilePropertyDialog [item] mygui _ = do
+  dialog <- messageDialogNew Nothing
+                             [DialogDestroyWithParent]
+                             MessageInfo
+                             ButtonsNone
+                             "File Properties"
+
+  let fprop' = fprop mygui
+      grid   = fpropGrid fprop'
+
+  entrySetText (fpropFnEntry fprop')  (maybe BS.empty P.fromRel
+                                        $ P.basename . path $ item)
+  entrySetText (fpropLocEntry fprop') (P.fromAbs . P.dirname . path $ item)
+  entrySetText (fpropTsEntry fprop')  (fromFreeVar (show . fileSize) item)
+  entrySetText (fpropModEntry fprop') (packModTime item)
+  entrySetText (fpropAcEntry fprop')  (packAccessTime item)
+
+  cbox <- dialogGetActionArea dialog
+  _ <- dialogAddButton dialog "Ok"     (ResponseUser 0)
+  _ <- dialogAddButton dialog "Cancel" (ResponseUser 1)
+  boxPackStart (castToBox cbox) grid PackNatural 5
+
+  widgetShowAll dialog
+  _ <- dialogRun dialog
+
+  -- make sure our grid does not get destroyed
+  containerRemove (castToBox cbox) grid
+
+  widgetDestroy dialog
+
+  return ()
+showFilePropertyDialog _ _ _ = return ()
+

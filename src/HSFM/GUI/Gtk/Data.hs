@@ -30,6 +30,7 @@ import Control.Concurrent.STM
     TVar
   )
 import Graphics.UI.Gtk
+import Graphics.UI.Gtk hiding (MenuBar)
 import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
 import System.INotify.ByteString
@@ -50,8 +51,27 @@ import System.INotify.ByteString
 -- runtime.
 data MyGUI = MkMyGUI {
   -- |main Window
-    rootWin  :: Window
-  , menubarFileQuit :: ImageMenuItem
+    rootWin :: Window
+
+  -- widgets on the main window
+  , upViewB :: Button
+  , homeViewB :: Button
+  , refreshViewB :: Button
+  , urlBar :: Entry
+  , statusBar :: Statusbar
+  , clearStatusBar :: Button
+  , settings :: TVar FMSettings
+  , scroll :: ScrolledWindow
+
+  , fprop :: FilePropertyGrid
+
+  -- sub-widgets
+  , menubar :: MenuBar
+  , rcmenu :: RightClickMenu
+}
+
+data MenuBar = MkMenuBar {
+    menubarFileQuit :: ImageMenuItem
   , menubarFileOpen :: ImageMenuItem
   , menubarFileExecute :: ImageMenuItem
   , menubarFileNew :: ImageMenuItem
@@ -63,7 +83,10 @@ data MyGUI = MkMyGUI {
   , menubarViewTree :: ImageMenuItem
   , menubarViewIcon :: ImageMenuItem
   , menubarHelpAbout :: ImageMenuItem
-  , rcMenu :: Menu
+}
+
+data RightClickMenu = MkRightClickMenu {
+    rcMenu :: Menu
   , rcFileOpen :: ImageMenuItem
   , rcFileExecute :: ImageMenuItem
   , rcFileNewRegFile :: ImageMenuItem
@@ -73,14 +96,16 @@ data MyGUI = MkMyGUI {
   , rcFileRename :: ImageMenuItem
   , rcFilePaste :: ImageMenuItem
   , rcFileDelete :: ImageMenuItem
-  , upViewB :: Button
-  , homeViewB :: Button
-  , refreshViewB :: Button
-  , urlBar :: Entry
-  , statusBar :: Statusbar
-  , clearStatusBar :: Button
-  , settings :: TVar FMSettings
-  , scroll :: ScrolledWindow
+  , rcFileProperty :: ImageMenuItem
+}
+
+data FilePropertyGrid = MkFilePropertyGrid {
+    fpropGrid :: Grid
+  , fpropFnEntry :: Entry
+  , fpropLocEntry :: Entry
+  , fpropTsEntry :: Entry
+  , fpropModEntry :: Entry
+  , fpropAcEntry :: Entry
 }
 
 

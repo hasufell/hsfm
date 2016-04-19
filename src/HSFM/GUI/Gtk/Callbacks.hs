@@ -90,7 +90,6 @@ setCallbacks mygui myview = do
         \_ -> withItems mygui myview moveInit
       _ <- treeView `on` dragDrop $
          \dc p ts -> do
-           atom  <- atomNew ("HSFM" :: String)
            p'    <- treeViewConvertWidgetToTreeCoords treeView p
            mpath <- treeViewGetPathAtPos treeView p'
            case mpath of
@@ -98,6 +97,7 @@ setCallbacks mygui myview = do
                dragFinish dc False False ts
                return False
              Just _  -> do
+               atom  <- atomNew ("HSFM" :: String)
                dragGetData treeView dc atom ts
                return True
       _ <- treeView `on` dragDataReceived $
@@ -125,34 +125,35 @@ setCallbacks mygui myview = do
   where
     menubarCallbacks = do
       -- menubar-file
-      _ <- menubarFileQuit mygui `on` menuItemActivated $ mainQuit
-      _ <- menubarFileOpen mygui `on` menuItemActivated $
+      _ <- (menubarFileQuit . menubar) mygui `on` menuItemActivated $
+        mainQuit
+      _ <- (menubarFileOpen . menubar) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview open
-      _ <- menubarFileExecute mygui `on` menuItemActivated $
+      _ <- (menubarFileExecute . menubar) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview execute
-      _ <- menubarFileNew mygui `on` menuItemActivated $
+      _ <- (menubarFileNew . menubar) mygui `on` menuItemActivated $
         liftIO $ newFile mygui myview
 
       -- menubar-edit
-      _ <- menubarEditCut mygui `on` menuItemActivated $
+      _ <- (menubarEditCut . menubar) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview moveInit
-      _ <- menubarEditCopy mygui `on` menuItemActivated $
+      _ <- (menubarEditCopy . menubar) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview copyInit
-      _ <- menubarEditRename mygui `on` menuItemActivated $
+      _ <- (menubarEditRename . menubar) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview renameF
-      _ <- menubarEditPaste mygui `on` menuItemActivated $
+      _ <- (menubarEditPaste . menubar) mygui `on` menuItemActivated $
         liftIO $ operationFinal mygui myview Nothing
-      _ <- menubarEditDelete mygui `on` menuItemActivated $
+      _ <- (menubarEditDelete . menubar) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview del
 
       -- mewnubar-view
-      _ <- menubarViewIcon mygui `on` menuItemActivated $
+      _ <- (menubarViewIcon . menubar) mygui `on` menuItemActivated $
         liftIO $ switchView mygui myview createIconView
-      _ <- menubarViewTree mygui `on` menuItemActivated $
+      _ <- (menubarViewTree . menubar) mygui `on` menuItemActivated $
         liftIO $ switchView mygui myview createTreeView
 
       -- menubar-help
-      _ <- menubarHelpAbout mygui `on` menuItemActivated $
+      _ <- (menubarHelpAbout . menubar) mygui `on` menuItemActivated $
         liftIO showAboutDialog
       return ()
     commonGuiEvents fmv = do
@@ -214,7 +215,7 @@ setCallbacks mygui myview = do
         t  <- eventTime
         case eb of
           RightButton -> do
-              _ <- liftIO $ menuPopup (rcMenu mygui)
+              _ <- liftIO $ menuPopup (rcMenu . rcmenu $ mygui)
                           $ Just (RightButton, t)
               -- this is just to not screw with current selection
               -- on right-click
@@ -232,23 +233,25 @@ setCallbacks mygui myview = do
                 Nothing -> return False
           -- not right-click, so pass on the signal
           _ -> return False
-      _ <- rcFileOpen mygui `on` menuItemActivated $
+      _ <- (rcFileOpen . rcmenu) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview open
-      _ <- rcFileExecute mygui `on` menuItemActivated $
+      _ <- (rcFileExecute . rcmenu) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview execute
-      _ <- rcFileNewRegFile mygui `on` menuItemActivated $
+      _ <- (rcFileNewRegFile . rcmenu) mygui `on` menuItemActivated $
         liftIO $ newFile mygui myview
-      _ <- rcFileNewDir mygui `on` menuItemActivated $
+      _ <- (rcFileNewDir . rcmenu) mygui `on` menuItemActivated $
         liftIO $ newDir mygui myview
-      _ <- rcFileCopy mygui `on` menuItemActivated $
+      _ <- (rcFileCopy . rcmenu) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview copyInit
-      _ <- rcFileRename mygui `on` menuItemActivated $
+      _ <- (rcFileRename . rcmenu) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview renameF
-      _ <- rcFilePaste mygui `on` menuItemActivated $
+      _ <- (rcFilePaste . rcmenu) mygui `on` menuItemActivated $
         liftIO $ operationFinal mygui myview Nothing
-      _ <- rcFileDelete mygui `on` menuItemActivated $
+      _ <- (rcFileDelete . rcmenu) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview del
-      _ <- rcFileCut mygui `on` menuItemActivated $
+      _ <- (rcFileProperty . rcmenu) mygui `on` menuItemActivated $
+        liftIO $ withItems mygui myview showFilePropertyDialog
+      _ <- (rcFileCut . rcmenu) mygui `on` menuItemActivated $
         liftIO $ withItems mygui myview moveInit
       return ()
     getPathAtPos fmv (x, y) =

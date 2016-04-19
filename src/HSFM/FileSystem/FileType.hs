@@ -563,9 +563,17 @@ getFreeVar _                  = Nothing
 -- |Pack the modification time into a string.
 packModTime :: File FileInfo
             -> String
-packModTime =
-  fromFreeVar
-    $ show . posixSecondsToUTCTime . realToFrac . modificationTime
+packModTime = fromFreeVar $ epochToString . modificationTime
+
+
+-- |Pack the modification time into a string.
+packAccessTime :: File FileInfo
+               -> String
+packAccessTime = fromFreeVar $ epochToString . accessTime
+
+
+epochToString :: EpochTime -> String
+epochToString =  show . posixSecondsToUTCTime . realToFrac
 
 
 -- |Pack the permissions into a string, similar to what "ls -l" does.

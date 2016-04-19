@@ -16,6 +16,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 module HSFM.GUI.Gtk.MyGUI where
@@ -101,6 +102,8 @@ createMyGUI = do
                        "rcFilePaste"
   rcFileDelete      <- builderGetObject builder castToImageMenuItem
                        "rcFileDelete"
+  rcFileProperty    <- builderGetObject builder castToImageMenuItem
+                       "rcFileProperty"
   upViewB           <- builderGetObject builder castToButton
                        "upViewB"
   homeViewB         <- builderGetObject builder castToButton
@@ -111,8 +114,23 @@ createMyGUI = do
                        "menubarViewTree"
   menubarViewIcon   <- builderGetObject builder castToImageMenuItem
                        "menubarViewIcon"
+  fpropGrid         <- builderGetObject builder castToGrid
+                       "fpropGrid"
+  fpropFnEntry      <- builderGetObject builder castToEntry
+                       "fpropFnEntry"
+  fpropLocEntry     <- builderGetObject builder castToEntry
+                       "fpropLocEntry"
+  fpropTsEntry      <- builderGetObject builder castToEntry
+                       "fpropTsEntry"
+  fpropModEntry     <- builderGetObject builder castToEntry
+                       "fpropModEntry"
+  fpropAcEntry      <- builderGetObject builder castToEntry
+                       "fpropAcEntry"
 
   -- construct the gui object
+  let menubar = MkMenuBar {..}
+  let rcmenu = MkRightClickMenu {..}
+  let fprop = MkFilePropertyGrid {..}
   let mygui  = MkMyGUI {..}
 
   -- sets the default icon
