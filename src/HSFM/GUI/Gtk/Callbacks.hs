@@ -76,6 +76,11 @@ import System.Posix.Env.ByteString
     -----------------
 
 
+
+
+---- MAIN CALLBACK ENTRYPOINT ----
+
+
 -- |Set callbacks, on hotkeys, events and stuff.
 setCallbacks :: MyGUI -> MyView -> IO ()
 setCallbacks mygui myview = do
@@ -279,50 +284,9 @@ setCallbacks mygui myview = do
 
 
 
--- |Go to the url given at the 'urlBar' and visualize it in the given
--- treeView.
---
--- If the url is invalid, does nothing.
-urlGoTo :: MyGUI -> MyView -> IO ()
-urlGoTo mygui myview = withErrorDialog $ do
-  fp <- entryGetText (urlBar mygui)
-  forM_ (P.parseAbs fp :: Maybe (Path Abs)) $ \fp' ->
-      whenM (canOpenDirectory fp')
-            (goDir mygui myview =<< (readFile getFileInfo $ fp'))
 
 
-goHome :: MyGUI -> MyView -> IO ()
-goHome mygui myview =  withErrorDialog $ do
-  mhomedir <- getEnv "HOME"
-  forM_ (P.parseAbs =<< mhomedir :: Maybe (Path Abs)) $ \fp' ->
-      whenM (canOpenDirectory fp')
-            (goDir mygui myview =<< (readFile getFileInfo $ fp'))
-
-
--- |Supposed to be used with 'withRows'. Opens a file or directory.
-open :: [Item] -> MyGUI -> MyView -> IO ()
-open [item] mygui myview = withErrorDialog $
-  case item of
-    DirOrSym r -> do
-      nv <- readFile getFileInfo $ path r
-      goDir mygui myview nv
-    r ->
-      void $ openFile r
--- this throws on the first error that occurs
-open (FileLikeList fs) _ _ = withErrorDialog $
-  forM_ fs $ \f -> void $ openFile f
-open _ _ _ = withErrorDialog
-               . throw $ InvalidOperation
-                         "Operation not supported on multiple files"
-
-
--- |Execute a given file.
-execute :: [Item] -> MyGUI -> MyView -> IO ()
-execute [item] _ _ = withErrorDialog $
-  void $ executeFile item []
-execute _ _ _ = withErrorDialog
-                  . throw $ InvalidOperation
-                            "Operation not supported on multiple files"
+---- FILE OPERATION CALLBACKS (COPY, MOVE, ...) ----
 
 
 -- |Supposed to be used with 'withRows'. Deletes a file or directory.
@@ -400,14 +364,6 @@ operationFinal mygui myview mitem = withErrorDialog $ do
                items     -> (show . length $ items) ++ " items"
 
 
--- |Go up one directory and visualize it in the treeView.
-upDir :: MyGUI -> MyView -> IO ()
-upDir mygui myview = withErrorDialog $ do
-  cdir <- getCurrentDir myview
-  nv <- goUp cdir
-  goDir mygui myview nv
-
-
 -- |Create a new file.
 newFile :: MyGUI -> MyView -> IO ()
 newFile _ myview = withErrorDialog $ do
@@ -442,6 +398,65 @@ renameF [item] _ _ = withErrorDialog $ do
 renameF _ _ _ = withErrorDialog
                   . throw $ InvalidOperation
                             "Operation not supported on multiple files"
+
+
+
+
+---- DIRECTORY TRAVERSAL AND FILE OPENING CALLBACKS ----
+
+
+-- |Go to the url given at the 'urlBar' and visualize it in the given
+-- treeView.
+--
+-- If the url is invalid, does nothing.
+urlGoTo :: MyGUI -> MyView -> IO ()
+urlGoTo mygui myview = withErrorDialog $ do
+  fp <- entryGetText (urlBar mygui)
+  forM_ (P.parseAbs fp :: Maybe (Path Abs)) $ \fp' ->
+      whenM (canOpenDirectory fp')
+            (goDir mygui myview =<< (readFile getFileInfo $ fp'))
+
+
+goHome :: MyGUI -> MyView -> IO ()
+goHome mygui myview =  withErrorDialog $ do
+  mhomedir <- getEnv "HOME"
+  forM_ (P.parseAbs =<< mhomedir :: Maybe (Path Abs)) $ \fp' ->
+      whenM (canOpenDirectory fp')
+            (goDir mygui myview =<< (readFile getFileInfo $ fp'))
+
+
+-- |Execute a given file.
+execute :: [Item] -> MyGUI -> MyView -> IO ()
+execute [item] _ _ = withErrorDialog $
+  void $ executeFile item []
+execute _ _ _ = withErrorDialog
+                  . throw $ InvalidOperation
+                            "Operation not supported on multiple files"
+
+
+-- |Supposed to be used with 'withRows'. Opens a file or directory.
+open :: [Item] -> MyGUI -> MyView -> IO ()
+open [item] mygui myview = withErrorDialog $
+  case item of
+    DirOrSym r -> do
+      nv <- readFile getFileInfo $ path r
+      goDir mygui myview nv
+    r ->
+      void $ openFile r
+-- this throws on the first error that occurs
+open (FileLikeList fs) _ _ = withErrorDialog $
+  forM_ fs $ \f -> void $ openFile f
+open _ _ _ = withErrorDialog
+               . throw $ InvalidOperation
+                         "Operation not supported on multiple files"
+
+
+-- |Go up one directory and visualize it in the treeView.
+upDir :: MyGUI -> MyView -> IO ()
+upDir mygui myview = withErrorDialog $ do
+  cdir <- getCurrentDir myview
+  nv <- goUp cdir
+  goDir mygui myview nv
 
 
 -- |Helper that is invoked for any directory change operations.
