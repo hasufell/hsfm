@@ -97,58 +97,58 @@ import System.Posix.Types
 -- can be converted to a String with 'show'.
 data File a =
     Failed {
-    path :: Path Abs
+    path :: !(Path Abs)
   , err  :: IOError
   }
   | Dir {
-    path :: Path Abs
+    path :: !(Path Abs)
   , fvar :: a
   }
   | RegFile {
-    path :: Path Abs
+    path :: !(Path Abs)
   , fvar :: a
   }
   | SymLink {
-    path    :: Path Abs
+    path    :: !(Path Abs)
   , fvar    :: a
   , sdest   :: File a  -- ^ symlink madness,
                        --   we need to know where it points to
-  , rawdest :: ByteString
+  , rawdest :: !ByteString
   }
   | BlockDev {
-    path :: Path Abs
+    path :: !(Path Abs)
   , fvar :: a
   }
   | CharDev {
-    path :: Path Abs
+    path :: !(Path Abs)
   , fvar :: a
   }
   | NamedPipe {
-    path :: Path Abs
+    path :: !(Path Abs)
   , fvar :: a
   }
   | Socket {
-    path :: Path Abs
+    path :: !(Path Abs)
   , fvar :: a
   } deriving (Show, Eq)
 
 
 -- |Low-level file information.
 data FileInfo = FileInfo {
-    deviceID :: DeviceID
-  , fileID :: FileID
-  , fileMode :: FileMode
-  , linkCount :: LinkCount
-  , fileOwner :: UserID
-  , fileGroup :: GroupID
-  , specialDeviceID :: DeviceID
-  , fileSize :: FileOffset
-  , accessTime :: EpochTime
-  , modificationTime :: EpochTime
-  , statusChangeTime :: EpochTime
-  , accessTimeHiRes :: POSIXTime
-  , modificationTimeHiRes :: POSIXTime
-  , statusChangeTimeHiRes :: POSIXTime
+    deviceID              :: !DeviceID
+  , fileID                :: !FileID
+  , fileMode              :: !FileMode
+  , linkCount             :: !LinkCount
+  , fileOwner             :: !UserID
+  , fileGroup             :: !GroupID
+  , specialDeviceID       :: !DeviceID
+  , fileSize              :: !FileOffset
+  , accessTime            :: !EpochTime
+  , modificationTime      :: !EpochTime
+  , statusChangeTime      :: !EpochTime
+  , accessTimeHiRes       :: !POSIXTime
+  , modificationTimeHiRes :: !POSIXTime
+  , statusChangeTimeHiRes :: !POSIXTime
 } deriving (Show, Eq, Ord)
 
 

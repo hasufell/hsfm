@@ -55,75 +55,75 @@ import System.INotify.ByteString
 -- runtime.
 data MyGUI = MkMyGUI {
   -- |main Window
-    rootWin :: Window
+    rootWin :: !Window
 
   -- widgets on the main window
-  , upViewB :: Button
-  , homeViewB :: Button
-  , refreshViewB :: Button
-  , urlBar :: Entry
-  , statusBar :: Statusbar
-  , clearStatusBar :: Button
-  , scroll :: ScrolledWindow
+  , upViewB        :: !Button
+  , homeViewB      :: !Button
+  , refreshViewB   :: !Button
+  , urlBar         :: !Entry
+  , statusBar      :: !Statusbar
+  , clearStatusBar :: !Button
+  , scroll         :: !ScrolledWindow
 
-  , fprop :: FilePropertyGrid
+  , fprop :: !FilePropertyGrid
 
   -- sub-widgets
-  , menubar :: MenuBar
-  , rcmenu :: RightClickMenu
+  , menubar :: !MenuBar
+  , rcmenu  :: !RightClickMenu
 
   -- other
-  , settings :: TVar FMSettings
+  , settings :: !(TVar FMSettings)
 }
 
 data MenuBar = MkMenuBar {
-    menubarFileQuit :: ImageMenuItem
-  , menubarFileOpen :: ImageMenuItem
-  , menubarFileExecute :: ImageMenuItem
-  , menubarFileNew :: ImageMenuItem
-  , menubarEditCut :: ImageMenuItem
-  , menubarEditCopy :: ImageMenuItem
-  , menubarEditRename :: ImageMenuItem
-  , menubarEditPaste :: ImageMenuItem
-  , menubarEditDelete :: ImageMenuItem
-  , menubarViewTree :: ImageMenuItem
-  , menubarViewIcon :: ImageMenuItem
-  , menubarHelpAbout :: ImageMenuItem
+    menubarFileQuit    :: !ImageMenuItem
+  , menubarFileOpen    :: !ImageMenuItem
+  , menubarFileExecute :: !ImageMenuItem
+  , menubarFileNew     :: !ImageMenuItem
+  , menubarEditCut     :: !ImageMenuItem
+  , menubarEditCopy    :: !ImageMenuItem
+  , menubarEditRename  :: !ImageMenuItem
+  , menubarEditPaste   :: !ImageMenuItem
+  , menubarEditDelete  :: !ImageMenuItem
+  , menubarViewTree    :: !ImageMenuItem
+  , menubarViewIcon    :: !ImageMenuItem
+  , menubarHelpAbout   :: !ImageMenuItem
 }
 
 data RightClickMenu = MkRightClickMenu {
-    rcMenu :: Menu
-  , rcFileOpen :: ImageMenuItem
-  , rcFileExecute :: ImageMenuItem
-  , rcFileNewRegFile :: ImageMenuItem
-  , rcFileNewDir :: ImageMenuItem
-  , rcFileCut :: ImageMenuItem
-  , rcFileCopy :: ImageMenuItem
-  , rcFileRename :: ImageMenuItem
-  , rcFilePaste :: ImageMenuItem
-  , rcFileDelete :: ImageMenuItem
-  , rcFileProperty :: ImageMenuItem
+    rcMenu           :: !Menu
+  , rcFileOpen       :: !ImageMenuItem
+  , rcFileExecute    :: !ImageMenuItem
+  , rcFileNewRegFile :: !ImageMenuItem
+  , rcFileNewDir     :: !ImageMenuItem
+  , rcFileCut        :: !ImageMenuItem
+  , rcFileCopy       :: !ImageMenuItem
+  , rcFileRename     :: !ImageMenuItem
+  , rcFilePaste      :: !ImageMenuItem
+  , rcFileDelete     :: !ImageMenuItem
+  , rcFileProperty   :: !ImageMenuItem
 }
 
 data FilePropertyGrid = MkFilePropertyGrid {
-    fpropGrid :: Grid
-  , fpropFnEntry :: Entry
-  , fpropLocEntry :: Entry
-  , fpropTsEntry :: Entry
-  , fpropModEntry :: Entry
-  , fpropAcEntry :: Entry
+    fpropGrid     :: !Grid
+  , fpropFnEntry  :: !Entry
+  , fpropLocEntry :: !Entry
+  , fpropTsEntry  :: !Entry
+  , fpropModEntry :: !Entry
+  , fpropAcEntry  :: !Entry
 }
 
 
 -- |FM-wide settings.
 data FMSettings = MkFMSettings {
-    showHidden :: Bool
-  , isLazy :: Bool
-  , iconSize :: Int
+    showHidden :: !Bool
+  , isLazy     :: !Bool
+  , iconSize   :: !Int
 }
 
-data FMView = FMTreeView TreeView
-            | FMIconView IconView
+data FMView = FMTreeView !TreeView
+            | FMIconView !IconView
 
 type Item = File FileInfo
 
@@ -131,17 +131,17 @@ type Item = File FileInfo
 -- |This describes the contents of the current vie and is separated from MyGUI,
 -- because we might want to have multiple views.
 data MyView = MkMyView {
-    view            :: TVar FMView
-  , cwd             :: MVar Item
-  , rawModel        :: TVar (ListStore Item)
-  , sortedModel     :: TVar (TypedTreeModelSort Item)
-  , filteredModel   :: TVar (TypedTreeModelFilter Item)
-  , operationBuffer :: TVar FileOperation
-  , inotify         :: MVar INotify
+    view            :: !(TVar FMView)
+  , cwd             :: !(MVar Item)
+  , rawModel        :: !(TVar (ListStore Item))
+  , sortedModel     :: !(TVar (TypedTreeModelSort Item))
+  , filteredModel   :: !(TVar (TypedTreeModelFilter Item))
+  , operationBuffer :: !(TVar FileOperation)
+  , inotify         :: !(MVar INotify)
 
   -- the first part of the tuple represents the "go back"
   -- the second part the "go forth" in the history
-  , history         :: TVar ([Path Abs], [Path Abs])
+  , history         :: !(TVar ([Path Abs], [Path Abs]))
 }
 
 
