@@ -126,6 +126,12 @@ createMyGUI = do
                        "fpropModEntry"
   fpropAcEntry      <- builderGetObject builder castToEntry
                        "fpropAcEntry"
+  fpropFTEntry      <- builderGetObject builder castToEntry
+                       "fpropFTEntry"
+  fpropPermEntry    <- builderGetObject builder castToEntry
+                       "fpropPermEntry"
+  fpropLDEntry      <- builderGetObject builder castToEntry
+                       "fpropLDEntry"
 
   -- construct the gui object
   let menubar = MkMenuBar {..}

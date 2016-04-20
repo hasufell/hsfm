@@ -607,3 +607,21 @@ packPermissions dt = fromFreeVar (pStr . fileMode) dt
           | otherwise = "-"
         hasFM fm = ffm `PF.intersectFileModes` fm == fm
 
+
+packFileType :: File a -> String
+packFileType file = case file of
+  Dir {}       -> "Directory"
+  RegFile {}   -> "Regular File"
+  SymLink {}   -> "Symbolic Link"
+  BlockDev {}  -> "Block Device"
+  CharDev {}   -> "Char Device"
+  NamedPipe {} -> "Named Pipe"
+  Socket {}    -> "Socket"
+  _            -> "Unknown"
+
+
+packLinkDestination :: File a -> Maybe ByteString
+packLinkDestination file = case file of
+  SymLink { rawdest = dest } -> Just dest
+  _                          -> Nothing
+

@@ -267,6 +267,16 @@ showFilePropertyDialog [item] mygui _ = do
   entrySetText (fpropTsEntry fprop')  (fromFreeVar (show . fileSize) item)
   entrySetText (fpropModEntry fprop') (packModTime item)
   entrySetText (fpropAcEntry fprop')  (packAccessTime item)
+  entrySetText (fpropFTEntry fprop')  (packFileType item)
+  entrySetText (fpropPermEntry fprop') (tail $ packPermissions item)
+  case packLinkDestination item of
+    (Just dest) -> do
+      widgetSetSensitive (fpropLDEntry fprop') True
+      entrySetText (fpropLDEntry fprop') dest
+    Nothing     -> do
+      widgetSetSensitive (fpropLDEntry fprop') False
+      entrySetText (fpropLDEntry fprop') "( Not a symlink )"
+
 
   cbox <- dialogGetActionArea dialog
   _ <- dialogAddButton dialog "Ok"     (ResponseUser 0)

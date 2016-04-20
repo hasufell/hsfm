@@ -106,12 +106,15 @@ data RightClickMenu = MkRightClickMenu {
 }
 
 data FilePropertyGrid = MkFilePropertyGrid {
-    fpropGrid     :: !Grid
-  , fpropFnEntry  :: !Entry
-  , fpropLocEntry :: !Entry
-  , fpropTsEntry  :: !Entry
-  , fpropModEntry :: !Entry
-  , fpropAcEntry  :: !Entry
+    fpropGrid           :: !Grid
+  , fpropFnEntry        :: !Entry
+  , fpropLocEntry       :: !Entry
+  , fpropTsEntry        :: !Entry
+  , fpropModEntry       :: !Entry
+  , fpropAcEntry        :: !Entry
+  , fpropFTEntry  :: !Entry
+  , fpropPermEntry      :: !Entry
+  , fpropLDEntry        :: !Entry
 }
 
 
