@@ -268,7 +268,8 @@ showFilePropertyDialog [item] mygui _ = do
   entrySetText (fpropModEntry fprop') (packModTime item)
   entrySetText (fpropAcEntry fprop')  (packAccessTime item)
   entrySetText (fpropFTEntry fprop')  (packFileType item)
-  entrySetText (fpropPermEntry fprop') (tail $ packPermissions item)
+  entrySetText (fpropPermEntry fprop')
+               (tail $ packPermissions item) -- throw away the filetype part
   case packLinkDestination item of
     (Just dest) -> do
       widgetSetSensitive (fpropLDEntry fprop') True

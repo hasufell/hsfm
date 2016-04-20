@@ -112,7 +112,7 @@ data FilePropertyGrid = MkFilePropertyGrid {
   , fpropTsEntry        :: !Entry
   , fpropModEntry       :: !Entry
   , fpropAcEntry        :: !Entry
-  , fpropFTEntry  :: !Entry
+  , fpropFTEntry        :: !Entry
   , fpropPermEntry      :: !Entry
   , fpropLDEntry        :: !Entry
 }
