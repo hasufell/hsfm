@@ -29,7 +29,6 @@ import Control.Concurrent.STM
   (
     TVar
   )
-import Graphics.UI.Gtk
 import Graphics.UI.Gtk hiding (MenuBar)
 import HPath
   (
