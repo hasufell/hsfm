@@ -464,7 +464,7 @@ goDir :: MyGUI -> MyView -> Item -> IO ()
 goDir mygui myview item = do
   cdir <- getCurrentDir myview
   modifyTVarIO (history myview)
-    (\(p, n) -> (path cdir `addHistory` p, n))
+    (\(p, _) -> (path cdir `addHistory` p, []))
   refreshView' mygui myview item
 
 

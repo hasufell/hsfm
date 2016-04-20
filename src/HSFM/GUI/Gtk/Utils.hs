@@ -157,5 +157,5 @@ addHistory i xs
   | length xs == maxLength = i : take (maxLength - 1) xs
   | otherwise              = i : xs
   where
-    maxLength = 5
+    maxLength = 10
 
