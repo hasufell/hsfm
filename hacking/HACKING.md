@@ -97,7 +97,7 @@ The only problem with this approach is that we are examining a file at point
 the call stack at point `b` in time, when the file information in memory
 could already be out of date. There are two approaches to make this less
 sucky:
-* use the hinotify library on GUI level to refresh the view whenever the contents of a directory changes
+* use the hinotify library on GUI level to refresh the view (and the File representation in memory) whenever the contents of a directory changes
 * when we stuff something into the copy buffer, it is not saved as type `File a`, but as `Path Abs`... when the operation is finalized via `runFileOp`, then the file at the given path is read and the copy/move/whatnot function carried out immediately
 
 This means we should only interact with the `HSFM.FileSystem.FileOperation`
