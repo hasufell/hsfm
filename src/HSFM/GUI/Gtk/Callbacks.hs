@@ -68,6 +68,12 @@ import System.Posix.Env.ByteString
   (
     getEnv
   )
+import qualified System.Posix.Process.ByteString as SPP
+import System.Posix.Types
+  (
+    ProcessID
+  )
+
 
 
 
@@ -216,6 +222,9 @@ setViewCallbacks mygui myview = do
         [Control] <- eventModifier
         "w"       <- fmap glibToString eventKeyName
         liftIO $ void $ closeTab mygui myview
+      _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
+        "F4"       <- fmap glibToString eventKeyName
+        liftIO $ void $ openTerminalHere myview
 
       -- righ-click
       _ <- view `on` buttonPressEvent $ do
@@ -287,7 +296,19 @@ setViewCallbacks mygui myview = do
 
 
 
----- TAB OPERATIONMS ----
+---- OTHER ----
+
+
+openTerminalHere :: MyView -> IO ProcessID
+openTerminalHere myview = do
+  cwd <- (P.fromAbs . path) <$> getCurrentDir myview
+  -- TODO: make terminal configurable
+  SPP.forkProcess $ SPP.executeFile "sakura" True ["-d", cwd] Nothing
+
+
+
+
+---- TAB OPERATIONS ----
 
 
 -- |Closes the current tab, but only if there is more than one tab.
