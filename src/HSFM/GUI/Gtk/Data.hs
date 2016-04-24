@@ -61,7 +61,7 @@ data MyGUI = MkMyGUI {
   , menubar        :: !MenuBar
   , statusBar      :: !Statusbar
   , clearStatusBar :: !Button
-  , notebook       :: Notebook
+  , notebook       :: !Notebook
 
   -- other
   , fprop    :: !FilePropertyGrid
@@ -71,7 +71,7 @@ data MyGUI = MkMyGUI {
 }
 
 
--- |This describes the contents of the current vie and is separated from MyGUI,
+-- |This describes the contents of the current view and is separated from MyGUI,
 -- because we might want to have multiple views.
 data MyView = MkMyView {
     view            :: !(TVar FMView)
