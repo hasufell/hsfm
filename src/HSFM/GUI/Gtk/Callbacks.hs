@@ -32,8 +32,9 @@ import Control.Exception
   )
 import Control.Monad
   (
-    void
-  , forM_
+    forM_
+  , void
+  , when
   )
 import Control.Monad.IO.Class
   (
@@ -81,9 +82,35 @@ import System.Posix.Env.ByteString
 ---- MAIN CALLBACK ENTRYPOINT ----
 
 
--- |Set callbacks, on hotkeys, events and stuff.
-setCallbacks :: MyGUI -> MyView -> IO ()
-setCallbacks mygui myview = do
+-- |Set callbacks for the whole gui, on hotkeys, events and stuff.
+setGUICallbacks :: MyGUI -> IO ()
+setGUICallbacks mygui = do
+
+  _ <- clearStatusBar mygui `on` buttonActivated $ do
+       popStatusbar mygui
+       writeTVarIO (operationBuffer mygui) None
+
+  -- menubar-file
+  _ <- (menubarFileQuit . menubar) mygui `on` menuItemActivated $
+    mainQuit
+
+  -- menubar-help
+  _ <- (menubarHelpAbout . menubar) mygui `on` menuItemActivated $
+    liftIO showAboutDialog
+  return ()
+
+  -- key events
+  _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
+    [Control] <- eventModifier
+    "q"       <- fmap glibToString eventKeyName
+    liftIO mainQuit
+
+  return ()
+
+
+-- |Set callbacks specific to a given view, on hotkeys, events and stuff.
+setViewCallbacks :: MyGUI -> MyView -> IO ()
+setViewCallbacks mygui myview = do
   view' <- readTVarIO $ view myview
   case view' of
     fmv@(FMTreeView treeView) -> do
@@ -126,79 +153,37 @@ setCallbacks mygui myview = do
              $ (\_ -> withItems mygui myview open)
       commonGuiEvents fmv
       return ()
-  menubarCallbacks
   where
-    menubarCallbacks = do
-      -- menubar-file
-      _ <- (menubarFileQuit . menubar) mygui `on` menuItemActivated $
-        mainQuit
-      _ <- (menubarFileOpen . menubar) mygui `on` menuItemActivated $
-        liftIO $ withItems mygui myview open
-      _ <- (menubarFileExecute . menubar) mygui `on` menuItemActivated $
-        liftIO $ withItems mygui myview execute
-      _ <- (menubarFileNew . menubar) mygui `on` menuItemActivated $
-        liftIO $ newFile mygui myview
-
-      -- menubar-edit
-      _ <- (menubarEditCut . menubar) mygui `on` menuItemActivated $
-        liftIO $ withItems mygui myview moveInit
-      _ <- (menubarEditCopy . menubar) mygui `on` menuItemActivated $
-        liftIO $ withItems mygui myview copyInit
-      _ <- (menubarEditRename . menubar) mygui `on` menuItemActivated $
-        liftIO $ withItems mygui myview renameF
-      _ <- (menubarEditPaste . menubar) mygui `on` menuItemActivated $
-        liftIO $ operationFinal mygui myview Nothing
-      _ <- (menubarEditDelete . menubar) mygui `on` menuItemActivated $
-        liftIO $ withItems mygui myview del
-
-      -- mewnubar-view
-      _ <- (menubarViewIcon . menubar) mygui `on` menuItemActivated $
-        liftIO $ switchView mygui myview createIconView
-      _ <- (menubarViewTree . menubar) mygui `on` menuItemActivated $
-        liftIO $ switchView mygui myview createTreeView
-
-      -- menubar-help
-      _ <- (menubarHelpAbout . menubar) mygui `on` menuItemActivated $
-        liftIO showAboutDialog
-      return ()
     commonGuiEvents fmv = do
       let view = fmViewToContainer fmv
 
       -- GUI events
-      _ <- urlBar mygui `on` entryActivated $ urlGoTo mygui myview
-
-      _ <- upViewB mygui `on` buttonActivated $
+      _ <- urlBar myview `on` entryActivated $ urlGoTo mygui myview
+      _ <- upViewB myview `on` buttonActivated $
            upDir mygui myview
-      _ <- homeViewB mygui `on` buttonActivated $
+      _ <- homeViewB myview `on` buttonActivated $
            goHome mygui myview
-      _ <- refreshViewB mygui `on` buttonActivated $ do
+      _ <- refreshViewB myview `on` buttonActivated $ do
            cdir <- liftIO $ getCurrentDir myview
            refreshView' mygui myview cdir
-      _ <- clearStatusBar mygui `on` buttonActivated $ do
-           popStatusbar mygui
-           writeTVarIO (operationBuffer myview) None
 
       -- key events
-      _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
-        [Control] <- eventModifier
-        "q"       <- fmap glibToString eventKeyName
-        liftIO mainQuit
-      _ <- view `on` keyPressEvent $ tryEvent $ do
+      _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Control] <- eventModifier
         "h"       <- fmap glibToString eventKeyName
         cdir <- liftIO $ getCurrentDir myview
         liftIO $ modifyTVarIO (settings mygui)
                               (\x -> x { showHidden = not . showHidden $ x})
                  >> refreshView' mygui myview cdir
-      _ <- view `on` keyPressEvent $ tryEvent $ do
+      _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Alt] <- eventModifier
         "Up"  <- fmap glibToString eventKeyName
         liftIO $ upDir mygui myview
-      _ <- view `on` keyPressEvent $ tryEvent $ do
+      _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Alt] <- eventModifier
         "Left"  <- fmap glibToString eventKeyName
         liftIO $ goHistoryPrev mygui myview
-      _ <- view `on` keyPressEvent $ tryEvent $ do
+      _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Alt] <- eventModifier
         "Right"  <- fmap glibToString eventKeyName
         liftIO $ goHistoryNext mygui myview
@@ -217,10 +202,20 @@ setCallbacks mygui myview = do
         [Control] <- eventModifier
         "x"       <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview moveInit
-      _ <- view `on` keyPressEvent $ tryEvent $ do
+      _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Control] <- eventModifier
         "v"       <- fmap glibToString eventKeyName
         liftIO $ operationFinal mygui myview Nothing
+      _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
+        [Control] <- eventModifier
+        "t"       <- fmap glibToString eventKeyName
+        liftIO $ void $ do
+          cwd <- getCurrentDir myview
+          newTab mygui createTreeView (path cwd)
+      _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
+        [Control] <- eventModifier
+        "w"       <- fmap glibToString eventKeyName
+        liftIO $ void $ closeTab mygui myview
 
       -- righ-click
       _ <- view `on` buttonPressEvent $ do
@@ -228,7 +223,7 @@ setCallbacks mygui myview = do
         t  <- eventTime
         case eb of
           RightButton -> do
-              _ <- liftIO $ menuPopup (rcMenu . rcmenu $ mygui)
+              _ <- liftIO $ menuPopup (rcMenu . rcmenu $ myview)
                           $ Just (RightButton, t)
               -- this is just to not screw with current selection
               -- on right-click
@@ -252,27 +247,34 @@ setCallbacks mygui myview = do
             return False
           -- not right-click, so pass on the signal
           _ -> return False
-      _ <- (rcFileOpen . rcmenu) mygui `on` menuItemActivated $
+
+      -- right click menu
+      _ <- (rcFileOpen . rcmenu) myview `on` menuItemActivated $
         liftIO $ withItems mygui myview open
-      _ <- (rcFileExecute . rcmenu) mygui `on` menuItemActivated $
+      _ <- (rcFileExecute . rcmenu) myview `on` menuItemActivated $
         liftIO $ withItems mygui myview execute
-      _ <- (rcFileNewRegFile . rcmenu) mygui `on` menuItemActivated $
+      _ <- (rcFileNewRegFile . rcmenu) myview `on` menuItemActivated $
         liftIO $ newFile mygui myview
-      _ <- (rcFileNewDir . rcmenu) mygui `on` menuItemActivated $
+      _ <- (rcFileNewDir . rcmenu) myview `on` menuItemActivated $
         liftIO $ newDir mygui myview
-      _ <- (rcFileCopy . rcmenu) mygui `on` menuItemActivated $
+      _ <- (rcFileCopy . rcmenu) myview `on` menuItemActivated $
         liftIO $ withItems mygui myview copyInit
-      _ <- (rcFileRename . rcmenu) mygui `on` menuItemActivated $
+      _ <- (rcFileRename . rcmenu) myview `on` menuItemActivated $
         liftIO $ withItems mygui myview renameF
-      _ <- (rcFilePaste . rcmenu) mygui `on` menuItemActivated $
+      _ <- (rcFilePaste . rcmenu) myview `on` menuItemActivated $
         liftIO $ operationFinal mygui myview Nothing
-      _ <- (rcFileDelete . rcmenu) mygui `on` menuItemActivated $
+      _ <- (rcFileDelete . rcmenu) myview `on` menuItemActivated $
         liftIO $ withItems mygui myview del
-      _ <- (rcFileProperty . rcmenu) mygui `on` menuItemActivated $
+      _ <- (rcFileProperty . rcmenu) myview `on` menuItemActivated $
         liftIO $ withItems mygui myview showFilePropertyDialog
-      _ <- (rcFileCut . rcmenu) mygui `on` menuItemActivated $
+      _ <- (rcFileCut . rcmenu) myview `on` menuItemActivated $
         liftIO $ withItems mygui myview moveInit
+      _ <- (rcFileIconView . rcmenu) myview `on` menuItemActivated $
+        liftIO $ switchView mygui myview createIconView
+      _ <- (rcFileTreeView . rcmenu) myview `on` menuItemActivated $
+        liftIO $ switchView mygui myview createTreeView
       return ()
+
     getPathAtPos fmv (x, y) =
       case fmv of
         FMTreeView treeView -> do
@@ -283,6 +285,16 @@ setCallbacks mygui myview = do
                   $ iconViewGetPathAtPos iconView (round x) (round y)
 
 
+
+
+---- TAB OPERATIONMS ----
+
+
+-- |Closes the current tab, but only if there is more than one tab.
+closeTab :: MyGUI -> MyView -> IO ()
+closeTab mygui myview = do
+  n <- notebookGetNPages (notebook mygui)
+  when (n > 1) $ void $ destroyView mygui myview
 
 
 
@@ -307,8 +319,8 @@ del _ _ _ = withErrorDialog
 
 -- |Initializes a file move operation.
 moveInit :: [Item] -> MyGUI -> MyView -> IO ()
-moveInit items@(_:_) mygui myview = do
-  writeTVarIO (operationBuffer myview) (FMove . MP1 . map path $ items)
+moveInit items@(_:_) mygui _ = do
+  writeTVarIO (operationBuffer mygui) (FMove . MP1 . map path $ items)
   let sbmsg = case items of
               (item:[]) -> "Move buffer: " ++ getFPasStr item
               _         -> "Move buffer: " ++ (show . length $ items)
@@ -321,8 +333,8 @@ moveInit _ _ _ = withErrorDialog
 
 -- |Supposed to be used with 'withRows'. Initializes a file copy operation.
 copyInit :: [Item] -> MyGUI -> MyView -> IO ()
-copyInit items@(_:_) mygui myview = do
-  writeTVarIO (operationBuffer myview) (FCopy . CP1 . map path $ items)
+copyInit items@(_:_) mygui _ = do
+  writeTVarIO (operationBuffer mygui) (FCopy . CP1 . map path $ items)
   let sbmsg = case items of
               (item:[]) -> "Copy buffer: " ++ getFPasStr item
               _         -> "Copy buffer: " ++ (show . length $ items)
@@ -337,7 +349,7 @@ copyInit _ _ _ = withErrorDialog
 -- |Finalizes a file operation, such as copy or move.
 operationFinal :: MyGUI -> MyView -> Maybe Item -> IO ()
 operationFinal mygui myview mitem = withErrorDialog $ do
-  op <- readTVarIO (operationBuffer myview)
+  op <- readTVarIO (operationBuffer mygui)
   cdir <- case mitem of
             Nothing -> path <$> getCurrentDir myview
             Just x  -> return $ path x
@@ -350,7 +362,7 @@ operationFinal mygui myview mitem = withErrorDialog $ do
         $ \cm -> do
              void $ runFileOp (FMove . MC s cdir $ cm)
              popStatusbar mygui
-             writeTVarIO (operationBuffer myview) None
+             writeTVarIO (operationBuffer mygui) None
     FCopy (CP1 s) -> do
       let cmsg = "Really copy " ++ imsg s
                  ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
@@ -411,7 +423,7 @@ renameF _ _ _ = withErrorDialog
 -- If the url is invalid, does nothing.
 urlGoTo :: MyGUI -> MyView -> IO ()
 urlGoTo mygui myview = withErrorDialog $ do
-  fp <- entryGetText (urlBar mygui)
+  fp <- entryGetText (urlBar myview)
   forM_ (P.parseAbs fp :: Maybe (Path Abs)) $ \fp' ->
       whenM (canOpenDirectory fp')
             (goDir mygui myview =<< (readFile getFileInfo $ fp'))

@@ -58,37 +58,47 @@ data MyGUI = MkMyGUI {
     rootWin :: !Window
 
   -- widgets on the main window
-  , upViewB        :: !Button
-  , homeViewB      :: !Button
-  , refreshViewB   :: !Button
-  , urlBar         :: !Entry
+  , menubar        :: !MenuBar
   , statusBar      :: !Statusbar
   , clearStatusBar :: !Button
-  , scroll         :: !ScrolledWindow
-
-  , fprop :: !FilePropertyGrid
-
-  -- sub-widgets
-  , menubar :: !MenuBar
-  , rcmenu  :: !RightClickMenu
+  , notebook       :: Notebook
 
   -- other
+  , fprop    :: !FilePropertyGrid
   , settings :: !(TVar FMSettings)
+
+  , operationBuffer :: !(TVar FileOperation)
 }
 
+
+-- |This describes the contents of the current vie and is separated from MyGUI,
+-- because we might want to have multiple views.
+data MyView = MkMyView {
+    view            :: !(TVar FMView)
+  , cwd             :: !(MVar Item)
+  , rawModel        :: !(TVar (ListStore Item))
+  , sortedModel     :: !(TVar (TypedTreeModelSort Item))
+  , filteredModel   :: !(TVar (TypedTreeModelFilter Item))
+  , inotify         :: !(MVar INotify)
+
+  -- the first part of the tuple represents the "go back"
+  -- the second part the "go forth" in the history
+  , history         :: !(TVar ([Path Abs], [Path Abs]))
+
+  -- sub-widgets
+  , scroll       :: !ScrolledWindow
+  , viewBox      :: !Box
+  , rcmenu       :: !RightClickMenu
+  , upViewB      :: !Button
+  , homeViewB    :: !Button
+  , refreshViewB :: !Button
+  , urlBar       :: !Entry
+}
+
+
 data MenuBar = MkMenuBar {
-    menubarFileQuit    :: !ImageMenuItem
-  , menubarFileOpen    :: !ImageMenuItem
-  , menubarFileExecute :: !ImageMenuItem
-  , menubarFileNew     :: !ImageMenuItem
-  , menubarEditCut     :: !ImageMenuItem
-  , menubarEditCopy    :: !ImageMenuItem
-  , menubarEditRename  :: !ImageMenuItem
-  , menubarEditPaste   :: !ImageMenuItem
-  , menubarEditDelete  :: !ImageMenuItem
-  , menubarViewTree    :: !ImageMenuItem
-  , menubarViewIcon    :: !ImageMenuItem
-  , menubarHelpAbout   :: !ImageMenuItem
+    menubarFileQuit  :: !ImageMenuItem
+  , menubarHelpAbout :: !ImageMenuItem
 }
 
 data RightClickMenu = MkRightClickMenu {
@@ -103,18 +113,20 @@ data RightClickMenu = MkRightClickMenu {
   , rcFilePaste      :: !ImageMenuItem
   , rcFileDelete     :: !ImageMenuItem
   , rcFileProperty   :: !ImageMenuItem
+  , rcFileIconView   :: !ImageMenuItem
+  , rcFileTreeView   :: !ImageMenuItem
 }
 
 data FilePropertyGrid = MkFilePropertyGrid {
-    fpropGrid           :: !Grid
-  , fpropFnEntry        :: !Entry
-  , fpropLocEntry       :: !Entry
-  , fpropTsEntry        :: !Entry
-  , fpropModEntry       :: !Entry
-  , fpropAcEntry        :: !Entry
-  , fpropFTEntry        :: !Entry
-  , fpropPermEntry      :: !Entry
-  , fpropLDEntry        :: !Entry
+    fpropGrid      :: !Grid
+  , fpropFnEntry   :: !Entry
+  , fpropLocEntry  :: !Entry
+  , fpropTsEntry   :: !Entry
+  , fpropModEntry  :: !Entry
+  , fpropAcEntry   :: !Entry
+  , fpropFTEntry   :: !Entry
+  , fpropPermEntry :: !Entry
+  , fpropLDEntry   :: !Entry
 }
 
 
@@ -131,23 +143,8 @@ data FMView = FMTreeView !TreeView
 type Item = File FileInfo
 
 
--- |This describes the contents of the current vie and is separated from MyGUI,
--- because we might want to have multiple views.
-data MyView = MkMyView {
-    view            :: !(TVar FMView)
-  , cwd             :: !(MVar Item)
-  , rawModel        :: !(TVar (ListStore Item))
-  , sortedModel     :: !(TVar (TypedTreeModelSort Item))
-  , filteredModel   :: !(TVar (TypedTreeModelFilter Item))
-  , operationBuffer :: !(TVar FileOperation)
-  , inotify         :: !(MVar INotify)
-
-  -- the first part of the tuple represents the "go back"
-  -- the second part the "go forth" in the history
-  , history         :: !(TVar ([Path Abs], [Path Abs]))
-}
-
 
 fmViewToContainer :: FMView -> Container
 fmViewToContainer (FMTreeView x) =  castToContainer . toGObject $ x
 fmViewToContainer (FMIconView x) =  castToContainer . toGObject $ x
+

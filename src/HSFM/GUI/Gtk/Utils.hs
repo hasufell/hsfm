@@ -107,6 +107,9 @@ getFirstItem myview = do
 
 
 -- |Reads the current directory from MyView.
+--
+-- This reads the MVar and may block the main thread if it's
+-- empty.
 getCurrentDir :: MyView
               -> IO Item
 getCurrentDir myview = readMVar (cwd myview)

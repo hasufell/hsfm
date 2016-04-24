@@ -29,6 +29,7 @@ import Data.Maybe
   )
 import Graphics.UI.Gtk
 import qualified HPath as P
+import HSFM.GUI.Gtk.Callbacks
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.MyGUI
 import HSFM.GUI.Gtk.MyView
@@ -44,14 +45,13 @@ main = do
   _ <- initGUI
 
   args <- SPE.getArgs
-
-  mygui <- createMyGUI
-
-  myview <- createMyView mygui createTreeView
-
   let mdir = fromMaybe (fromJust $ P.parseAbs "/")
                        (P.parseAbs . headDef "/" $ args)
-  refreshView mygui myview (Just $ mdir)
+
+  mygui <- createMyGUI
+  _ <- newTab mygui createTreeView mdir
+
+  setGUICallbacks mygui
 
   widgetShowAll (rootWin mygui)
 

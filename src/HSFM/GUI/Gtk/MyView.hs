@@ -16,7 +16,6 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 
@@ -53,20 +52,23 @@ import HSFM.FileSystem.Errors
     canOpenDirectory
   )
 import Graphics.UI.Gtk
-import {-# SOURCE #-} HSFM.GUI.Gtk.Callbacks (setCallbacks)
+import {-# SOURCE #-} HSFM.GUI.Gtk.Callbacks (setViewCallbacks)
 import HPath
   (
     Path
   , Abs
   )
 import qualified HPath as P
-import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
 import HSFM.GUI.Glib.GlibString()
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Icons
 import HSFM.GUI.Gtk.Utils
 import HSFM.Utils.IO
+import Paths_hsfm
+  (
+    getDataFileName
+  )
 import Prelude hiding(readFile)
 import System.INotify.ByteString
   (
@@ -78,6 +80,15 @@ import System.INotify.ByteString
 
 
 
+-- |Creates a new tab with its own view and refreshes the view.
+newTab :: MyGUI -> IO FMView -> Path Abs -> IO MyView
+newTab mygui iofmv path = do
+  myview <- createMyView mygui iofmv
+  _ <- notebookAppendPage (notebook mygui) (viewBox myview)
+       (maybe (P.fromAbs path) P.fromRel $ P.basename path)
+  refreshView mygui myview (Just path)
+  return myview
+
 
 -- |Constructs the initial MyView object with a few dummy models.
 -- It also initializes the callbacks.
@@ -85,10 +96,11 @@ createMyView :: MyGUI
              -> IO FMView
              -> IO MyView
 createMyView mygui iofmv = do
-  operationBuffer <- newTVarIO None
-
   inotify <- newEmptyMVar
   history <- newTVarIO ([],[])
+
+  builder <- builderNew
+  builderAddFromFile builder =<< getDataFileName "data/Gtk/builder.xml"
 
   -- create dummy models, so we don't have to use MVar
   rawModel <- newTVarIO =<< listStoreNew []
@@ -100,14 +112,56 @@ createMyView mygui iofmv = do
   view' <- iofmv
   view  <- newTVarIO view'
 
+  urlBar            <- builderGetObject builder castToEntry
+                       "urlBar"
+  rcMenu            <- builderGetObject builder castToMenu
+                       "rcMenu"
+  rcFileOpen        <- builderGetObject builder castToImageMenuItem
+                       "rcFileOpen"
+  rcFileExecute     <- builderGetObject builder castToImageMenuItem
+                       "rcFileExecute"
+  rcFileNewRegFile  <- builderGetObject builder castToImageMenuItem
+                       "rcFileNewRegFile"
+  rcFileNewDir      <- builderGetObject builder castToImageMenuItem
+                       "rcFileNewDir"
+  rcFileCut         <- builderGetObject builder castToImageMenuItem
+                       "rcFileCut"
+  rcFileCopy        <- builderGetObject builder castToImageMenuItem
+                       "rcFileCopy"
+  rcFileRename      <- builderGetObject builder castToImageMenuItem
+                       "rcFileRename"
+  rcFilePaste       <- builderGetObject builder castToImageMenuItem
+                       "rcFilePaste"
+  rcFileDelete      <- builderGetObject builder castToImageMenuItem
+                       "rcFileDelete"
+  rcFileProperty    <- builderGetObject builder castToImageMenuItem
+                       "rcFileProperty"
+  rcFileIconView    <- builderGetObject builder castToImageMenuItem
+                       "rcFileIconView"
+  rcFileTreeView    <- builderGetObject builder castToImageMenuItem
+                       "rcFileTreeView"
+  upViewB           <- builderGetObject builder castToButton
+                       "upViewB"
+  homeViewB         <- builderGetObject builder castToButton
+                       "homeViewB"
+  refreshViewB      <- builderGetObject builder castToButton
+                       "refreshViewB"
+  scroll            <- builderGetObject builder castToScrolledWindow
+                       "mainScroll"
+  viewBox           <- builderGetObject builder castToBox
+                         "viewBox"
+
+  let rcmenu = MkRightClickMenu {..}
   let myview = MkMyView {..}
 
   -- set the bindings
-  setCallbacks mygui myview
+  setViewCallbacks mygui myview
 
   -- add the treeview to the scroll container
   let oview = fmViewToContainer view'
-  containerAdd (scroll mygui) oview
+  containerAdd scroll oview
+
+  widgetShowAll viewBox
 
   return myview
 
@@ -116,22 +170,41 @@ createMyView mygui iofmv = do
 -- io action returns.
 switchView :: MyGUI -> MyView -> IO FMView -> IO ()
 switchView mygui myview iofmv = do
+  cwd <- getCurrentDir myview
+
+  oldpage <- destroyView mygui myview
+
+  -- create new view and tab page where the previous one was
+  nview <- createMyView mygui iofmv
+  newpage <- notebookInsertPage (notebook mygui) (viewBox nview)
+             (maybe (P.fromAbs $ path cwd) P.fromRel
+                 $ P.basename . path $ cwd) oldpage
+  notebookSetCurrentPage (notebook mygui) newpage
+
+  refreshView' mygui nview cwd
+
+
+-- |Destroys the current view by disconnecting the watcher
+-- and destroying the active FMView container.
+--
+-- Everything that needs to be done in order to forget about a
+-- view needs to be done here.
+--
+-- Returns the page in the tab list this view corresponds to.
+destroyView :: MyGUI -> MyView -> IO Int
+destroyView mygui myview = do
+  -- disconnect watcher
+  mi <- tryTakeMVar (inotify myview)
+  for_ mi $ \i -> killINotify i
+
+  page <- notebookGetCurrentPage (notebook mygui)
+
+  -- destroy old view and tab page
   view' <- readTVarIO $ view myview
-  let oview = fmViewToContainer view'
+  widgetDestroy (fmViewToContainer view')
+  notebookRemovePage (notebook mygui) page
 
-  widgetDestroy oview
-
-  nview' <- iofmv
-  let nview = fmViewToContainer nview'
-
-  writeTVarIO (view myview) nview'
-
-  setCallbacks mygui myview
-
-  containerAdd (scroll mygui) nview
-  widgetShow nview
-
-  refreshView mygui myview Nothing
+  return page
 
 
 -- |Createss an IconView.
@@ -231,7 +304,7 @@ refreshView mygui myview mfp =
                                                      Item)
         case ecd of
           Right dir -> return (Just $ path dir)
-          Left _    -> return (P.parseAbs "/")
+          Left _    -> return (P.parseAbs P.pathSeparator')
 
 
 -- |Refreshes the View based on the given directory.
@@ -242,20 +315,26 @@ refreshView' :: MyGUI
              -> MyView
              -> Item
              -> IO ()
-refreshView' mygui myview dt@(DirOrSym _) = do
-  newRawModel  <- fileListStore dt myview
+refreshView' mygui myview item@(DirOrSym _) = do
+  newRawModel  <- fileListStore item myview
   writeTVarIO (rawModel myview) newRawModel
 
   view' <- readTVarIO $ view myview
 
   _ <- tryTakeMVar (cwd myview)
-  putMVar (cwd myview) dt
+  putMVar (cwd myview) item
 
   -- get selected items
   tps <- getSelectedTreePaths mygui myview
   trs <- catMaybes <$> mapM (treeRowReferenceNew newRawModel) tps
 
   constructView mygui myview
+
+  -- set notebook tab label
+  page <- notebookGetCurrentPage (notebook mygui)
+  child <- fromJust <$> notebookGetNthPage (notebook mygui) page
+  notebookSetTabLabelText (notebook mygui) child
+       (maybe (P.fromAbs $ path item) P.fromRel $ P.basename . path $ item)
 
   -- reselect selected items
   -- TODO: not implemented for icon view yet
@@ -301,7 +380,7 @@ constructView mygui myview = do
   cdirp <- path <$> getCurrentDir myview
 
   -- update urlBar
-  entrySetText (urlBar mygui) (P.fromAbs cdirp)
+  entrySetText (urlBar myview) (P.fromAbs cdirp)
 
   rawModel' <- readTVarIO $ rawModel myview
 

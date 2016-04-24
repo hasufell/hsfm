@@ -22,4 +22,4 @@ module HSFM.GUI.Gtk.Callbacks where
 import HSFM.GUI.Gtk.Data
 
 
-setCallbacks :: MyGUI -> MyView -> IO ()
+setViewCallbacks :: MyGUI -> MyView -> IO ()

@@ -27,6 +27,7 @@ import Control.Concurrent.STM
     newTVarIO
   )
 import Graphics.UI.Gtk
+import HSFM.FileSystem.FileOperations
 import HSFM.GUI.Gtk.Data
 import Paths_hsfm
   (
@@ -47,6 +48,7 @@ createMyGUI = do
 
   let settings' = MkFMSettings False True 24
   settings <- newTVarIO settings'
+  operationBuffer <- newTVarIO None
 
   builder <- builderNew
   builderAddFromFile builder =<< getDataFileName "data/Gtk/builder.xml"
@@ -54,66 +56,14 @@ createMyGUI = do
   -- get the pre-defined gui widgets
   rootWin           <- builderGetObject builder castToWindow
                        "rootWin"
-  scroll            <- builderGetObject builder castToScrolledWindow
-                       "mainScroll"
   menubarFileQuit   <- builderGetObject builder castToImageMenuItem
                        "menubarFileQuit"
-  menubarFileOpen   <- builderGetObject builder castToImageMenuItem
-                       "menubarFileOpen"
-  menubarFileExecute <- builderGetObject builder castToImageMenuItem
-                        "menubarFileExecute"
-  menubarFileNew    <- builderGetObject builder castToImageMenuItem
-                       "menubarFileNew"
-  menubarEditCut    <- builderGetObject builder castToImageMenuItem
-                       "menubarEditCut"
-  menubarEditCopy   <- builderGetObject builder castToImageMenuItem
-                       "menubarEditCopy"
-  menubarEditRename <- builderGetObject builder castToImageMenuItem
-                       "menubarEditRename"
-  menubarEditPaste  <- builderGetObject builder castToImageMenuItem
-                       "menubarEditPaste"
-  menubarEditDelete <- builderGetObject builder castToImageMenuItem
-                      "menubarEditDelete"
   menubarHelpAbout  <- builderGetObject builder castToImageMenuItem
                       "menubarHelpAbout"
-  urlBar            <- builderGetObject builder castToEntry
-                       "urlBar"
   statusBar         <- builderGetObject builder castToStatusbar
                        "statusBar"
   clearStatusBar    <- builderGetObject builder castToButton
                        "clearStatusBar"
-  rcMenu            <- builderGetObject builder castToMenu
-                       "rcMenu"
-  rcFileOpen        <- builderGetObject builder castToImageMenuItem
-                       "rcFileOpen"
-  rcFileExecute     <- builderGetObject builder castToImageMenuItem
-                       "rcFileExecute"
-  rcFileNewRegFile  <- builderGetObject builder castToImageMenuItem
-                       "rcFileNewRegFile"
-  rcFileNewDir      <- builderGetObject builder castToImageMenuItem
-                       "rcFileNewDir"
-  rcFileCut         <- builderGetObject builder castToImageMenuItem
-                       "rcFileCut"
-  rcFileCopy        <- builderGetObject builder castToImageMenuItem
-                       "rcFileCopy"
-  rcFileRename      <- builderGetObject builder castToImageMenuItem
-                       "rcFileRename"
-  rcFilePaste       <- builderGetObject builder castToImageMenuItem
-                       "rcFilePaste"
-  rcFileDelete      <- builderGetObject builder castToImageMenuItem
-                       "rcFileDelete"
-  rcFileProperty    <- builderGetObject builder castToImageMenuItem
-                       "rcFileProperty"
-  upViewB           <- builderGetObject builder castToButton
-                       "upViewB"
-  homeViewB         <- builderGetObject builder castToButton
-                       "homeViewB"
-  refreshViewB      <- builderGetObject builder castToButton
-                       "refreshViewB"
-  menubarViewTree   <- builderGetObject builder castToImageMenuItem
-                       "menubarViewTree"
-  menubarViewIcon   <- builderGetObject builder castToImageMenuItem
-                       "menubarViewIcon"
   fpropGrid         <- builderGetObject builder castToGrid
                        "fpropGrid"
   fpropFnEntry      <- builderGetObject builder castToEntry
@@ -132,10 +82,11 @@ createMyGUI = do
                        "fpropPermEntry"
   fpropLDEntry      <- builderGetObject builder castToEntry
                        "fpropLDEntry"
+  notebook          <- builderGetObject builder castToNotebook
+                       "notebook"
 
   -- construct the gui object
   let menubar = MkMenuBar {..}
-  let rcmenu = MkRightClickMenu {..}
   let fprop = MkFilePropertyGrid {..}
   let mygui  = MkMyGUI {..}
 
