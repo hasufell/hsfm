@@ -81,7 +81,7 @@ import qualified HPath as P
 import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileType
 import HSFM.Utils.IO
-import Prelude hiding (readFile)
+import Prelude hiding (readFile, writeFile)
 import System.Posix.Directory.ByteString
   (
     createDirectory
@@ -117,9 +117,10 @@ import System.Posix.IO.Sendfile.ByteString
 import qualified System.Posix.Process.ByteString as SPP
 import System.Posix.Types
   (
-    FileMode
-  , ProcessID
+    ByteCount
   , Fd
+  , FileMode
+  , ProcessID
   )
 
 
@@ -407,6 +408,31 @@ easyCopy cm from@Dir{}
   = copyDir cm from to =<< (P.basename . path $ from)
 easyCopy _ _ _ = throw $ InvalidOperation "wrong input type"
 
+
+-- |Write a ByteString to a file, overwriting the file. Follows
+-- symbolic links.
+writeFile :: File a -> ByteString -> IO ByteCount
+writeFile RegFile { path = fp } bs = P.withAbsPath fp $ \p ->
+  bracket (SPI.openFd p SPI.WriteOnly (Just PF.stdFileMode)
+             SPI.defaultFileFlags)
+          SPI.closeFd
+          $ \fd -> SPB.fdWrite fd bs
+writeFile SymLink { sdest = file@RegFile{} } bs =
+  writeFile file bs
+writeFile _ _ = throw $ InvalidOperation "wrong input type"
+
+
+readFileContents :: File FileInfo -> IO ByteString
+readFileContents RegFile { path = fp } =
+  P.withAbsPath fp $ \p ->
+    bracket (SPI.openFd p SPI.ReadOnly Nothing SPI.defaultFileFlags)
+            SPI.closeFd
+            $ \fd -> do
+              fs <- PF.getFdStatus fd
+              SPB.fdRead fd (fromIntegral $ PF.fileSize fs)
+readFileContents SymLink { sdest = file@RegFile{} } =
+  readFileContents file
+readFileContents _ = throw $ InvalidOperation "wrong input type"
 
 
 
