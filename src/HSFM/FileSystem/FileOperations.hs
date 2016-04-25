@@ -37,9 +37,14 @@ import Control.Exception
   )
 import Control.Monad
   (
-    unless
+    forM_
+  , unless
   , void
   , when
+  )
+import Control.Monad.Loops
+  (
+    dropWhileM
   )
 import Data.ByteString
   (
@@ -551,8 +556,16 @@ createDir :: File FileInfo -> Path Fn -> IO ()
 createDir (DirOrSym td) fn = do
   let fullp = path td P.</> fn
   throwDirDoesExist fullp
-  createDirectory (P.fromAbs fullp) newFilePerms
+  createDirectory (P.fromAbs fullp) newDirPerms
 createDir _ _ = throw $ InvalidOperation "wrong input type"
+
+
+-- |Create a directory at the given path, creating all parents if
+-- necessary.
+mkdirP :: Path Abs -> IO ()
+mkdirP p = do
+  mkps <- dropWhileM canOpenDirectory (reverse $ p : P.getAllParents p)
+  forM_ mkps $ \mkp -> createDirectory (P.fromAbs mkp) newDirPerms
 
 
 
