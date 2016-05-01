@@ -1,9 +1,6 @@
 [submodule "3rdparty/hpath"]
 	path = 3rdparty/hpath
 	url = https://github.com/hasufell/hpath.git
-[submodule "3rdparty/hinotify"]
-	path = 3rdparty/hinotify
-	url = https://github.com/hasufell/hinotify.git
 [submodule "3rdparty/simple-sendfile"]
 	path = 3rdparty/simple-sendfile
 	url = https://github.com/hasufell/simple-sendfile.git
