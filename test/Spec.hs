@@ -42,6 +42,7 @@ import System.Posix.Files.ByteString
 
 
 
+
 -- TODO: chardev, blockdev, namedpipe, socket
 
 
@@ -53,10 +54,11 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
               , createRegularFileSpec
               , renameFileSpec
               , moveFileSpec
-              ,recreateSymlinkSpec
+              , recreateSymlinkSpec
+              , getFileTypeSpec
               ]
 
-  -- run all tests twice to catch missing cleanups or state skew
+  -- run all stateful tests twice to catch missing cleanups or state skew
   sequence_ tests
   sequence_ tests
 
@@ -77,6 +79,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
                    ,"test/renameFile/noPerms"
                    ,"test/moveFile/noPerms"
                    ,"test/recreateSymlinkSpec/noPerms"
+                   ,"test/getFileTypeSpec/noPerms"
                    ]
     fixPermissions = do
       sequence_ $ fmap noWritableDirPerms noWriteDirs
@@ -489,6 +492,49 @@ recreateSymlinkSpec =
         (\e -> ioeGetErrorType e == AlreadyExists)
 
 
+getFileTypeSpec :: Spec
+getFileTypeSpec =
+  describe "HSFM.FileSystem.FileOperations.getFileType" $ do
+
+    -- successes --
+    it "getFileType, regular file" $
+      getFileType' "test/getFileTypeSpec/regularfile"
+        `shouldReturn` RegularFile
+
+    it "getFileType, directory" $
+      getFileType' "test/getFileTypeSpec/directory"
+        `shouldReturn` Directory
+
+    it "getFileType, directory with null permissions" $
+      getFileType' "test/getFileTypeSpec/noPerms"
+        `shouldReturn` Directory
+
+    it "getFileType, symlink to file" $
+      getFileType' "test/getFileTypeSpec/symlink"
+        `shouldReturn` SymbolicLink
+
+    it "getFileType, symlink to directory" $
+      getFileType' "test/getFileTypeSpec/symlinkD"
+        `shouldReturn` SymbolicLink
+
+    it "getFileType, broken symlink" $
+      getFileType' "test/getFileTypeSpec/brokenSymlink"
+        `shouldReturn` SymbolicLink
+
+    -- posix failures --
+    it "getFileType, file does not exist" $
+      getFileType' "test/getFileTypeSpec/nothingHere"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == NoSuchThing)
+
+    it "getFileType, can't open directory" $
+      getFileType' "test/getFileTypeSpec/noPerms/forz"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
+
+
+
 
     -----------------
     --[ Utilities ]--
@@ -597,3 +643,9 @@ normalDirPerms path = do
   file <- (pwd P.</>) <$> P.parseRel path
   setFileMode (P.fromAbs file) newDirPerms
 
+
+getFileType' :: ByteString -> IO FileType
+getFileType' path = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  file <- (pwd P.</>) <$> P.parseRel path
+  getFileType file

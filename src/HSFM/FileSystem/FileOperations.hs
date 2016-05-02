@@ -184,7 +184,7 @@ data FileType = Directory
               | CharacterDevice
               | NamedPipe
               | Socket
-  deriving (Show)
+  deriving (Eq, Show)
 
 
 
@@ -614,6 +614,13 @@ getDirsFiles p =
     ---------------------------
 
 
+-- |Get the file type of the file located at the given path. Does
+-- not follow symbolic links.
+--
+-- Throws:
+--
+--    - `NoSuchThing` if the file does not exist
+--    - `PermissionDenied` if any part of the path is not accessible
 getFileType :: Path Abs -> IO FileType
 getFileType p = do
   fs <- PF.getSymbolicLinkStatus (P.fromAbs p)
