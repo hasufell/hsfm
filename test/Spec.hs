@@ -36,13 +36,19 @@ import System.Process
 
 main :: IO ()
 main = hspec $ do
-  copyFileSpec
-  copyDirRecursiveSpec
-  createDirSpec
-  createRegularFileSpec
-  renameFileSpec
-  moveFileSpec
-  recreateSymlinkSpec
+  let tests = [copyFileSpec
+              , copyDirRecursiveSpec
+              , createDirSpec
+              , createRegularFileSpec
+              , renameFileSpec
+              , moveFileSpec
+              ,recreateSymlinkSpec
+              ]
+
+  -- run all tests twice to catch missing cleanups or state skew
+  sequence_ tests
+  sequence_ tests
+
   -- TODO: deleteFile, deleteDir, deleteDirRecursive, getDirsFiles, getFileType
 
 
