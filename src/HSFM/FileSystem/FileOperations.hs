@@ -519,7 +519,7 @@ createDir dest = createDirectory (P.fromAbs dest) newDirPerms
 --
 --     - `NoSuchThing` if source file does not exist
 --     - `PermissionDenied` if output directory cannot be written to
---     - `PermissionDenied` if source driectory cannot be opened
+--     - `PermissionDenied` if source directory cannot be opened
 --     - `UnsupportedOperation` if source and destination are on different devices
 --     - `FileDoesExist` if destination file already exists
 --     - `DirDoesExist` if destination directory already exists
@@ -547,7 +547,7 @@ renameFile fromf tof = do
 --
 --     - `NoSuchThing` if source file does not exist
 --     - `PermissionDenied` if output directory cannot be written to
---     - `PermissionDenied` if source driectory cannot be opened
+--     - `PermissionDenied` if source directory cannot be opened
 --     - `FileDoesExist` if destination file already exists
 --     - `DirDoesExist` if destination directory already exists
 --     - `SameFile` if destination and source are the same file
@@ -599,6 +599,14 @@ newDirPerms
 
 -- |Gets all filenames of the given directory. This excludes "." and "..".
 -- This version does not follow symbolic links.
+--
+-- Throws:
+--
+--     - `NoSuchThing` if directory does not exist
+--     - `InappropriateType` if file type is wrong (file)
+--     - `InappropriateType` if file type is wrong (symlink to file)
+--     - `InappropriateType` if file type is wrong (symlink to dir)
+--     - `PermissionDenied` if directory cannot be opened
 getDirsFiles :: Path Abs        -- ^ dir to read
              -> IO [Path Abs]
 getDirsFiles p =

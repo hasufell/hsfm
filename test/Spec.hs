@@ -39,6 +39,10 @@ import System.Posix.Files.ByteString
   , setFileMode
   , unionFileModes
   )
+import Data.List
+  (
+    sort
+  )
 
 
 
@@ -55,12 +59,15 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
               , renameFileSpec
               , moveFileSpec
               , recreateSymlinkSpec
-              , getFileTypeSpec
               ]
 
   -- run all stateful tests twice to catch missing cleanups or state skew
   sequence_ tests
   sequence_ tests
+
+  -- stateless tests
+  getFileTypeSpec
+  getDirsFilesSpec
 
   -- TODO: deleteFile, deleteDir, deleteDirRecursive, getDirsFiles, getFileType
   where
@@ -80,6 +87,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
                    ,"test/moveFile/noPerms"
                    ,"test/recreateSymlinkSpec/noPerms"
                    ,"test/getFileTypeSpec/noPerms"
+                   ,"test/getDirsFilesSpec/noPerms"
                    ]
     fixPermissions = do
       sequence_ $ fmap noWritableDirPerms noWriteDirs
@@ -533,6 +541,48 @@ getFileTypeSpec =
         (\e -> ioeGetErrorType e == PermissionDenied)
 
 
+getDirsFilesSpec :: Spec
+getDirsFilesSpec =
+  describe "HSFM.FileSystem.FileOperations.getDirsFiles" $ do
+
+    -- successes --
+    it "getDirsFiles, all fine" $ do
+      pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+      expectedFiles <- mapM P.parseRel ["test/getDirsFilesSpec/.hidden"
+                                       ,"test/getDirsFilesSpec/Lala"
+                                       ,"test/getDirsFilesSpec/dir"
+                                       ,"test/getDirsFilesSpec/dirsym"
+                                       ,"test/getDirsFilesSpec/file"
+                                       ,"test/getDirsFilesSpec/noPerms"
+                                       ,"test/getDirsFilesSpec/syml"]
+      (fmap sort $ getDirsFiles' "test/getDirsFilesSpec")
+        `shouldReturn` fmap (pwd P.</>) expectedFiles
+
+    -- posix failures --
+    it "getDirsFiles, nonexistent directory" $
+      getDirsFiles' "test/getDirsFilesSpec/nothingHere"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == NoSuchThing)
+
+    it "getDirsFiles, wrong file type (file)" $
+      getDirsFiles' "test/getDirsFilesSpec/file"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == InappropriateType)
+
+    it "getDirsFiles, wrong file type (symlink to file)" $
+      getDirsFiles' "test/getDirsFilesSpec/syml"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == InvalidArgument)
+
+    it "getDirsFiles, wrong file type (symlink to dir)" $
+      getDirsFiles' "test/getDirsFilesSpec/dirsym"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == InvalidArgument)
+
+    it "getDirsFiles, can't open directory" $
+      getDirsFiles' "test/getDirsFilesSpec/noPerms"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
 
 
 
@@ -649,3 +699,11 @@ getFileType' path = do
   pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
   file <- (pwd P.</>) <$> P.parseRel path
   getFileType file
+
+
+getDirsFiles' :: ByteString -> IO [P.Path P.Abs]
+getDirsFiles' path = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  file <- (pwd P.</>) <$> P.parseRel path
+  getDirsFiles file
+
