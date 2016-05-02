@@ -27,6 +27,14 @@ import Data.ByteString
   )
 import System.Exit
 import System.Process
+import System.Posix.Files.ByteString
+  (
+    groupReadMode
+  , otherReadMode
+  , ownerReadMode
+  , setFileMode
+  , unionFileModes
+  )
 
 
 
@@ -35,7 +43,7 @@ import System.Process
 
 
 main :: IO ()
-main = hspec $ do
+main = hspec $ before_ fixPermissions $ do
   let tests = [copyFileSpec
               , copyDirRecursiveSpec
               , createDirSpec
@@ -50,7 +58,17 @@ main = hspec $ do
   sequence_ tests
 
   -- TODO: deleteFile, deleteDir, deleteDirRecursive, getDirsFiles, getFileType
-
+  where
+    fixPermissions = do
+      let dirlist =  ["test/copyFileSpec/outputDirNoWrite"
+                     ,"test/copyDirRecursiveSpec/noWritePerm"
+                     ,"test/createDirSpec/noWritePerms"
+                     ,"test/createRegularFileSpec/noWritePerms"
+                     ,"test/renameFile/noWritePerm"
+                     ,"test/moveFile/noWritePerm"
+                     ,"test/recreateSymlinkSpec/noWritePerm"
+                     ]
+      sequence_ $ fmap noWritable dirlist
 
 
     -------------
@@ -463,3 +481,14 @@ recreateSymlink' inputFileP outputFileP = do
   outputFile <- (pwd P.</>) <$> P.parseRel outputFileP
   recreateSymlink inputFile outputFile
   whenM (doesFileExist outputFile) (deleteFile outputFile)
+
+
+noWritable :: ByteString -> IO ()
+noWritable path = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  file <- (pwd P.</>) <$> P.parseRel path
+  setFileMode (P.fromAbs file) perms
+  where
+    perms =            ownerReadMode
+      `unionFileModes` groupReadMode
+      `unionFileModes` otherReadMode
