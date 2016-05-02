@@ -20,9 +20,24 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 {-# LANGUAGE PackageImports #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
+
 -- |This module provides high-level IO related file operations like
 -- copy, delete, move and so on. It only operates on `Path Abs` which
--- guarantees us well-typed path which are absolute.
+-- guarantees us well-typed paths which are absolute.
+--
+-- Some functions are just path-safe wrappers around
+-- unix functions, others have stricter exception handling
+-- and some implement functionality that doesn't have a unix
+-- counterpart (like `copyDirRecursive`).
+--
+-- Some of these operations are due to their nature not _atomic_, which
+-- means they may do multiple syscalls which form one context. Some
+-- of them also have to examine the filetypes explicitly before the
+-- syscalls, so a reasonable decision can be made. That means
+-- the result is undefined if another process changes that context
+-- while the non-atomic operation is still happening. However, where
+-- possible, as few syscalls as possible are used and the underlying
+-- exception handling kept.
 module HSFM.FileSystem.FileOperations where
 
 
@@ -211,24 +226,22 @@ runFileOp fo' =
 -- |Copies a directory to the given destination with the specified
 -- `DirCopyMode`. Excludes symlinks.
 --
--- This operation may not be safe on directories that are written to
--- while this operation happens. There are several reasons:
--- * multiple syscalls are required, so this is not an atomic
---   operation and a lot of stuff can happen in-between those syscalls
---   to the filesystem
--- * filetypes must be figured out explicitly for the contents of a directory
---   to make a useful decision of what to do next... this means when the
---   syscall is triggered, there is a slight chance that the filetype might
---   already be a different one, resulting in an unexpected codepath
+-- Safety/reliability concerns:
+-- * not atomic
+-- * examines filetypes explicitly
 -- * an explicit check `throwDestinationInSource` is carried out for the top
 --   directory for basic sanity, because otherwise we might end up with an
 --   infinite copy loop... however, this operation is not carried out
 --   recursively (because it's slow)
--- * does not check whether the destination already exists or is empty
 --
--- Throws: - `throwDestinationInSource`
---         - anything `copyDir`, `recreateSymlink` or `copyFile` throws
---         - `userError` for unhandled file types
+-- Throws: - `NoSuchThing` if source directory does not exist
+--         - `PermissionDenied` if output directory is not writable
+--         - `PermissionDenied` if source directory can't be opened
+--         - `InvalidArgument` if source directory is wrong type (symlink)
+--         - `InvalidArgument` if source directory is wrong type (regular file)
+--         - `AlreadyExists` if source and destination are the same directory
+--         - `AlreadyExists` if destination already exists
+--         - `DestinationInSource` if destination is contained in source
 copyDirRecursive :: Path Abs  -- ^ source dir
                  -> Path Abs  -- ^ full destination
                  -> IO ()
@@ -260,7 +273,14 @@ copyDirRecursive fromp destdirp
 
 -- |Recreate a symlink.
 --
--- Throws: - anything `readSymbolicLink` or `createSymbolicLink` throws
+-- Throws: - `InvalidArgument` if symlink file is wrong type (file)
+--         - `InvalidArgument` if symlink file is wrong type (directory)
+--         - `PermissionDenied` if output directory cannot be written to
+--         - `PermissionDenied` if source directory cannot be opened
+--         - `AlreadyExists` if destination file already exists
+--         - `AlreadyExists` if destination and source are the same file
+--
+-- Note: calls `symlink`
 recreateSymlink :: Path Abs  -- ^ the old symlink file
                 -> Path Abs  -- ^ destination file
                 -> IO ()
@@ -272,6 +292,16 @@ recreateSymlink symsource newsym
 
 -- |Copies the given regular file to the given dir with the given filename.
 -- Excludes symlinks.
+--
+-- Throws: - `NoSuchThing` if source file does not exist
+--         - `PermissionDenied` if output directory is not writable
+--         - `PermissionDenied` if source directory can't be opened
+--         - `InvalidArgument` if source file is wrong type (symlink)
+--         - `InvalidArgument` if source file is wrong type (directory)
+--         - `AlreadyExists` if source and destination are the same file
+--         - `AlreadyExists` if destination already exists
+--
+-- Note: calls `sendfile`
 copyFile :: Path Abs  -- ^ source file
          -> Path Abs  -- ^ destination file
          -> IO ()
@@ -327,11 +357,8 @@ copyFile from to
 -- |Copies anything. In case of a symlink,
 -- it is just recreated, even if it points to a directory.
 --
--- This may not be particularly safe, because:
--- * filetypes must be figured out explicitly for the input argument
---   to make a useful decision of what to do next... this means when the
---   syscall is triggered, there is a slight chance that the filetype might
---   already be a different one, resulting in an unexpected codepath
+-- Safety/reliability concerns:
+-- * examines filetypes explicitly
 -- * calls `copyDirRecursive` for directories
 easyCopy :: Path Abs
          -> Path Abs
@@ -368,14 +395,9 @@ deleteDir p = P.withAbsPath p removeDirectory
 
 -- |Deletes the given directory recursively.
 --
--- This function may not be particularly safe, because:
--- * multiple syscalls are required, so this is not an atomic
---   operation and a lot of stuff can happen in-between those syscalls
---   to the filesystem
--- * filetypes must be figured out explicitly for the contents of a directory
---   to make a useful decision of what to do next... this means when the
---   syscall is triggered, there is a slight chance that the filetype might
---   already be a different one, resulting in an unexpected codepath
+-- Safety/reliability concerns:
+-- * not atomic
+-- * examines filetypes explicitly
 deleteDirRecursive :: Path Abs -> IO ()
 deleteDirRecursive p = do
   files <- getDirsFiles p
@@ -394,12 +416,9 @@ deleteDirRecursive p = do
 -- In case of directory, performs recursive deletion. In case of
 -- a symlink, the symlink file is deleted.
 --
--- This function may not be particularly safe, because:
--- * filetypes must be figured out explicitly for the input argument
---   to make a useful decision of what to do next... this means when the
---   syscall is triggered, there is a slight chance that the filetype might
---   already be a different one, resulting in an unexpected codepath
--- * it calls `deleteDirRecursive` for directories
+-- Safety/reliability concerns:
+-- * examines filetypes explicitly
+-- * calls `deleteDirRecursive` for directories
 easyDelete :: Path Abs -> IO ()
 easyDelete p = do
   ftype <- getFileType p
@@ -445,6 +464,9 @@ executeFile fp args
 
 
 -- |Create an empty regular file at the given directory with the given filename.
+--
+-- Throws: - `PermissionDenied` if output directory cannot be written to
+--         - `AlreadyExists` if destination file already exists
 createRegularFile :: Path Abs -> IO ()
 createRegularFile dest =
   bracket (SPI.openFd (P.fromAbs dest) SPI.WriteOnly (Just newFilePerms)
@@ -454,7 +476,9 @@ createRegularFile dest =
 
 
 -- |Create an empty directory at the given directory with the given filename.
--- If the directory already exists, does nothing.
+--
+-- Throws: - `PermissionDenied` if output directory cannot be written to
+--         - `AlreadyExists` if destination directory already exists
 createDir :: Path Abs -> IO ()
 createDir dest = createDirectory (P.fromAbs dest) newDirPerms
 
@@ -470,6 +494,19 @@ createDir dest = createDirectory (P.fromAbs dest) newDirPerms
 -- must be on the same device, otherwise `eXDEV` will be raised.
 --
 -- Calls `rename`, but does not allow to rename over existing files.
+--
+-- Safety/reliability concerns:
+-- * has a separate set of exception handling, apart from the syscall
+--
+-- Throws: - `NoSuchThing` if source file does not exist
+--         - `PermissionDenied` if output directory cannot be written to
+--         - `PermissionDenied` if source driectory cannot be opened
+--         - `UnsupportedOperation` if source and destination are on different devices
+--         - `FileDoesExist` if destination file already exists
+--         - `DirDoesExist` if destination directory already exists
+--         - `SameFile` if destination and source are the same file
+--
+-- Note: calls `rename`
 renameFile :: Path Abs -> Path Abs -> IO ()
 renameFile fromf tof = do
   throwSameFile fromf tof
@@ -481,8 +518,17 @@ renameFile fromf tof = do
 -- |Move a file. This also works across devices by copy-delete fallback.
 -- And also works on directories.
 --
--- Note that this operation is not particularly safe or reliable, since
--- the fallback of copy-delete is not atomic.
+-- Safety/reliability concerns:
+-- * copy-delete fallback is inherently non-atomic
+--
+-- Throws: - `NoSuchThing` if source file does not exist
+--         - `PermissionDenied` if output directory cannot be written to
+--         - `PermissionDenied` if source driectory cannot be opened
+--         - `FileDoesExist` if destination file already exists
+--         - `DirDoesExist` if destination directory already exists
+--         - `SameFile` if destination and source are the same file
+--
+-- Note: calls `rename`
 moveFile :: Path Abs  -- ^ file to move
          -> Path Abs  -- ^ destination
          -> IO ()
