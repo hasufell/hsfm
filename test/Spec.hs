@@ -29,8 +29,13 @@ import System.Exit
 import System.Process
 import System.Posix.Files.ByteString
   (
-    groupReadMode
+    accessModes
+  , groupExecuteMode
+  , groupReadMode
+  , nullFileMode
+  , otherExecuteMode
   , otherReadMode
+  , ownerExecuteMode
   , ownerReadMode
   , setFileMode
   , unionFileModes
@@ -43,7 +48,7 @@ import System.Posix.Files.ByteString
 
 
 main :: IO ()
-main = hspec $ before_ fixPermissions $ do
+main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
   let tests = [copyFileSpec
               , copyDirRecursiveSpec
               , createDirSpec
@@ -59,16 +64,28 @@ main = hspec $ before_ fixPermissions $ do
 
   -- TODO: deleteFile, deleteDir, deleteDirRecursive, getDirsFiles, getFileType
   where
+    noWriteDirs =  ["test/copyFileSpec/outputDirNoWrite"
+                   ,"test/copyDirRecursiveSpec/noWritePerm"
+                   ,"test/createDirSpec/noWritePerms"
+                   ,"test/createRegularFileSpec/noWritePerms"
+                   ,"test/renameFile/noWritePerm"
+                   ,"test/moveFile/noWritePerm"
+                   ,"test/recreateSymlinkSpec/noWritePerm"
+                   ]
+    noPermsDirs =  ["test/copyFileSpec/noPerms"
+                   ,"test/copyDirRecursiveSpec/noPerms"
+                   ,"test/createDirSpec/noPerms"
+                   ,"test/createRegularFileSpec/noPerms"
+                   ,"test/renameFile/noPerms"
+                   ,"test/moveFile/noPerms"
+                   ,"test/recreateSymlinkSpec/noPerms"
+                   ]
     fixPermissions = do
-      let dirlist =  ["test/copyFileSpec/outputDirNoWrite"
-                     ,"test/copyDirRecursiveSpec/noWritePerm"
-                     ,"test/createDirSpec/noWritePerms"
-                     ,"test/createRegularFileSpec/noWritePerms"
-                     ,"test/renameFile/noWritePerm"
-                     ,"test/moveFile/noWritePerm"
-                     ,"test/recreateSymlinkSpec/noWritePerm"
-                     ]
-      sequence_ $ fmap noWritable dirlist
+      sequence_ $ fmap noWritableDirPerms noWriteDirs
+      sequence_ $ fmap noPerms noPermsDirs
+    revertPermissions = do
+      sequence_ $ fmap normalDirPerms noWriteDirs
+      sequence_ $ fmap normalDirPerms noPermsDirs
 
 
     -------------
@@ -104,6 +121,19 @@ copyFileSpec =
                 "test/copyFileSpec/outputDirNoWrite/outputFile"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
+
+    it "copyFile, cannot open output directory" $
+      copyFile' "test/copyFileSpec/inputFile"
+                "test/copyFileSpec/noPerms/outputFile"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
+    it "copyFile, cannot open source directory" $
+      copyFile' "test/copyFileSpec/noPerms/inputFile"
+                "test/copyFileSpec/outputFile"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
 
     it "copyFile, wrong input type (symlink)" $
       copyFile' "test/copyFileSpec/inputFileSymL"
@@ -166,6 +196,18 @@ copyDirRecursiveSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
+    it "copyDirRecursive, cannot open destination dir" $
+      copyDirRecursive' "test/copyDirRecursiveSpec/inputDir"
+                        "test/copyDirRecursiveSpec/noPerms/foo"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
+    it "copyDirRecursive, cannot open source dir" $
+      copyDirRecursive' "test/copyDirRecursiveSpec/noPerms/inputDir"
+                        "test/copyDirRecursiveSpec/foo"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
     it "copyDirRecursive, destination dir already exists" $
       copyDirRecursive' "test/copyDirRecursiveSpec/inputDir"
                         "test/copyDirRecursiveSpec/alreadyExistsD"
@@ -217,6 +259,11 @@ createDirSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
+    it "createDir, can't open destination directory" $
+      createDir' "test/createDirSpec/noPerms/newDir"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
     it "createDir, destination directory already exists" $
       createDir' "test/createDirSpec/alreadyExists"
         `shouldThrow`
@@ -234,6 +281,11 @@ createRegularFileSpec =
     -- posix failures --
     it "createRegularFile, can't write to destination directory" $
       createRegularFile' "test/createRegularFileSpec/noWritePerms/newDir"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
+    it "createRegularFile, can't write to destination directory" $
+      createRegularFile' "test/createRegularFileSpec/noPerms/newDir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
@@ -274,6 +326,18 @@ renameFileSpec =
     it "renameFile, can't write to destination directory" $
       renameFile' "test/renameFile/myFile"
                   "test/renameFile/noWritePerm/renamedFile"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
+    it "renameFile, can't open destination directory" $
+      renameFile' "test/renameFile/myFile"
+                  "test/renameFile/noPerms/renamedFile"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
+    it "renameFile, can't open source directory" $
+      renameFile' "test/renameFile/noPerms/myFile"
+                  "test/renameFile/renamedFile"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
@@ -331,6 +395,18 @@ moveFileSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
+    it "moveFile, can't open destination directory" $
+      moveFile' "test/moveFile/myFile"
+                "test/moveFile/noPerms/movedFile"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
+    it "moveFile, can't open source directory" $
+      moveFile' "test/moveFile/noPerms/myFile"
+                "test/moveFile/movedFile"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
     -- custom failures --
     it "moveFile, destination file already exists" $
       moveFile' "test/moveFile/myFile"
@@ -380,6 +456,18 @@ recreateSymlinkSpec =
     it "recreateSymLink, can't write to destination directory" $
       recreateSymlink' "test/recreateSymlinkSpec/myFileL"
                        "test/recreateSymlinkSpec/noWritePerm/movedFile"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
+    it "recreateSymLink, can't open destination directory" $
+      recreateSymlink' "test/recreateSymlinkSpec/myFileL"
+                       "test/recreateSymlinkSpec/noPerms/movedFile"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
+    it "recreateSymLink, can't open source directory" $
+      recreateSymlink' "test/recreateSymlinkSpec/noPerms/myFileL"
+                       "test/recreateSymlinkSpec/movedFile"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
@@ -483,12 +571,30 @@ recreateSymlink' inputFileP outputFileP = do
   whenM (doesFileExist outputFile) (deleteFile outputFile)
 
 
-noWritable :: ByteString -> IO ()
-noWritable path = do
+noWritableDirPerms :: ByteString -> IO ()
+noWritableDirPerms path = do
   pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
   file <- (pwd P.</>) <$> P.parseRel path
   setFileMode (P.fromAbs file) perms
   where
     perms =            ownerReadMode
+      `unionFileModes` ownerExecuteMode
       `unionFileModes` groupReadMode
+      `unionFileModes` groupExecuteMode
       `unionFileModes` otherReadMode
+      `unionFileModes` otherExecuteMode
+
+
+noPerms :: ByteString -> IO ()
+noPerms path = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  file <- (pwd P.</>) <$> P.parseRel path
+  setFileMode (P.fromAbs file) nullFileMode
+
+
+normalDirPerms :: ByteString -> IO ()
+normalDirPerms path = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  file <- (pwd P.</>) <$> P.parseRel path
+  setFileMode (P.fromAbs file) accessModes
+
