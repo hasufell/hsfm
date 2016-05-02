@@ -56,8 +56,7 @@ import Data.Word
   )
 import Foreign.C.Error
   (
-    eACCES
-  , eINVAL
+    eINVAL
   , eNOSYS
   , eXDEV
   )
@@ -81,10 +80,6 @@ import HPath
   )
 import qualified HPath as P
 import HSFM.FileSystem.Errors
-import HSFM.Utils.IO
-  (
-    unlessM
-  )
 import Prelude hiding (readFile)
 import System.Posix.ByteString
   (
@@ -97,8 +92,7 @@ import System.Posix.Directory.ByteString
   )
 import System.Posix.Directory.Traversals
   (
-    getDirectoryContents
-  , getDirectoryContents'
+    getDirectoryContents'
   )
 import System.Posix.Files.ByteString
   (
