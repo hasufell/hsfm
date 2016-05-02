@@ -29,8 +29,7 @@ import System.Exit
 import System.Process
 import System.Posix.Files.ByteString
   (
-    accessModes
-  , groupExecuteMode
+    groupExecuteMode
   , groupReadMode
   , nullFileMode
   , otherExecuteMode
@@ -44,7 +43,6 @@ import System.Posix.Files.ByteString
 
 
 -- TODO: chardev, blockdev, namedpipe, socket
--- TODO: no permission to open input file/dir
 
 
 main :: IO ()
@@ -596,5 +594,5 @@ normalDirPerms :: ByteString -> IO ()
 normalDirPerms path = do
   pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
   file <- (pwd P.</>) <$> P.parseRel path
-  setFileMode (P.fromAbs file) accessModes
+  setFileMode (P.fromAbs file) newDirPerms
 
