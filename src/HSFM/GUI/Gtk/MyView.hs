@@ -314,7 +314,9 @@ refreshView' :: MyGUI
              -> MyView
              -> Item
              -> IO ()
-refreshView' mygui myview item@(DirOrSym _) = do
+refreshView' mygui myview SymLink { sdest = d@Dir{} } =
+  refreshView' mygui myview d
+refreshView' mygui myview item@Dir{} = do
   newRawModel  <- fileListStore item myview
   writeTVarIO (rawModel myview) newRawModel
 
