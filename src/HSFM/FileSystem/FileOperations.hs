@@ -227,21 +227,24 @@ runFileOp fo' =
 -- `DirCopyMode`. Excludes symlinks.
 --
 -- Safety/reliability concerns:
--- * not atomic
--- * examines filetypes explicitly
--- * an explicit check `throwDestinationInSource` is carried out for the top
---   directory for basic sanity, because otherwise we might end up with an
---   infinite copy loop... however, this operation is not carried out
---   recursively (because it's slow)
 --
--- Throws: - `NoSuchThing` if source directory does not exist
---         - `PermissionDenied` if output directory is not writable
---         - `PermissionDenied` if source directory can't be opened
---         - `InvalidArgument` if source directory is wrong type (symlink)
---         - `InvalidArgument` if source directory is wrong type (regular file)
---         - `AlreadyExists` if source and destination are the same directory
---         - `AlreadyExists` if destination already exists
---         - `DestinationInSource` if destination is contained in source
+--    * not atomic
+--    * examines filetypes explicitly
+--    * an explicit check `throwDestinationInSource` is carried out for the
+--      top directory for basic sanity, because otherwise we might end up
+--      with an infinite copy loop... however, this operation is not
+--      carried out recursively (because it's slow)
+--
+-- Throws:
+--
+--    - `NoSuchThing` if source directory does not exist
+--    - `PermissionDenied` if output directory is not writable
+--    - `PermissionDenied` if source directory can't be opened
+--    - `InvalidArgument` if source directory is wrong type (symlink)
+--    - `InvalidArgument` if source directory is wrong type (regular file)
+--    - `AlreadyExists` if source and destination are the same directory
+--    - `AlreadyExists` if destination already exists
+--    - `DestinationInSource` if destination is contained in source
 copyDirRecursive :: Path Abs  -- ^ source dir
                  -> Path Abs  -- ^ full destination
                  -> IO ()
@@ -273,12 +276,14 @@ copyDirRecursive fromp destdirp
 
 -- |Recreate a symlink.
 --
--- Throws: - `InvalidArgument` if symlink file is wrong type (file)
---         - `InvalidArgument` if symlink file is wrong type (directory)
---         - `PermissionDenied` if output directory cannot be written to
---         - `PermissionDenied` if source directory cannot be opened
---         - `AlreadyExists` if destination file already exists
---         - `AlreadyExists` if destination and source are the same file
+-- Throws:
+--
+--    - `InvalidArgument` if symlink file is wrong type (file)
+--    - `InvalidArgument` if symlink file is wrong type (directory)
+--    - `PermissionDenied` if output directory cannot be written to
+--    - `PermissionDenied` if source directory cannot be opened
+--    - `AlreadyExists` if destination file already exists
+--    - `AlreadyExists` if destination and source are the same file
 --
 -- Note: calls `symlink`
 recreateSymlink :: Path Abs  -- ^ the old symlink file
@@ -293,13 +298,15 @@ recreateSymlink symsource newsym
 -- |Copies the given regular file to the given dir with the given filename.
 -- Excludes symlinks.
 --
--- Throws: - `NoSuchThing` if source file does not exist
---         - `PermissionDenied` if output directory is not writable
---         - `PermissionDenied` if source directory can't be opened
---         - `InvalidArgument` if source file is wrong type (symlink)
---         - `InvalidArgument` if source file is wrong type (directory)
---         - `AlreadyExists` if source and destination are the same file
---         - `AlreadyExists` if destination already exists
+-- Throws:
+--
+--    - `NoSuchThing` if source file does not exist
+--    - `PermissionDenied` if output directory is not writable
+--    - `PermissionDenied` if source directory can't be opened
+--    - `InvalidArgument` if source file is wrong type (symlink)
+--    - `InvalidArgument` if source file is wrong type (directory)
+--    - `AlreadyExists` if source and destination are the same file
+--    - `AlreadyExists` if destination already exists
 --
 -- Note: calls `sendfile`
 copyFile :: Path Abs  -- ^ source file
@@ -358,8 +365,9 @@ copyFile from to
 -- it is just recreated, even if it points to a directory.
 --
 -- Safety/reliability concerns:
--- * examines filetypes explicitly
--- * calls `copyDirRecursive` for directories
+--
+--    * examines filetypes explicitly
+--    * calls `copyDirRecursive` for directories
 easyCopy :: Path Abs
          -> Path Abs
          -> IO ()
@@ -396,8 +404,9 @@ deleteDir p = P.withAbsPath p removeDirectory
 -- |Deletes the given directory recursively.
 --
 -- Safety/reliability concerns:
--- * not atomic
--- * examines filetypes explicitly
+--
+--    * not atomic
+--    * examines filetypes explicitly
 deleteDirRecursive :: Path Abs -> IO ()
 deleteDirRecursive p = do
   files <- getDirsFiles p
@@ -417,8 +426,9 @@ deleteDirRecursive p = do
 -- a symlink, the symlink file is deleted.
 --
 -- Safety/reliability concerns:
--- * examines filetypes explicitly
--- * calls `deleteDirRecursive` for directories
+--
+--    * examines filetypes explicitly
+--    * calls `deleteDirRecursive` for directories
 easyDelete :: Path Abs -> IO ()
 easyDelete p = do
   ftype <- getFileType p
@@ -465,8 +475,10 @@ executeFile fp args
 
 -- |Create an empty regular file at the given directory with the given filename.
 --
--- Throws: - `PermissionDenied` if output directory cannot be written to
---         - `AlreadyExists` if destination file already exists
+-- Throws:
+--
+--    - `PermissionDenied` if output directory cannot be written to
+--    - `AlreadyExists` if destination file already exists
 createRegularFile :: Path Abs -> IO ()
 createRegularFile dest =
   bracket (SPI.openFd (P.fromAbs dest) SPI.WriteOnly (Just newFilePerms)
@@ -477,8 +489,10 @@ createRegularFile dest =
 
 -- |Create an empty directory at the given directory with the given filename.
 --
--- Throws: - `PermissionDenied` if output directory cannot be written to
---         - `AlreadyExists` if destination directory already exists
+-- Throws:
+--
+--    - `PermissionDenied` if output directory cannot be written to
+--    - `AlreadyExists` if destination directory already exists
 createDir :: Path Abs -> IO ()
 createDir dest = createDirectory (P.fromAbs dest) newDirPerms
 
@@ -493,20 +507,21 @@ createDir dest = createDirectory (P.fromAbs dest) newDirPerms
 -- |Rename a given file with the provided filename. Destination and source
 -- must be on the same device, otherwise `eXDEV` will be raised.
 --
--- Calls `rename`, but does not allow to rename over existing files.
---
 -- Safety/reliability concerns:
--- * has a separate set of exception handling, apart from the syscall
 --
--- Throws: - `NoSuchThing` if source file does not exist
---         - `PermissionDenied` if output directory cannot be written to
---         - `PermissionDenied` if source driectory cannot be opened
---         - `UnsupportedOperation` if source and destination are on different devices
---         - `FileDoesExist` if destination file already exists
---         - `DirDoesExist` if destination directory already exists
---         - `SameFile` if destination and source are the same file
+--    * has a separate set of exception handling, apart from the syscall
 --
--- Note: calls `rename`
+-- Throws:
+--
+--     - `NoSuchThing` if source file does not exist
+--     - `PermissionDenied` if output directory cannot be written to
+--     - `PermissionDenied` if source driectory cannot be opened
+--     - `UnsupportedOperation` if source and destination are on different devices
+--     - `FileDoesExist` if destination file already exists
+--     - `DirDoesExist` if destination directory already exists
+--     - `SameFile` if destination and source are the same file
+--
+-- Note: calls `rename` (but does not allow to rename over existing files)
 renameFile :: Path Abs -> Path Abs -> IO ()
 renameFile fromf tof = do
   throwSameFile fromf tof
@@ -519,16 +534,19 @@ renameFile fromf tof = do
 -- And also works on directories.
 --
 -- Safety/reliability concerns:
--- * copy-delete fallback is inherently non-atomic
 --
--- Throws: - `NoSuchThing` if source file does not exist
---         - `PermissionDenied` if output directory cannot be written to
---         - `PermissionDenied` if source driectory cannot be opened
---         - `FileDoesExist` if destination file already exists
---         - `DirDoesExist` if destination directory already exists
---         - `SameFile` if destination and source are the same file
+--    * copy-delete fallback is inherently non-atomic
 --
--- Note: calls `rename`
+-- Throws:
+--
+--     - `NoSuchThing` if source file does not exist
+--     - `PermissionDenied` if output directory cannot be written to
+--     - `PermissionDenied` if source driectory cannot be opened
+--     - `FileDoesExist` if destination file already exists
+--     - `DirDoesExist` if destination directory already exists
+--     - `SameFile` if destination and source are the same file
+--
+-- Note: calls `rename` (but does not allow to rename over existing files)
 moveFile :: Path Abs  -- ^ file to move
          -> Path Abs  -- ^ destination
          -> IO ()
