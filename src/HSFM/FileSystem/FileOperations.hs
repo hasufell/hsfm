@@ -37,7 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 -- the result is undefined if another process changes that context
 -- while the non-atomic operation is still happening. However, where
 -- possible, as few syscalls as possible are used and the underlying
--- exception handling kept.
+-- exception handling is kept.
 module HSFM.FileSystem.FileOperations where
 
 
