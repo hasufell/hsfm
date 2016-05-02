@@ -223,7 +223,8 @@ runFileOp fo' =
 
 
 
--- |Copies a directory to the given destination. Excludes symlinks.
+-- |Copies a directory recursively to the given destination.
+-- Does not follow symbolic links.
 --
 -- Safety/reliability concerns:
 --
@@ -295,7 +296,8 @@ recreateSymlink symsource newsym
 
 
 -- |Copies the given regular file to the given dir with the given filename.
--- Excludes symlinks.
+-- Neither follows symbolic links, nor accepts them.
+-- For "copying" symbolic links, use `recreateSymlink` instead.
 --
 -- Throws:
 --
@@ -390,7 +392,7 @@ easyCopy from to = do
 
 
 -- |Deletes the given file, does not follow symlinks. Raises `eISDIR`
--- if run on a directory.
+-- if run on a directory. Does not follow symbolic links.
 deleteFile :: Path Abs -> IO ()
 deleteFile p = P.withAbsPath p removeLink
 
@@ -400,7 +402,8 @@ deleteDir :: Path Abs -> IO ()
 deleteDir p = P.withAbsPath p removeDirectory
 
 
--- |Deletes the given directory recursively.
+-- |Deletes the given directory recursively. Does not follow symbolic
+-- links.
 --
 -- Safety/reliability concerns:
 --
@@ -506,6 +509,8 @@ createDir dest = createDirectory (P.fromAbs dest) newDirPerms
 -- |Rename a given file with the provided filename. Destination and source
 -- must be on the same device, otherwise `eXDEV` will be raised.
 --
+-- Does not follow symbolic links, but renames the symbolic link file.
+--
 -- Safety/reliability concerns:
 --
 --    * has a separate set of exception handling, apart from the syscall
@@ -531,6 +536,8 @@ renameFile fromf tof = do
 
 -- |Move a file. This also works across devices by copy-delete fallback.
 -- And also works on directories.
+--
+-- Does not follow symbolic links, but renames the symbolic link file.
 --
 -- Safety/reliability concerns:
 --
@@ -591,6 +598,7 @@ newDirPerms
 
 
 -- |Gets all filenames of the given directory. This excludes "." and "..".
+-- This version does not follow symbolic links.
 getDirsFiles :: Path Abs        -- ^ dir to read
              -> IO [Path Abs]
 getDirsFiles p =
