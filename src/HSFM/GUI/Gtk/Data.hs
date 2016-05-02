@@ -37,7 +37,7 @@ import HPath
   )
 import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
-import System.INotify.ByteString
+import System.INotify
   (
     INotify
   )

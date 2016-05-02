@@ -62,7 +62,6 @@ import Distribution.Verbosity
 import Graphics.UI.Gtk
 import qualified HPath as P
 import HSFM.FileSystem.Errors
-import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
 import HSFM.GUI.Glib.GlibString()
 import HSFM.GUI.Gtk.Data
@@ -71,6 +70,16 @@ import Paths_hsfm
   (
     getDataFileName
   )
+
+
+
+-- |Copy modes.
+data CopyMode = Strict  -- ^ fail if the target already exists
+              | Merge   -- ^ overwrite files if necessary, for files, this
+                        --   is the same as Replace
+              | Replace -- ^ remove targets before copying, this is
+                        --   only useful if the target is a directorty
+              | Rename (P.Path P.Fn)
 
 
 

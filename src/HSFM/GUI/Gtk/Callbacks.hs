@@ -327,12 +327,12 @@ del :: [Item] -> MyGUI -> MyView -> IO ()
 del [item] _ _ = withErrorDialog $ do
   let cmsg  = "Really delete \"" ++ getFPasStr item ++ "\"?"
   withConfirmationDialog cmsg
-    $ easyDelete item
+    $ easyDelete . path $ item
 -- this throws on the first error that occurs
 del items@(_:_) _ _ = withErrorDialog $ do
   let cmsg  = "Really delete " ++ show (length items) ++ " files?"
   withConfirmationDialog cmsg
-    $ forM_ items $ \item -> easyDelete item
+    $ forM_ items $ \item -> easyDelete . path $ item
 del _ _ _ = withErrorDialog
               . throw $ InvalidOperation
                         "Operation not supported on multiple files"
@@ -341,7 +341,7 @@ del _ _ _ = withErrorDialog
 -- |Initializes a file move operation.
 moveInit :: [Item] -> MyGUI -> MyView -> IO ()
 moveInit items@(_:_) mygui _ = do
-  writeTVarIO (operationBuffer mygui) (FMove . MP1 . map path $ items)
+  writeTVarIO (operationBuffer mygui) (FMove . PartialMove . map path $ items)
   let sbmsg = case items of
               (item:[]) -> "Move buffer: " ++ getFPasStr item
               _         -> "Move buffer: " ++ (show . length $ items)
@@ -355,7 +355,7 @@ moveInit _ _ _ = withErrorDialog
 -- |Supposed to be used with 'withRows'. Initializes a file copy operation.
 copyInit :: [Item] -> MyGUI -> MyView -> IO ()
 copyInit items@(_:_) mygui _ = do
-  writeTVarIO (operationBuffer mygui) (FCopy . CP1 . map path $ items)
+  writeTVarIO (operationBuffer mygui) (FCopy . PartialCopy . map path $ items)
   let sbmsg = case items of
               (item:[]) -> "Copy buffer: " ++ getFPasStr item
               _         -> "Copy buffer: " ++ (show . length $ items)
@@ -375,21 +375,23 @@ operationFinal mygui myview mitem = withErrorDialog $ do
             Nothing -> path <$> getCurrentDir myview
             Just x  -> return $ path x
   case op of
-    FMove (MP1 s) -> do
+    FMove (PartialMove s) -> do
       let cmsg = "Really move " ++ imsg s
                   ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
                   ++ "\"?"
       withConfirmationDialog cmsg . withCopyModeDialog
+      -- TODO: cm ignored
         $ \cm -> do
-             void $ runFileOp (FMove . MC s cdir $ cm)
+             void $ runFileOp (FMove $ Move s cdir)
              popStatusbar mygui
              writeTVarIO (operationBuffer mygui) None
-    FCopy (CP1 s) -> do
+    FCopy (PartialCopy s) -> do
       let cmsg = "Really copy " ++ imsg s
                  ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
                  ++ "\"?"
       withConfirmationDialog cmsg . withCopyModeDialog
-        $ \cm -> void $ runFileOp (FCopy . CC s cdir $ cm)
+      -- TODO: cm ignored
+        $ \cm -> void $ runFileOp (FCopy $ Copy s cdir)
     _ -> return ()
   where
     imsg s = case s of
@@ -404,7 +406,7 @@ newFile _ myview = withErrorDialog $ do
   let pmfn = P.parseFn =<< P.userStringToFP <$> mfn
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
-    createFile cdir fn
+    createRegularFile (path cdir P.</> fn)
 
 
 -- |Create a new directory.
@@ -414,7 +416,7 @@ newDir _ myview = withErrorDialog $ do
   let pmfn = P.parseFn =<< P.userStringToFP <$> mfn
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
-    createDir cdir fn
+    createDir (path cdir P.</> fn)
 
 
 renameF :: [Item] -> MyGUI -> MyView -> IO ()
@@ -427,7 +429,8 @@ renameF [item] _ _ = withErrorDialog $ do
                ++ P.fpToString (P.fromAbs $ (P.dirname . path $ item)
                                              P.</> fn) ++ "\"?"
     withConfirmationDialog cmsg $
-      HSFM.FileSystem.FileOperations.renameFile item fn
+      HSFM.FileSystem.FileOperations.renameFile (path item)
+                                                ((path item) P.</> fn)
 renameF _ _ _ = withErrorDialog
                   . throw $ InvalidOperation
                             "Operation not supported on multiple files"
@@ -461,7 +464,7 @@ goHome mygui myview =  withErrorDialog $ do
 -- |Execute a given file.
 execute :: [Item] -> MyGUI -> MyView -> IO ()
 execute [item] _ _ = withErrorDialog $
-  void $ executeFile item []
+  void $ executeFile (path item) []
 execute _ _ _ = withErrorDialog
                   . throw $ InvalidOperation
                             "Operation not supported on multiple files"
@@ -475,10 +478,10 @@ open [item] mygui myview = withErrorDialog $
       nv <- readFile getFileInfo $ path r
       goDir mygui myview nv
     r ->
-      void $ openFile r
+      void $ openFile . path $ r
 -- this throws on the first error that occurs
 open (FileLikeList fs) _ _ = withErrorDialog $
-  forM_ fs $ \f -> void $ openFile f
+  forM_ fs $ \f -> void $ openFile . path $ f
 open _ _ _ = withErrorDialog
                . throw $ InvalidOperation
                          "Operation not supported on multiple files"
