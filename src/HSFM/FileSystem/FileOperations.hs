@@ -223,8 +223,7 @@ runFileOp fo' =
 
 
 
--- |Copies a directory to the given destination with the specified
--- `DirCopyMode`. Excludes symlinks.
+-- |Copies a directory to the given destination. Excludes symlinks.
 --
 -- Safety/reliability concerns:
 --
