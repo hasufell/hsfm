@@ -29,7 +29,8 @@ import System.Exit
 import System.Process
 import System.Posix.Files.ByteString
   (
-    groupExecuteMode
+    getSymbolicLinkStatus
+  , groupExecuteMode
   , groupReadMode
   , nullFileMode
   , otherExecuteMode
@@ -59,6 +60,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
               , renameFileSpec
               , moveFileSpec
               , recreateSymlinkSpec
+              , deleteFileSpec
               ]
 
   -- run all stateful tests twice to catch missing cleanups or state skew
@@ -88,6 +90,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
                    ,"test/recreateSymlinkSpec/noPerms"
                    ,"test/getFileTypeSpec/noPerms"
                    ,"test/getDirsFilesSpec/noPerms"
+                   , "test/deleteFileSpec/noPerms"
                    ]
     fixPermissions = do
       sequence_ $ fmap noWritableDirPerms noWriteDirs
@@ -585,6 +588,44 @@ getDirsFilesSpec =
         (\e -> ioeGetErrorType e == PermissionDenied)
 
 
+deleteFileSpec :: Spec
+deleteFileSpec =
+  describe "HSFM.FileSystem.FileOperations.deleteFile" $ do
+
+    -- successes --
+    it "deleteFile, regular file, all fine" $ do
+      createRegularFile'' "test/deleteFileSpec/testFile"
+      deleteFile' "test/deleteFileSpec/testFile"
+      getSymbolicLinkStatus "test/deleteFileSpec/testFile"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == NoSuchThing)
+
+    it "deleteFile, symlink, all fine" $ do
+      recreateSymlink'' "test/deleteFileSpec/syml"
+                        "test/deleteFileSpec/testFile"
+      deleteFile' "test/deleteFileSpec/testFile"
+      getSymbolicLinkStatus "test/deleteFileSpec/testFile"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == NoSuchThing)
+
+    -- posix failures --
+    it "deleteFile, wrong file type (directory)" $
+      deleteFile' "test/deleteFileSpec/dir"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == InappropriateType)
+
+    it "deleteFile, file does not exist" $
+      deleteFile' "test/deleteFileSpec/doesNotExist"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == NoSuchThing)
+
+    it "deleteFile, can't read directory" $
+      deleteFile' "test/deleteFileSpec/noPerms/blah"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied)
+
+
+
 
     -----------------
     --[ Utilities ]--
@@ -639,6 +680,13 @@ createRegularFile' dest = do
   whenM (doesFileExist outputFile) (deleteFile outputFile)
 
 
+createRegularFile'' :: ByteString -> IO ()
+createRegularFile'' dest = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  outputFile <- (pwd P.</>) <$> P.parseRel dest
+  createRegularFile outputFile
+
+
 renameFile' :: ByteString -> ByteString -> IO ()
 renameFile' inputFileP outputFileP = do
   pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
@@ -664,6 +712,14 @@ recreateSymlink' inputFileP outputFileP = do
   outputFile <- (pwd P.</>) <$> P.parseRel outputFileP
   recreateSymlink inputFile outputFile
   whenM (doesFileExist outputFile) (deleteFile outputFile)
+
+
+recreateSymlink'' :: ByteString -> ByteString -> IO ()
+recreateSymlink'' inputFileP outputFileP = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  inputFile  <- (pwd P.</>) <$> P.parseRel inputFileP
+  outputFile <- (pwd P.</>) <$> P.parseRel outputFileP
+  recreateSymlink inputFile outputFile
 
 
 noWritableDirPerms :: ByteString -> IO ()
@@ -706,4 +762,11 @@ getDirsFiles' path = do
   pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
   file <- (pwd P.</>) <$> P.parseRel path
   getDirsFiles file
+
+
+deleteFile' :: ByteString -> IO ()
+deleteFile' p = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  file <- (pwd P.</>) <$> P.parseRel p
+  deleteFile file
 

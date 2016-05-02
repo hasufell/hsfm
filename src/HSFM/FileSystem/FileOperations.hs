@@ -393,6 +393,12 @@ easyCopy from to = do
 
 -- |Deletes the given file, does not follow symlinks. Raises `eISDIR`
 -- if run on a directory. Does not follow symbolic links.
+--
+-- Throws:
+--
+--    - `InappropriateType` for wrong file type (directory)
+--    - `NoSuchThing` if the file does not exist
+--    - `PermissionDenied` if the directory cannot be read
 deleteFile :: Path Abs -> IO ()
 deleteFile p = P.withAbsPath p removeLink
 
