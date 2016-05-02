@@ -100,7 +100,6 @@ copyFileSpec =
       copyFile' "test/copyFileSpec/inputFile"
                 "test/copyFileSpec/outputFile"
 
-    -- posix failures --
     it "copyFile, and compare" $
       copyFile'' "test/copyFileSpec/inputFile"
                 "test/copyFileSpec/outputFile"
@@ -108,6 +107,7 @@ copyFileSpec =
                             ++ "test/copyFileSpec/outputFile")
         `shouldReturn` ExitSuccess
 
+    -- posix failures --
     it "copyFile, input file does not exist" $
       copyFile' "test/copyFileSpec/noSuchFile"
                 "test/copyFileSpec/outputFile"
@@ -188,13 +188,13 @@ copyDirRecursiveSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
-    it "copyDirRecursive, no write permission on destination dir" $
+    it "copyDirRecursive, no write permission on output dir" $
       copyDirRecursive' "test/copyDirRecursiveSpec/inputDir"
                         "test/copyDirRecursiveSpec/noWritePerm/foo"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
-    it "copyDirRecursive, cannot open destination dir" $
+    it "copyDirRecursive, cannot open output dir" $
       copyDirRecursive' "test/copyDirRecursiveSpec/inputDir"
                         "test/copyDirRecursiveSpec/noPerms/foo"
         `shouldThrow`
@@ -218,17 +218,11 @@ copyDirRecursiveSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 
-    it "copyDirRecursive, destination and source same file" $
+    it "copyDirRecursive, destination and source same directory" $
       copyDirRecursive' "test/copyDirRecursiveSpec/inputDir"
                         "test/copyDirRecursiveSpec/inputDir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
-
-    it "copyDirRecursive, destination in source" $
-      copyDirRecursive' "test/copyDirRecursiveSpec/inputDir"
-                        "test/copyDirRecursiveSpec/inputDir/foo"
-        `shouldThrow`
-        isDestinationInSource
 
     it "copyDirRecursive, wrong input (regular file)" $
       copyDirRecursive' "test/copyDirRecursiveSpec/wrongInput"
@@ -242,6 +236,13 @@ copyDirRecursiveSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == InvalidArgument)
 
+    -- custom failures
+    it "copyDirRecursive, destination in source" $
+      copyDirRecursive' "test/copyDirRecursiveSpec/inputDir"
+                        "test/copyDirRecursiveSpec/inputDir/foo"
+        `shouldThrow`
+        isDestinationInSource
+
 
 createDirSpec :: Spec
 createDirSpec =
@@ -252,12 +253,12 @@ createDirSpec =
       createDir' "test/createDirSpec/newDir"
 
     -- posix failures --
-    it "createDir, can't write to destination directory" $
+    it "createDir, can't write to output directory" $
       createDir' "test/createDirSpec/noWritePerms/newDir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
-    it "createDir, can't open destination directory" $
+    it "createDir, can't open output directory" $
       createDir' "test/createDirSpec/noPerms/newDir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
@@ -321,13 +322,13 @@ renameFileSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
-    it "renameFile, can't write to destination directory" $
+    it "renameFile, can't write to output directory" $
       renameFile' "test/renameFile/myFile"
                   "test/renameFile/noWritePerm/renamedFile"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
-    it "renameFile, can't open destination directory" $
+    it "renameFile, can't open output directory" $
       renameFile' "test/renameFile/myFile"
                   "test/renameFile/noPerms/renamedFile"
         `shouldThrow`
