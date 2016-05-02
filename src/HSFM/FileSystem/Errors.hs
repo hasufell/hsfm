@@ -72,7 +72,7 @@ data FmIOException = FileDoesNotExist ByteString
                    | Can'tOpenDirectory ByteString
                    | CopyFailed String
                    | MoveFailed String
-  deriving (Typeable)
+  deriving (Typeable, Eq)
 
 
 instance Show FmIOException where
@@ -106,6 +106,26 @@ instance Exception FmIOException
 
 
 
+isDestinationInSource :: FmIOException -> Bool
+isDestinationInSource (DestinationInSource _ _) = True
+isDestinationInSource _                         = False
+
+
+isSameFile :: FmIOException -> Bool
+isSameFile (SameFile _ _) = True
+isSameFile _              = False
+
+
+isFileDoesExist :: FmIOException -> Bool
+isFileDoesExist (FileDoesExist _) = True
+isFileDoesExist _                 = False
+
+
+isDirDoesExist :: FmIOException -> Bool
+isDirDoesExist (DirDoesExist _) = True
+isDirDoesExist _                = False
+
+
 
     ----------------------------
     --[ Path based functions ]--
@@ -126,14 +146,14 @@ throwDirDoesExist fp =
 
 throwFileDoesNotExist :: Path Abs -> IO ()
 throwFileDoesNotExist fp =
-  whenM (doesFileExist fp) (throw . FileDoesExist
-                                  . P.fromAbs $ fp)
+  unlessM (doesFileExist fp) (throw . FileDoesNotExist
+                                    . P.fromAbs $ fp)
 
 
 throwDirDoesNotExist :: Path Abs -> IO ()
 throwDirDoesNotExist fp =
-  whenM (doesDirectoryExist fp) (throw . DirDoesExist
-                                       . P.fromAbs $ fp)
+  unlessM (doesDirectoryExist fp) (throw . DirDoesNotExist
+                                         . P.fromAbs $ fp)
 
 
 throwSameFile :: Path Abs -- ^ will be canonicalized
@@ -172,28 +192,26 @@ throwDestinationInSource source dest = do
                                     (P.fromAbs source))
 
 
--- |Checks if the given file exists and is not a directory. This follows
--- symlinks, but will return True if the symlink is broken.
+-- |Checks if the given file exists and is not a directory.
+-- Does not follow symlinks.
 doesFileExist :: Path Abs -> IO Bool
 doesFileExist fp =
   handleIOError (\_ -> return False) $ do
-    fp' <- fmap P.fromAbs $ P.canonicalizePath fp
-    fs  <- PF.getFileStatus fp'
+    fs  <- PF.getSymbolicLinkStatus (P.fromAbs fp)
     return $ not . PF.isDirectory $ fs
 
 
--- |Checks if the given file exists and is a directory. This follows
--- symlinks, but will return False if the symlink is broken.
+-- |Checks if the given file exists and is a directory.
+-- Does not follow symlinks.
 doesDirectoryExist :: Path Abs -> IO Bool
 doesDirectoryExist fp =
   handleIOError (\_ -> return False) $ do
-    fp' <- fmap P.fromAbs $ P.canonicalizePath fp
-    fs  <- PF.getFileStatus fp'
+    fs  <- PF.getSymbolicLinkStatus (P.fromAbs fp)
     return $ PF.isDirectory fs
 
 
 -- |Checks whether the directory at the given path exists and can be
--- opened. This invokes `openDirStream`.
+-- opened. This invokes `openDirStream` which follows symlinks.
 canOpenDirectory :: Path Abs -> IO Bool
 canOpenDirectory fp =
   handleIOError (\_ -> return False) $ do
@@ -249,3 +267,20 @@ rethrowErrnoAs en fmex action = catchErrno en action (throw fmex)
 handleIOError :: (IOError -> IO a) -> IO a -> IO a
 handleIOError = flip catchIOError
 
+
+-- |Like `bracket`, but allows to have different clean-up
+-- actions depending on whether the in-between computation
+-- has raised an exception or not. 
+bracketeer :: IO a        -- ^ computation to run first
+           -> (a -> IO b) -- ^ computation to run last, when
+                          --   no exception was raised
+           -> (a -> IO b) -- ^ computation to run last,
+                          --   when an exception was raised
+           -> (a -> IO c) -- ^ computation to run in-between
+           -> IO c
+bracketeer before after afterEx thing =
+  mask $ \restore -> do
+    a <- before
+    r <- restore (thing a) `onException` afterEx a
+    _ <- after a
+    return r

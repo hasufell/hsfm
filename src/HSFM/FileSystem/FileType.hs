@@ -18,39 +18,44 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
--- |This module provides data types for representing directories/files
--- and related operations on it, mostly internal stuff.
+
+-- |This module provides a data type for representing directories/files
+-- in a well-typed and convenient way. This is useful to gather and
+-- save information about a file, so the information can be easily
+-- processed in e.g. a GUI.
 --
--- It doesn't allow to represent the whole filesystem, since that's only
--- possible through IO laziness, which introduces too much internal state.
+-- However, it's not meant to be used to interact with low-level
+-- functions that copy files etc, since there's no guarantee that
+-- the in-memory representation of the type still matches what is
+-- happening on filesystem level.
+--
+-- If you interact with low-level libraries, you must not pattern
+-- match on the `File a` type. Instead, you should only use the saved
+-- `path` and make no assumptions about the file the path might or
+-- might not point to.
 module HSFM.FileSystem.FileType where
 
 
 
 import Data.ByteString(ByteString)
 import Data.Default
-import Data.Maybe
-  (
-    catMaybes
-  )
 import Data.Time.Clock.POSIX
   (
     POSIXTime
   , posixSecondsToUTCTime
   )
 import Data.Time()
-import Foreign.C.Error
-  (
-    eACCES
-  )
 import HPath
   (
     Abs
   , Path
-  , Fn
   )
 import qualified HPath as P
 import HSFM.FileSystem.Errors
+import HSFM.FileSystem.FileOperations
+  (
+    getDirsFiles
+  )
 import HSFM.Utils.MyPrelude
 import Prelude hiding(readFile)
 import System.IO.Error
@@ -64,8 +69,7 @@ import System.Posix.FilePath
   )
 import System.Posix.Directory.Traversals
   (
-    getDirectoryContents
-  , realpath
+    realpath
   )
 import qualified System.Posix.Files.ByteString as PF
 import System.Posix.Types
@@ -93,8 +97,7 @@ import System.Posix.Types
 -- |The String in the path field is always a full path.
 -- The free type variable is used in the File/Dir constructor and can hold
 -- Handles, Strings representing a file's contents or anything else you can
--- think of. We catch any IO errors in the Failed constructor. an Exception
--- can be converted to a String with 'show'.
+-- think of. We catch any IO errors in the Failed constructor.
 data File a =
     Failed {
     path :: !(Path Abs)
@@ -461,19 +464,7 @@ isSocketC _        = False
 ---- IO HELPERS: ----
 
 
--- |Gets all filenames of the given directory. This excludes "." and "..".
-getDirsFiles :: Path Abs        -- ^ dir to read
-             -> IO [Path Abs]
-getDirsFiles p =
-  P.withAbsPath p $ \fp ->
-    rethrowErrnoAs [eACCES] (Can'tOpenDirectory fp)
-    $ return
-        . catMaybes
-        .   fmap (\x -> (P.</>) p <$> (parseMaybe . snd $ x))
-        =<< getDirectoryContents fp
-  where
-    parseMaybe :: ByteString -> Maybe (Path Fn)
-    parseMaybe = P.parseFn
+
 
 
 -- |Gets all file information.
