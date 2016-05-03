@@ -71,8 +71,10 @@ import Data.Word
   )
 import Foreign.C.Error
   (
-    eINVAL
+    eEXIST
+  , eINVAL
   , eNOSYS
+  , eNOTEMPTY
   , eXDEV
   )
 import Foreign.C.Types
@@ -416,17 +418,20 @@ deleteDir p = P.withAbsPath p removeDirectory
 --    * not atomic
 --    * examines filetypes explicitly
 deleteDirRecursive :: Path Abs -> IO ()
-deleteDirRecursive p = do
-  files <- getDirsFiles p
-  for_ files $ \file -> do
-    ftype <- getFileType file
-    case ftype of
-      SymbolicLink -> deleteFile file
-      Directory    -> deleteDirRecursive file
-      RegularFile  -> deleteFile file
-      _            -> ioError $ userError $ "No idea what to do with the" ++
-                                            "given filetype: " ++ show ftype
-  removeDirectory . P.toFilePath $ p
+deleteDirRecursive p =
+  catchErrno [eNOTEMPTY, eEXIST]
+             (deleteDir p)
+    $ do
+      files <- getDirsFiles p
+      for_ files $ \file -> do
+        ftype <- getFileType file
+        case ftype of
+          SymbolicLink -> deleteFile file
+          Directory    -> deleteDirRecursive file
+          RegularFile  -> deleteFile file
+          _            -> ioError $ userError $ "No idea what to do with the" ++
+                                                "given filetype: " ++ show ftype
+      removeDirectory . P.toFilePath $ p
 
 
 -- |Deletes a file, directory or symlink, whatever it may be.
