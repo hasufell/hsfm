@@ -62,6 +62,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
               , recreateSymlinkSpec
               , deleteFileSpec
               , deleteDirSpec
+              , deleteDirRecursiveSpec
               ]
 
   -- run all stateful tests twice to catch missing cleanups or state skew
@@ -72,7 +73,6 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
   getFileTypeSpec
   getDirsFilesSpec
 
-  -- TODO: deleteFile, deleteDir, deleteDirRecursive, getDirsFiles, getFileType
   where
     noWriteDirs =  ["test/copyFileSpec/outputDirNoWrite"
                    ,"test/copyDirRecursiveSpec/noWritePerm"
@@ -91,7 +91,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
                    ,"test/recreateSymlinkSpec/noPerms"
                    ,"test/getFileTypeSpec/noPerms"
                    ,"test/getDirsFilesSpec/noPerms"
-                   , "test/deleteFileSpec/noPerms"
+                   ,"test/deleteFileSpec/noPerms"
                    ]
     fixPermissions = do
       sequence_ $ fmap noWritableDirPerms noWriteDirs
