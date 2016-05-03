@@ -2,20 +2,19 @@
 
 import Test.Hspec
 
-import CopyDirRecursiveSpec
-import CopyFileSpec
-import CreateDirSpec
-import CreateRegularFileSpec
-import DeleteDirRecursiveSpec
-import DeleteDirSpec
-import DeleteFileSpec
-import GetDirsFilesSpec
-import GetFileTypeSpec
-import MoveFileSpec
-import RecreateSymlinkSpec
-import RenameFileSpec
+import FileSystem.FileOperations.CopyDirRecursiveSpec
+import FileSystem.FileOperations.CopyFileSpec
+import FileSystem.FileOperations.CreateDirSpec
+import FileSystem.FileOperations.CreateRegularFileSpec
+import FileSystem.FileOperations.DeleteDirRecursiveSpec
+import FileSystem.FileOperations.DeleteDirSpec
+import FileSystem.FileOperations.DeleteFileSpec
+import FileSystem.FileOperations.GetDirsFilesSpec
+import FileSystem.FileOperations.GetFileTypeSpec
+import FileSystem.FileOperations.MoveFileSpec
+import FileSystem.FileOperations.RecreateSymlinkSpec
+import FileSystem.FileOperations.RenameFileSpec
 import Utils
-
 
 
 -- TODO: chardev, blockdev, namedpipe, socket
@@ -44,24 +43,24 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
   getDirsFilesSpec
 
   where
-    noWriteDirs =  ["test/copyFileSpec/outputDirNoWrite"
-                   ,"test/copyDirRecursiveSpec/noWritePerm"
-                   ,"test/createDirSpec/noWritePerms"
-                   ,"test/createRegularFileSpec/noWritePerms"
-                   ,"test/renameFileSpec/noWritePerm"
-                   ,"test/moveFileSpec/noWritePerm"
-                   ,"test/recreateSymlinkSpec/noWritePerm"
+    noWriteDirs =  ["test/FileSystem/FileOperations/copyFileSpec/outputDirNoWrite"
+                   ,"test/FileSystem/FileOperations/copyDirRecursiveSpec/noWritePerm"
+                   ,"test/FileSystem/FileOperations/createDirSpec/noWritePerms"
+                   ,"test/FileSystem/FileOperations/createRegularFileSpec/noWritePerms"
+                   ,"test/FileSystem/FileOperations/renameFileSpec/noWritePerm"
+                   ,"test/FileSystem/FileOperations/moveFileSpec/noWritePerm"
+                   ,"test/FileSystem/FileOperations/recreateSymlinkSpec/noWritePerm"
                    ]
-    noPermsDirs =  ["test/copyFileSpec/noPerms"
-                   ,"test/copyDirRecursiveSpec/noPerms"
-                   ,"test/createDirSpec/noPerms"
-                   ,"test/createRegularFileSpec/noPerms"
-                   ,"test/renameFileSpec/noPerms"
-                   ,"test/moveFileSpec/noPerms"
-                   ,"test/recreateSymlinkSpec/noPerms"
-                   ,"test/getFileTypeSpec/noPerms"
-                   ,"test/getDirsFilesSpec/noPerms"
-                   ,"test/deleteFileSpec/noPerms"
+    noPermsDirs =  ["test/FileSystem/FileOperations/copyFileSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/copyDirRecursiveSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/createDirSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/createRegularFileSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/renameFileSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/moveFileSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/recreateSymlinkSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/getFileTypeSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/getDirsFilesSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/deleteFileSpec/noPerms"
                    ]
     fixPermissions = do
       sequence_ $ fmap noWritableDirPerms noWriteDirs

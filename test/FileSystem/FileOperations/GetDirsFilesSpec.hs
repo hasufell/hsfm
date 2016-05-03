@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GetDirsFilesSpec where
+module FileSystem.FileOperations.GetDirsFilesSpec where
 
 
 import Data.List
@@ -36,39 +36,39 @@ getDirsFilesSpec =
     -- successes --
     it "getDirsFiles, all fine" $ do
       pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-      expectedFiles <- mapM P.parseRel ["test/getDirsFilesSpec/.hidden"
-                                       ,"test/getDirsFilesSpec/Lala"
-                                       ,"test/getDirsFilesSpec/dir"
-                                       ,"test/getDirsFilesSpec/dirsym"
-                                       ,"test/getDirsFilesSpec/file"
-                                       ,"test/getDirsFilesSpec/noPerms"
-                                       ,"test/getDirsFilesSpec/syml"]
-      (fmap sort $ getDirsFiles' "test/getDirsFilesSpec")
+      expectedFiles <- mapM P.parseRel ["test/FileSystem/FileOperations/getDirsFilesSpec/.hidden"
+                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/Lala"
+                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/dir"
+                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/dirsym"
+                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/file"
+                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/noPerms"
+                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/syml"]
+      (fmap sort $ getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec")
         `shouldReturn` fmap (pwd P.</>) expectedFiles
 
     -- posix failures --
     it "getDirsFiles, nonexistent directory" $
-      getDirsFiles' "test/getDirsFilesSpec/nothingHere"
+      getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec/nothingHere"
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "getDirsFiles, wrong file type (file)" $
-      getDirsFiles' "test/getDirsFilesSpec/file"
+      getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec/file"
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
     it "getDirsFiles, wrong file type (symlink to file)" $
-      getDirsFiles' "test/getDirsFilesSpec/syml"
+      getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec/syml"
         `shouldThrow`
         (\e -> ioeGetErrorType e == InvalidArgument)
 
     it "getDirsFiles, wrong file type (symlink to dir)" $
-      getDirsFiles' "test/getDirsFilesSpec/dirsym"
+      getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec/dirsym"
         `shouldThrow`
         (\e -> ioeGetErrorType e == InvalidArgument)
 
     it "getDirsFiles, can't open directory" $
-      getDirsFiles' "test/getDirsFilesSpec/noPerms"
+      getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec/noPerms"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 

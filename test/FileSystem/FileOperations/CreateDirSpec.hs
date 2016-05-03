@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module CreateDirSpec where
+module FileSystem.FileOperations.CreateDirSpec where
 
 
 import Test.Hspec
@@ -21,22 +21,22 @@ createDirSpec =
 
     -- successes --
     it "createDir, all fine" $ do
-      createDir' "test/createDirSpec/newDir"
-      removeDirIfExists "test/createDirSpec/newDir"
+      createDir' "test/FileSystem/FileOperations/createDirSpec/newDir"
+      removeDirIfExists "test/FileSystem/FileOperations/createDirSpec/newDir"
 
     -- posix failures --
     it "createDir, can't write to output directory" $
-      createDir' "test/createDirSpec/noWritePerms/newDir"
+      createDir' "test/FileSystem/FileOperations/createDirSpec/noWritePerms/newDir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "createDir, can't open output directory" $
-      createDir' "test/createDirSpec/noPerms/newDir"
+      createDir' "test/FileSystem/FileOperations/createDirSpec/noPerms/newDir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "createDir, destination directory already exists" $
-      createDir' "test/createDirSpec/alreadyExists"
+      createDir' "test/FileSystem/FileOperations/createDirSpec/alreadyExists"
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 

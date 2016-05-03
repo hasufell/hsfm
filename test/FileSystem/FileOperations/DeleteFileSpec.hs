@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module DeleteFileSpec where
+module FileSystem.FileOperations.DeleteFileSpec where
 
 
 import Test.Hspec
@@ -25,33 +25,33 @@ deleteFileSpec =
 
     -- successes --
     it "deleteFile, regular file, all fine" $ do
-      createRegularFile' "test/deleteFileSpec/testFile"
-      deleteFile' "test/deleteFileSpec/testFile"
-      getSymbolicLinkStatus "test/deleteFileSpec/testFile"
+      createRegularFile' "test/FileSystem/FileOperations/deleteFileSpec/testFile"
+      deleteFile' "test/FileSystem/FileOperations/deleteFileSpec/testFile"
+      getSymbolicLinkStatus "test/FileSystem/FileOperations/deleteFileSpec/testFile"
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "deleteFile, symlink, all fine" $ do
-      recreateSymlink' "test/deleteFileSpec/syml"
-                       "test/deleteFileSpec/testFile"
-      deleteFile' "test/deleteFileSpec/testFile"
-      getSymbolicLinkStatus "test/deleteFileSpec/testFile"
+      recreateSymlink' "test/FileSystem/FileOperations/deleteFileSpec/syml"
+                       "test/FileSystem/FileOperations/deleteFileSpec/testFile"
+      deleteFile' "test/FileSystem/FileOperations/deleteFileSpec/testFile"
+      getSymbolicLinkStatus "test/FileSystem/FileOperations/deleteFileSpec/testFile"
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     -- posix failures --
     it "deleteFile, wrong file type (directory)" $
-      deleteFile' "test/deleteFileSpec/dir"
+      deleteFile' "test/FileSystem/FileOperations/deleteFileSpec/dir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
     it "deleteFile, file does not exist" $
-      deleteFile' "test/deleteFileSpec/doesNotExist"
+      deleteFile' "test/FileSystem/FileOperations/deleteFileSpec/doesNotExist"
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "deleteFile, can't read directory" $
-      deleteFile' "test/deleteFileSpec/noPerms/blah"
+      deleteFile' "test/FileSystem/FileOperations/deleteFileSpec/noPerms/blah"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 

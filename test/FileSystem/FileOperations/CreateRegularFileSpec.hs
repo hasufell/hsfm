@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module CreateRegularFileSpec where
+module FileSystem.FileOperations.CreateRegularFileSpec where
 
 
 import Test.Hspec
@@ -21,22 +21,22 @@ createRegularFileSpec =
 
     -- successes --
     it "createRegularFile, all fine" $ do
-      createRegularFile' "test/createRegularFileSpec/newDir"
-      removeFileIfExists "test/createRegularFileSpec/newDir"
+      createRegularFile' "test/FileSystem/FileOperations/createRegularFileSpec/newDir"
+      removeFileIfExists "test/FileSystem/FileOperations/createRegularFileSpec/newDir"
 
     -- posix failures --
     it "createRegularFile, can't write to destination directory" $
-      createRegularFile' "test/createRegularFileSpec/noWritePerms/newDir"
+      createRegularFile' "test/FileSystem/FileOperations/createRegularFileSpec/noWritePerms/newDir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "createRegularFile, can't write to destination directory" $
-      createRegularFile' "test/createRegularFileSpec/noPerms/newDir"
+      createRegularFile' "test/FileSystem/FileOperations/createRegularFileSpec/noPerms/newDir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "createRegularFile, destination file already exists" $
-      createRegularFile' "test/createRegularFileSpec/alreadyExists"
+      createRegularFile' "test/FileSystem/FileOperations/createRegularFileSpec/alreadyExists"
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 

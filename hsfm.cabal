@@ -119,18 +119,18 @@ Test-Suite spec
   Hs-Source-Dirs:       test
   Main-Is:              Spec.hs
   other-modules:
-                        CopyDirRecursiveSpec
-                        CopyFileSpec
-                        CreateDirSpec
-                        CreateRegularFileSpec
-                        DeleteDirRecursiveSpec
-                        DeleteDirSpec
-                        DeleteFileSpec
-                        GetDirsFilesSpec
-                        GetFileTypeSpec
-                        MoveFileSpec
-                        RecreateSymlinkSpec
-                        RenameFileSpec
+                        FileSystem.FileOperations.CopyDirRecursiveSpec
+                        FileSystem.FileOperations.CopyFileSpec
+                        FileSystem.FileOperations.CreateDirSpec
+                        FileSystem.FileOperations.CreateRegularFileSpec
+                        FileSystem.FileOperations.DeleteDirRecursiveSpec
+                        FileSystem.FileOperations.DeleteDirSpec
+                        FileSystem.FileOperations.DeleteFileSpec
+                        FileSystem.FileOperations.GetDirsFilesSpec
+                        FileSystem.FileOperations.GetFileTypeSpec
+                        FileSystem.FileOperations.MoveFileSpec
+                        FileSystem.FileOperations.RecreateSymlinkSpec
+                        FileSystem.FileOperations.RenameFileSpec
                         Utils
   GHC-Options:          -Wall
   Build-Depends:        base
