@@ -61,6 +61,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
               , moveFileSpec
               , recreateSymlinkSpec
               , deleteFileSpec
+              , deleteDirSpec
               ]
 
   -- run all stateful tests twice to catch missing cleanups or state skew
@@ -625,6 +626,54 @@ deleteFileSpec =
         (\e -> ioeGetErrorType e == PermissionDenied)
 
 
+deleteDirSpec :: Spec
+deleteDirSpec =
+  describe "HSFM.FileSystem.FileOperations.deleteDir" $ do
+
+    -- successes --
+    it "deleteDir, regular file, all fine" $ do
+      createDir'' "test/deleteDirSpec/testDir"
+      deleteDir' "test/deleteDirSpec/testDir"
+      getSymbolicLinkStatus "test/deleteDirSpec/testDir"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == NoSuchThing)
+
+    it "deleteDir, directory with null permissions, all fine" $ do
+      createDir'' "test/deleteDirSpec/noPerms/testDir"
+      noPerms "test/deleteDirSpec/noPerms/testDir"
+      deleteDir' "test/deleteDirSpec/noPerms/testDir"
+
+    -- posix failures --
+    it "deleteDir, wrong file type (symlink to directory)" $
+      deleteDir' "test/deleteDirSpec/dirSym"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == InappropriateType)
+
+    it "deleteDir, wrong file type (regular file)" $
+      deleteDir' "test/deleteDirSpec/file"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == InappropriateType)
+
+    it "deleteDir, file does not exist" $
+      deleteDir' "test/deleteDirSpec/doesNotExist"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == NoSuchThing)
+
+    it "deleteDir, directory not empty" $
+      deleteDir' "test/deleteDirSpec/dir"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == UnsatisfiedConstraints)
+
+    it "deleteDir, can't write to parent directory" $ do
+      createDir'' "test/deleteDirSpec/noPerms/foo"
+      noPerms "test/deleteDirSpec/noPerms"
+      (deleteDir' "test/deleteDirSpec/noPerms/foo"
+        `shouldThrow`
+        (\e -> ioeGetErrorType e == PermissionDenied))
+        >> normalDirPerms "test/deleteDirSpec/noPerms"
+        >> deleteDir' "test/deleteDirSpec/noPerms/foo"
+
+
 
 
     -----------------
@@ -670,6 +719,13 @@ createDir' dest = do
   outputDir <- (pwd P.</>) <$> P.parseRel dest
   createDir outputDir
   whenM (doesDirectoryExist outputDir) (deleteDir outputDir)
+
+
+createDir'' :: ByteString -> IO ()
+createDir'' dest = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  outputDir <- (pwd P.</>) <$> P.parseRel dest
+  createDir outputDir
 
 
 createRegularFile' :: ByteString -> IO ()
@@ -770,3 +826,9 @@ deleteFile' p = do
   file <- (pwd P.</>) <$> P.parseRel p
   deleteFile file
 
+
+deleteDir' :: ByteString -> IO ()
+deleteDir' p = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  file <- (pwd P.</>) <$> P.parseRel p
+  deleteDir file
