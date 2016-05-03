@@ -406,17 +406,35 @@ deleteFile p = P.withAbsPath p removeLink
 
 
 -- |Deletes the given directory, which must be empty, never symlinks.
+--
+-- Throws:
+--
+--    - `InappropriateType` for wrong file type (symlink to directory)
+--    - `InappropriateType` for wrong file type (regular file)
+--    - `NoSuchThing` if directory does not exist
+--    - `UnsatisfiedConstraints` if directory is not empty
+--    - `PermissionDenied` if we can't open or write to parent directory
+--
+-- Notes: calls `rmdir`
 deleteDir :: Path Abs -> IO ()
 deleteDir p = P.withAbsPath p removeDirectory
 
 
 -- |Deletes the given directory recursively. Does not follow symbolic
--- links.
+-- links. Tries `deleteDir` first before attemtping a recursive
+-- deletion.
 --
 -- Safety/reliability concerns:
 --
 --    * not atomic
 --    * examines filetypes explicitly
+--
+-- Throws:
+--
+--    - `InappropriateType` for wrong file type (symlink to directory)
+--    - `InappropriateType` for wrong file type (regular file)
+--    - `NoSuchThing` if directory does not exist
+--    - `PermissionDenied` if we can't open or write to parent directory
 deleteDirRecursive :: Path Abs -> IO ()
 deleteDirRecursive p =
   catchErrno [eNOTEMPTY, eEXIST]
