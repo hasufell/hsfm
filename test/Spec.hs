@@ -111,16 +111,18 @@ copyFileSpec =
   describe "HSFM.FileSystem.FileOperations.copyFile" $ do
 
     -- successes --
-    it "copyFile, everything clear" $
+    it "copyFile, everything clear" $ do
       copyFile' "test/copyFileSpec/inputFile"
                 "test/copyFileSpec/outputFile"
+      removeFileIfExists "test/copyFileSpec/outputFile"
 
-    it "copyFile, and compare" $
-      copyFile'' "test/copyFileSpec/inputFile"
+    it "copyFile, and compare" $ do
+      copyFile' "test/copyFileSpec/inputFile"
                 "test/copyFileSpec/outputFile"
-        (system $ "cmp -s " ++ "test/copyFileSpec/inputFile" ++ " "
-                            ++ "test/copyFileSpec/outputFile")
+      (system $ "cmp -s " ++ "test/copyFileSpec/inputFile" ++ " "
+                          ++ "test/copyFileSpec/outputFile")
         `shouldReturn` ExitSuccess
+      removeFileIfExists "test/copyFileSpec/outputFile"
 
     -- posix failures --
     it "copyFile, input file does not exist" $
@@ -183,17 +185,19 @@ copyDirRecursiveSpec =
   describe "HSFM.FileSystem.FileOperations.copyDirRecursive" $ do
 
     -- successes --
-    it "copyDirRecursive, all fine" $
+    it "copyDirRecursive, all fine" $ do
       copyDirRecursive' "test/copyDirRecursiveSpec/inputDir"
                         "test/copyDirRecursiveSpec/outputDir"
+      removeDirIfExists "test/copyDirRecursiveSpec/outputDir"
 
-    it "copyDirRecursive, all fine and compare" $
-      copyDirRecursive'' "test/copyDirRecursiveSpec/inputDir"
-                         "test/copyDirRecursiveSpec/outputDir"
-        (system $ "diff -r --no-dereference "
-                            ++ "test/copyDirRecursiveSpec/inputDir" ++ " "
-                            ++ "test/copyDirRecursiveSpec/outputDir")
+    it "copyDirRecursive, all fine and compare" $ do
+      copyDirRecursive' "test/copyDirRecursiveSpec/inputDir"
+                        "test/copyDirRecursiveSpec/outputDir"
+      (system $ "diff -r --no-dereference "
+                          ++ "test/copyDirRecursiveSpec/inputDir" ++ " "
+                          ++ "test/copyDirRecursiveSpec/outputDir")
         `shouldReturn` ExitSuccess
+      removeDirIfExists "test/copyDirRecursiveSpec/outputDir"
 
     -- posix failures --
     it "copyDirRecursive, source directory does not exist" $
@@ -263,8 +267,9 @@ createDirSpec =
   describe "HSFM.FileSystem.FileOperations.createDir" $ do
 
     -- successes --
-    it "createDir, all fine" $
+    it "createDir, all fine" $ do
       createDir' "test/createDirSpec/newDir"
+      removeDirIfExists "test/createDirSpec/newDir"
 
     -- posix failures --
     it "createDir, can't write to output directory" $
@@ -288,8 +293,9 @@ createRegularFileSpec =
   describe "HSFM.FileSystem.FileOperations.createRegularFile" $ do
 
     -- successes --
-    it "createRegularFile, all fine" $
+    it "createRegularFile, all fine" $ do
       createRegularFile' "test/createRegularFileSpec/newDir"
+      removeFileIfExists "test/createRegularFileSpec/newDir"
 
     -- posix failures --
     it "createRegularFile, can't write to destination directory" $
@@ -445,13 +451,15 @@ recreateSymlinkSpec =
   describe "HSFM.FileSystem.FileOperations.recreateSymlink" $ do
 
     -- successes --
-    it "recreateSymLink, all fine" $
+    it "recreateSymLink, all fine" $ do
       recreateSymlink' "test/recreateSymlinkSpec/myFileL"
                        "test/recreateSymlinkSpec/movedFile"
+      removeFileIfExists "test/recreateSymlinkSpec/movedFile"
 
-    it "recreateSymLink, all fine" $
+    it "recreateSymLink, all fine" $ do
       recreateSymlink' "test/recreateSymlinkSpec/myFileL"
                        "test/recreateSymlinkSpec/dir/movedFile"
+      removeFileIfExists "test/recreateSymlinkSpec/dir/movedFile"
 
     -- posix failures --
     it "recreateSymLink, wrong input type (file)" $
@@ -594,15 +602,15 @@ deleteFileSpec =
 
     -- successes --
     it "deleteFile, regular file, all fine" $ do
-      createRegularFile'' "test/deleteFileSpec/testFile"
+      createRegularFile' "test/deleteFileSpec/testFile"
       deleteFile' "test/deleteFileSpec/testFile"
       getSymbolicLinkStatus "test/deleteFileSpec/testFile"
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "deleteFile, symlink, all fine" $ do
-      recreateSymlink'' "test/deleteFileSpec/syml"
-                        "test/deleteFileSpec/testFile"
+      recreateSymlink' "test/deleteFileSpec/syml"
+                       "test/deleteFileSpec/testFile"
       deleteFile' "test/deleteFileSpec/testFile"
       getSymbolicLinkStatus "test/deleteFileSpec/testFile"
         `shouldThrow`
@@ -631,14 +639,14 @@ deleteDirSpec =
 
     -- successes --
     it "deleteDir, empty directory, all fine" $ do
-      createDir'' "test/deleteDirSpec/testDir"
+      createDir' "test/deleteDirSpec/testDir"
       deleteDir' "test/deleteDirSpec/testDir"
       getSymbolicLinkStatus "test/deleteDirSpec/testDir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "deleteDir, directory with null permissions, all fine" $ do
-      createDir'' "test/deleteDirSpec/noPerms/testDir"
+      createDir' "test/deleteDirSpec/noPerms/testDir"
       noPerms "test/deleteDirSpec/noPerms/testDir"
       deleteDir' "test/deleteDirSpec/noPerms/testDir"
       getSymbolicLinkStatus "test/deleteDirSpec/testDir"
@@ -667,7 +675,7 @@ deleteDirSpec =
         (\e -> ioeGetErrorType e == UnsatisfiedConstraints)
 
     it "deleteDir, can't open parent directory" $ do
-      createDir'' "test/deleteDirSpec/noPerms/foo"
+      createDir' "test/deleteDirSpec/noPerms/foo"
       noPerms "test/deleteDirSpec/noPerms"
       (deleteDir' "test/deleteDirSpec/noPerms/foo"
         `shouldThrow`
@@ -676,7 +684,7 @@ deleteDirSpec =
         >> deleteDir' "test/deleteDirSpec/noPerms/foo"
 
     it "deleteDir, can't write to parent directory, still fine" $ do
-      createDir'' "test/deleteDirSpec/noWritable/foo"
+      createDir' "test/deleteDirSpec/noWritable/foo"
       noWritableDirPerms "test/deleteDirSpec/noWritable"
       (deleteDir' "test/deleteDirSpec/noWritable/foo"
         `shouldThrow`
@@ -691,24 +699,24 @@ deleteDirRecursiveSpec =
 
     -- successes --
     it "deleteDirRecursive, empty directory, all fine" $ do
-      createDir'' "test/deleteDirRecursiveSpec/testDir"
+      createDir' "test/deleteDirRecursiveSpec/testDir"
       deleteDirRecursive' "test/deleteDirRecursiveSpec/testDir"
       getSymbolicLinkStatus "test/deleteDirRecursiveSpec/testDir"
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "deleteDirRecursive, empty directory with null permissions, all fine" $ do
-      createDir'' "test/deleteDirRecursiveSpec/noPerms/testDir"
+      createDir' "test/deleteDirRecursiveSpec/noPerms/testDir"
       noPerms "test/deleteDirRecursiveSpec/noPerms/testDir"
       deleteDirRecursive' "test/deleteDirRecursiveSpec/noPerms/testDir"
 
     it "deleteDirRecursive, non-empty directory, all fine" $ do
-      createDir'' "test/deleteDirRecursiveSpec/nonEmpty"
-      createDir'' "test/deleteDirRecursiveSpec/nonEmpty/dir1"
-      createDir'' "test/deleteDirRecursiveSpec/nonEmpty/dir2"
-      createDir'' "test/deleteDirRecursiveSpec/nonEmpty/dir2/dir3"
-      createRegularFile'' "test/deleteDirRecursiveSpec/nonEmpty/file1"
-      createRegularFile'' "test/deleteDirRecursiveSpec/nonEmpty/dir1/file2"
+      createDir' "test/deleteDirRecursiveSpec/nonEmpty"
+      createDir' "test/deleteDirRecursiveSpec/nonEmpty/dir1"
+      createDir' "test/deleteDirRecursiveSpec/nonEmpty/dir2"
+      createDir' "test/deleteDirRecursiveSpec/nonEmpty/dir2/dir3"
+      createRegularFile' "test/deleteDirRecursiveSpec/nonEmpty/file1"
+      createRegularFile' "test/deleteDirRecursiveSpec/nonEmpty/dir1/file2"
       deleteDirRecursive' "test/deleteDirRecursiveSpec/nonEmpty"
       getSymbolicLinkStatus "test/deleteDirRecursiveSpec/nonEmpty"
         `shouldThrow`
@@ -716,7 +724,7 @@ deleteDirRecursiveSpec =
 
     -- posix failures --
     it "deleteDirRecursive, can't open parent directory" $ do
-      createDir'' "test/deleteDirRecursiveSpec/noPerms/foo"
+      createDir' "test/deleteDirRecursiveSpec/noPerms/foo"
       noPerms "test/deleteDirRecursiveSpec/noPerms"
       (deleteDirRecursive' "test/deleteDirRecursiveSpec/noPerms/foo"
         `shouldThrow`
@@ -725,7 +733,7 @@ deleteDirRecursiveSpec =
         >> deleteDir' "test/deleteDirRecursiveSpec/noPerms/foo"
 
     it "deleteDirRecursive, can't write to parent directory" $ do
-      createDir'' "test/deleteDirRecursiveSpec/noWritable/foo"
+      createDir' "test/deleteDirRecursiveSpec/noWritable/foo"
       noWritableDirPerms "test/deleteDirRecursiveSpec/noWritable"
       (deleteDirRecursive' "test/deleteDirRecursiveSpec/noWritable/foo"
         `shouldThrow`
@@ -758,108 +766,74 @@ deleteDirRecursiveSpec =
     -----------------
 
 
-copyFile'' :: ByteString -> ByteString -> IO a -> IO a
-copyFile'' inputFileP outputFileP before_cleanup = do
+withPwd :: ByteString -> (P.Path P.Abs -> IO a) -> IO a
+withPwd ip f = do
   pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  inputFile  <- (pwd P.</>) <$> P.parseRel inputFileP
-  outputFile <- (pwd P.</>) <$> P.parseRel outputFileP
-  copyFile inputFile outputFile
-  r <- before_cleanup
-  whenM (doesFileExist outputFile) (deleteFile outputFile)
-  return r
+  p <- (pwd P.</>) <$> P.parseRel ip
+  f p
+
+
+withPwd' :: ByteString
+         -> ByteString
+         -> (P.Path P.Abs -> P.Path P.Abs -> IO a)
+         -> IO a
+withPwd' ip1 ip2 f = do
+  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
+  p1 <- (pwd P.</>) <$> P.parseRel ip1
+  p2 <- (pwd P.</>) <$> P.parseRel ip2
+  f p1 p2
+
+
+removeFileIfExists :: ByteString -> IO ()
+removeFileIfExists bs =
+  withPwd bs $ \p -> whenM (doesFileExist p) (deleteFile p)
+
+
+removeDirIfExists :: ByteString -> IO ()
+removeDirIfExists bs =
+  withPwd bs $ \p -> whenM (doesDirectoryExist p) (deleteDirRecursive p)
 
 
 copyFile' :: ByteString -> ByteString -> IO ()
 copyFile' inputFileP outputFileP =
-  copyFile'' inputFileP outputFileP (return ())
-
-
-copyDirRecursive'' :: ByteString -> ByteString -> IO a -> IO a
-copyDirRecursive'' inputDirP outputDirP before_cleanup = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  inputDir  <- (pwd P.</>) <$> P.parseRel inputDirP
-  outputDir <- (pwd P.</>) <$> P.parseRel outputDirP
-  copyDirRecursive inputDir outputDir
-  r <- before_cleanup
-  whenM (doesDirectoryExist outputDir) (deleteDirRecursive outputDir)
-  return r
+  withPwd' inputFileP outputFileP copyFile
 
 
 copyDirRecursive' :: ByteString -> ByteString -> IO ()
 copyDirRecursive' inputDirP outputDirP =
-  copyDirRecursive'' inputDirP outputDirP (return ())
+  withPwd' inputDirP outputDirP copyDirRecursive
 
 
 createDir' :: ByteString -> IO ()
-createDir' dest = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  outputDir <- (pwd P.</>) <$> P.parseRel dest
-  createDir outputDir
-  whenM (doesDirectoryExist outputDir) (deleteDir outputDir)
-
-
-createDir'' :: ByteString -> IO ()
-createDir'' dest = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  outputDir <- (pwd P.</>) <$> P.parseRel dest
-  createDir outputDir
+createDir' dest = withPwd dest createDir
 
 
 createRegularFile' :: ByteString -> IO ()
-createRegularFile' dest = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  outputFile <- (pwd P.</>) <$> P.parseRel dest
-  createRegularFile outputFile
-  whenM (doesFileExist outputFile) (deleteFile outputFile)
-
-
-createRegularFile'' :: ByteString -> IO ()
-createRegularFile'' dest = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  outputFile <- (pwd P.</>) <$> P.parseRel dest
-  createRegularFile outputFile
+createRegularFile' dest = withPwd dest createRegularFile
 
 
 renameFile' :: ByteString -> ByteString -> IO ()
-renameFile' inputFileP outputFileP = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  inputFile  <- (pwd P.</>) <$> P.parseRel inputFileP
-  outputFile <- (pwd P.</>) <$> P.parseRel outputFileP
-  renameFile inputFile outputFile
-  renameFile outputFile inputFile
+renameFile' inputFileP outputFileP =
+  withPwd' inputFileP outputFileP $ \i o -> do
+    renameFile i o
+    renameFile o i
 
 
 moveFile' :: ByteString -> ByteString -> IO ()
-moveFile' inputFileP outputFileP = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  inputFile  <- (pwd P.</>) <$> P.parseRel inputFileP
-  outputFile <- (pwd P.</>) <$> P.parseRel outputFileP
-  moveFile inputFile outputFile
-  moveFile outputFile inputFile
+moveFile' inputFileP outputFileP =
+  withPwd' inputFileP outputFileP $ \i o -> do
+    moveFile i o
+    moveFile o i
 
 
 recreateSymlink' :: ByteString -> ByteString -> IO ()
-recreateSymlink' inputFileP outputFileP = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  inputFile  <- (pwd P.</>) <$> P.parseRel inputFileP
-  outputFile <- (pwd P.</>) <$> P.parseRel outputFileP
-  recreateSymlink inputFile outputFile
-  whenM (doesFileExist outputFile) (deleteFile outputFile)
-
-
-recreateSymlink'' :: ByteString -> ByteString -> IO ()
-recreateSymlink'' inputFileP outputFileP = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  inputFile  <- (pwd P.</>) <$> P.parseRel inputFileP
-  outputFile <- (pwd P.</>) <$> P.parseRel outputFileP
-  recreateSymlink inputFile outputFile
+recreateSymlink' inputFileP outputFileP =
+  withPwd' inputFileP outputFileP recreateSymlink
 
 
 noWritableDirPerms :: ByteString -> IO ()
-noWritableDirPerms path = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  file <- (pwd P.</>) <$> P.parseRel path
-  setFileMode (P.fromAbs file) perms
+noWritableDirPerms path = withPwd path $ \p ->
+  setFileMode (P.fromAbs p) perms
   where
     perms =            ownerReadMode
       `unionFileModes` ownerExecuteMode
@@ -870,49 +844,29 @@ noWritableDirPerms path = do
 
 
 noPerms :: ByteString -> IO ()
-noPerms path = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  file <- (pwd P.</>) <$> P.parseRel path
-  setFileMode (P.fromAbs file) nullFileMode
+noPerms path = withPwd path $ \p -> setFileMode (P.fromAbs p) nullFileMode
 
 
 normalDirPerms :: ByteString -> IO ()
-normalDirPerms path = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  file <- (pwd P.</>) <$> P.parseRel path
-  setFileMode (P.fromAbs file) newDirPerms
+normalDirPerms path =
+  withPwd path $ \p -> setFileMode (P.fromAbs p) newDirPerms
 
 
 getFileType' :: ByteString -> IO FileType
-getFileType' path = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  file <- (pwd P.</>) <$> P.parseRel path
-  getFileType file
+getFileType' path = withPwd path getFileType
 
 
 getDirsFiles' :: ByteString -> IO [P.Path P.Abs]
-getDirsFiles' path = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  file <- (pwd P.</>) <$> P.parseRel path
-  getDirsFiles file
+getDirsFiles' path = withPwd path getDirsFiles
 
 
 deleteFile' :: ByteString -> IO ()
-deleteFile' p = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  file <- (pwd P.</>) <$> P.parseRel p
-  deleteFile file
+deleteFile' p = withPwd p deleteFile
 
 
 deleteDir' :: ByteString -> IO ()
-deleteDir' p = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  dir <- (pwd P.</>) <$> P.parseRel p
-  deleteDir dir
+deleteDir' p = withPwd p deleteDir
 
 
 deleteDirRecursive' :: ByteString -> IO ()
-deleteDirRecursive' p = do
-  pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-  dir <- (pwd P.</>) <$> P.parseRel p
-  deleteDirRecursive dir
+deleteDirRecursive' p = withPwd p deleteDirRecursive
