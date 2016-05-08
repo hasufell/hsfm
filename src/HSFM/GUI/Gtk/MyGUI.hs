@@ -27,7 +27,7 @@ import Control.Concurrent.STM
     newTVarIO
   )
 import Graphics.UI.Gtk
-import HSFM.FileSystem.FileOperations
+import HSFM.FileSystem.UtilTypes
 import HSFM.GUI.Gtk.Data
 import Paths_hsfm
   (

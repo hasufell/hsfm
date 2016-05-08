@@ -18,6 +18,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 
@@ -667,6 +668,33 @@ moveFile from to = do
     easyCopy from to
     easyDelete from
 
+
+-- |Like `moveFile`, but overwrites the destination if it exists.
+--
+-- Does not follow symbolic links, but renames the symbolic link file.
+--
+-- Safety/reliability concerns:
+--
+--    * copy-delete fallback is inherently non-atomic
+--    * checks for destination file existence explicitly
+--
+-- Throws:
+--
+--     - `NoSuchThing` if source file does not exist
+--     - `PermissionDenied` if output directory cannot be written to
+--     - `PermissionDenied` if source directory cannot be opened
+--     - `SameFile` if destination and source are the same file (`FmIOException`)
+--
+-- Note: calls `rename` (but does not allow to rename over existing files)
+moveFileOverwrite :: Path Abs  -- ^ file to move
+                  -> Path Abs  -- ^ destination
+                  -> IO ()
+moveFileOverwrite from to = do
+  throwSameFile from to
+  exists <- (||) <$> doesFileExist to <*> doesDirectoryExist to
+  writable <- isWritable $ P.dirname to
+  when (exists && writable) (easyDelete to)
+  moveFile from to
 
 
 

@@ -67,6 +67,7 @@ executable hsfm-gtk
   other-modules:
                        HSFM.GUI.Glib.GlibString
                        HSFM.GUI.Gtk.Callbacks
+                       HSFM.GUI.Gtk.Callbacks.Utils
                        HSFM.GUI.Gtk.Data
                        HSFM.GUI.Gtk.Dialogs
                        HSFM.GUI.Gtk.Errors

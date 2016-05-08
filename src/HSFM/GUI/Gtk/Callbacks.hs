@@ -54,6 +54,8 @@ import HPath
 import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
+import HSFM.FileSystem.UtilTypes
+import HSFM.GUI.Gtk.Callbacks.Utils
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Dialogs
 import HSFM.GUI.Gtk.MyView
@@ -379,19 +381,14 @@ operationFinal mygui myview mitem = withErrorDialog $ do
       let cmsg = "Really move " ++ imsg s
                   ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
                   ++ "\"?"
-      withConfirmationDialog cmsg . withCopyModeDialog
-      -- TODO: cm ignored
-        $ \cm -> do
-             void $ runFileOp (FMove $ Move s cdir)
-             popStatusbar mygui
-             writeTVarIO (operationBuffer mygui) None
+      withConfirmationDialog cmsg $ doFileOperation (FMove $ Move s cdir)
+      popStatusbar mygui
+      writeTVarIO (operationBuffer mygui) None
     FCopy (PartialCopy s) -> do
       let cmsg = "Really copy " ++ imsg s
                  ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
                  ++ "\"?"
-      withConfirmationDialog cmsg . withCopyModeDialog
-      -- TODO: cm ignored
-        $ \cm -> void $ runFileOp (FCopy $ Copy s cdir)
+      withConfirmationDialog cmsg $ doFileOperation (FCopy $ Copy s cdir)
     _ -> return ()
   where
     imsg s = case s of
@@ -493,15 +490,6 @@ upDir mygui myview = withErrorDialog $ do
   cdir <- getCurrentDir myview
   nv <- goUp cdir
   goDir mygui myview nv
-
-
--- |Helper that is invoked for any directory change operations.
-goDir :: MyGUI -> MyView -> Item -> IO ()
-goDir mygui myview item = do
-  cdir <- getCurrentDir myview
-  modifyTVarIO (history myview)
-    (\(p, _) -> (path cdir `addHistory` p, []))
-  refreshView' mygui myview item
 
 
 -- |Go "back" in the history.

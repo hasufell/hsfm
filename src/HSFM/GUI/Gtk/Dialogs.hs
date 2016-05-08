@@ -23,8 +23,7 @@ module HSFM.GUI.Gtk.Dialogs where
 
 import Control.Exception
   (
-    catch
-  , displayException
+    displayException
   , throw
   , IOException
   , catches
@@ -63,6 +62,7 @@ import Graphics.UI.Gtk
 import qualified HPath as P
 import HSFM.FileSystem.Errors
 import HSFM.FileSystem.FileType
+import HSFM.FileSystem.UtilTypes
 import HSFM.GUI.Glib.GlibString()
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Errors
@@ -73,13 +73,7 @@ import Paths_hsfm
 
 
 
--- |Copy modes.
-data CopyMode = Strict  -- ^ fail if the target already exists
-              | Merge   -- ^ overwrite files if necessary, for files, this
-                        --   is the same as Replace
-              | Replace -- ^ remove targets before copying, this is
-                        --   only useful if the target is a directorty
-              | Rename (P.Path P.Fn)
+
 
 
 
@@ -117,27 +111,27 @@ showConfirmationDialog str = do
     _           -> return False
 
 
--- |Asks the user which directory copy mode he wants via dialog popup
--- and returns 'DirCopyMode'. Default is always Strict, so this allows
--- switching to Merge/Replace/Rename.
-showCopyModeDialog :: IO (Maybe CopyMode)
-showCopyModeDialog = do
+fileCollisionDialog :: String -> IO (Maybe FCollisonMode)
+fileCollisionDialog t = do
   chooserDialog <- messageDialogNew Nothing
                                     [DialogDestroyWithParent]
                                     MessageQuestion
                                     ButtonsNone
-                                    "Target exists, how to proceed?"
-  _ <- dialogAddButton chooserDialog "Cancel"  (ResponseUser 0)
-  _ <- dialogAddButton chooserDialog "Merge"   (ResponseUser 1)
-  _ <- dialogAddButton chooserDialog "Replace" (ResponseUser 2)
-  _ <- dialogAddButton chooserDialog "Rename"  (ResponseUser 3)
+                                    ("Target \"" ++ t ++
+                                     "\" exists, how to proceed?")
+  _ <- dialogAddButton chooserDialog "Cancel"        (ResponseUser 0)
+  _ <- dialogAddButton chooserDialog "Overwrite"     (ResponseUser 1)
+  _ <- dialogAddButton chooserDialog "Overwrite all" (ResponseUser 2)
+  _ <- dialogAddButton chooserDialog "Skip"          (ResponseUser 3)
+  _ <- dialogAddButton chooserDialog "Rename"        (ResponseUser 4)
   rID <- dialogRun chooserDialog
   widgetDestroy chooserDialog
   case rID of
     ResponseUser 0 -> return Nothing
-    ResponseUser 1 -> return (Just Merge)
-    ResponseUser 2 -> return (Just Replace)
-    ResponseUser 3 -> do
+    ResponseUser 1 -> return (Just Overwrite)
+    ResponseUser 2 -> return (Just OverwriteAll)
+    ResponseUser 3 -> return (Just Skip)
+    ResponseUser 4 -> do
       mfn   <- textInputDialog "Enter new name"
       forM mfn $ \fn -> do
         pfn <- P.parseFn (P.userStringToFP fn)
@@ -145,48 +139,28 @@ showCopyModeDialog = do
     _              -> throw  UnknownDialogButton
 
 
--- |Stipped version of `showCopyModeDialog` that only allows cancelling
--- or Renaming.
-showRenameDialog :: IO (Maybe CopyMode)
-showRenameDialog = do
+renameDialog :: String -> IO (Maybe FCollisonMode)
+renameDialog t = do
   chooserDialog <- messageDialogNew Nothing
                                     [DialogDestroyWithParent]
                                     MessageQuestion
                                     ButtonsNone
-                                    "Target exists, how to proceed?"
-  _ <- dialogAddButton chooserDialog "Cancel"  (ResponseUser 0)
-  _ <- dialogAddButton chooserDialog "Rename"  (ResponseUser 1)
+                                    ("Target \"" ++ t ++
+                                     "\" exists, how to proceed?")
+  _ <- dialogAddButton chooserDialog "Cancel"        (ResponseUser 0)
+  _ <- dialogAddButton chooserDialog "Skip"          (ResponseUser 1)
+  _ <- dialogAddButton chooserDialog "Rename"        (ResponseUser 2)
   rID <- dialogRun chooserDialog
   widgetDestroy chooserDialog
   case rID of
     ResponseUser 0 -> return Nothing
-    ResponseUser 1 -> do
+    ResponseUser 1 -> return (Just Skip)
+    ResponseUser 2 -> do
       mfn   <- textInputDialog "Enter new name"
       forM mfn $ \fn -> do
         pfn <- P.parseFn (P.userStringToFP fn)
         return $ Rename pfn
     _              -> throw  UnknownDialogButton
-
-
--- |Attempts to run the given function with the `Strict` copy mode.
--- If that raises a `FileDoesExist` or `DirDoesExist`, then it prompts
--- the user for action via `showCopyModeDialog` and then carries out
--- the given function again.
-withCopyModeDialog :: (CopyMode -> IO ()) -> IO ()
-withCopyModeDialog fa =
-  catch (fa Strict) $ \e ->
-    case e of
-      FileDoesExist _ -> doIt showCopyModeDialog
-      DirDoesExist  _ -> doIt showCopyModeDialog
-      SameFile _ _    -> doIt showRenameDialog
-      e'              -> throw e'
-  where
-    doIt getCm = do
-      mcm <- getCm
-      case mcm of
-        (Just Strict) -> return () -- don't try again
-        (Just cm)     -> fa cm
-        Nothing       -> return ()
 
 
 -- |Shows the about dialog from the help menu.

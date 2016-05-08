@@ -35,8 +35,8 @@ import HPath
     Abs
   , Path
   )
-import HSFM.FileSystem.FileOperations
 import HSFM.FileSystem.FileType
+import HSFM.FileSystem.UtilTypes
 import System.INotify
   (
     INotify
