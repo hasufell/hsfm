@@ -109,6 +109,13 @@ moveFile' inputFileP outputFileP =
     moveFile o i
 
 
+moveFileOverwrite' :: ByteString -> ByteString -> IO ()
+moveFileOverwrite' inputFileP outputFileP =
+  withPwd' inputFileP outputFileP $ \i o -> do
+    moveFileOverwrite i o
+    moveFile o i
+
+
 recreateSymlink' :: ByteString -> ByteString -> IO ()
 recreateSymlink' inputFileP outputFileP =
   withPwd' inputFileP outputFileP recreateSymlink

@@ -676,7 +676,7 @@ moveFile from to = do
 -- Safety/reliability concerns:
 --
 --    * copy-delete fallback is inherently non-atomic
---    * checks for destination file existence explicitly
+--    * checks for file types and destination file existence explicitly
 --
 -- Throws:
 --
@@ -691,9 +691,20 @@ moveFileOverwrite :: Path Abs  -- ^ file to move
                   -> IO ()
 moveFileOverwrite from to = do
   throwSameFile from to
-  exists <- (||) <$> doesFileExist to <*> doesDirectoryExist to
+  ft <- getFileType from
   writable <- isWritable $ P.dirname to
-  when (exists && writable) (easyDelete to)
+  case ft of
+    RegularFile -> do
+      exists <- doesFileExist to
+      when (exists && writable) (deleteFile to)
+    SymbolicLink -> do
+      exists <- doesFileExist to
+      when (exists && writable) (deleteFile to)
+    Directory -> do
+      exists <- doesDirectoryExist to
+      when (exists && writable) (deleteDir to)
+    _ -> ioError $ userError $ "Don't know how to handle filetype " ++
+                               show ft
   moveFile from to
 
 

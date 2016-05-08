@@ -14,6 +14,7 @@ import FileSystem.FileOperations.DeleteFileSpec
 import FileSystem.FileOperations.GetDirsFilesSpec
 import FileSystem.FileOperations.GetFileTypeSpec
 import FileSystem.FileOperations.MoveFileSpec
+import FileSystem.FileOperations.MoveFileOverwriteSpec
 import FileSystem.FileOperations.RecreateSymlinkSpec
 import FileSystem.FileOperations.RenameFileSpec
 import Utils
@@ -32,6 +33,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
               ,createRegularFileSpec
               ,renameFileSpec
               ,moveFileSpec
+              ,moveFileOverwriteSpec
               ,recreateSymlinkSpec
               ,deleteFileSpec
               ,deleteDirSpec
@@ -55,6 +57,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
                    ,"test/FileSystem/FileOperations/createRegularFileSpec/noWritePerms"
                    ,"test/FileSystem/FileOperations/renameFileSpec/noWritePerm"
                    ,"test/FileSystem/FileOperations/moveFileSpec/noWritePerm"
+                   ,"test/FileSystem/FileOperations/moveFileOverwriteSpec/noWritePerm"
                    ,"test/FileSystem/FileOperations/recreateSymlinkSpec/noWritePerm"
                    ]
     noPermsDirs =  ["test/FileSystem/FileOperations/copyFileSpec/noPerms"
@@ -65,6 +68,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
                    ,"test/FileSystem/FileOperations/createRegularFileSpec/noPerms"
                    ,"test/FileSystem/FileOperations/renameFileSpec/noPerms"
                    ,"test/FileSystem/FileOperations/moveFileSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/moveFileOverwriteSpec/noPerms"
                    ,"test/FileSystem/FileOperations/recreateSymlinkSpec/noPerms"
                    ,"test/FileSystem/FileOperations/getFileTypeSpec/noPerms"
                    ,"test/FileSystem/FileOperations/getDirsFilesSpec/noPerms"

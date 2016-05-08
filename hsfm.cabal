@@ -133,6 +133,7 @@ Test-Suite spec
                         FileSystem.FileOperations.GetDirsFilesSpec
                         FileSystem.FileOperations.GetFileTypeSpec
                         FileSystem.FileOperations.MoveFileSpec
+                        FileSystem.FileOperations.MoveFileOverwriteSpec
                         FileSystem.FileOperations.RecreateSymlinkSpec
                         FileSystem.FileOperations.RenameFileSpec
                         Utils
