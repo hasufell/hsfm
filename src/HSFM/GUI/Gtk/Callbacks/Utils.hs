@@ -46,17 +46,8 @@ import HSFM.Utils.IO
     modifyTVarIO
   )
 import Prelude hiding(readFile)
-import System.IO.Error
-  (
-    ioeGetErrorType
-  )
-import Control.Exception
-  (
-    catches
-  , throwIO
-  , IOException
-  , Handler(..)
-  )
+
+
 
 
 -- |Carries out a file operation with the appropriate error handling
@@ -83,21 +74,12 @@ _doFileOperation [] _ _ _ _ = return ()
 _doFileOperation (f:fs) to mcOverwrite mc rest = do
   toname <- P.basename f
   let topath = to P.</> toname
-  catches (mc f topath >> rest)
-          [iohandler topath, fmiohandler topath]
+  reactOnError (mc f topath >> rest)
+    [(AlreadyExists  , collisionAction fileCollisionDialog topath)]
+    [(FileDoesExist{}, collisionAction fileCollisionDialog topath)
+    ,(DirDoesExist{} , collisionAction fileCollisionDialog topath)
+    ,(SameFile{}     , collisionAction renameDialog topath)]
   where
-    iohandler topath =
-      Handler $ \ (ex :: IOException) ->
-                   if ioeGetErrorType ex == AlreadyExists
-                     then collisionAction fileCollisionDialog topath
-                     else throwIO ex
-    fmiohandler topath =
-      Handler $ \ (ex :: FmIOException) ->
-                   if isFileDoesExist ex || isDirDoesExist ex
-                     then collisionAction fileCollisionDialog topath
-                     else (if isSameFile ex
-                             then collisionAction renameDialog topath
-                             else throwIO ex)
     collisionAction diag topath = do
       mcm <- diag . P.fpToString . P.fromAbs $ topath
       forM_ mcm $ \cm -> case cm of

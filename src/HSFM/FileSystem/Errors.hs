@@ -17,6 +17,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 -- |Provides error handling.
@@ -26,18 +27,26 @@ module HSFM.FileSystem.Errors where
 import Control.Exception
 import Control.Monad
   (
-    when
-  , forM
+    forM
+  , when
   )
 import Data.ByteString
   (
     ByteString
+  )
+import Data.Data
+  (
+    Data(..)
   )
 import Data.Typeable
 import Foreign.C.Error
   (
     getErrno
   , Errno
+  )
+import GHC.IO.Exception
+  (
+    IOErrorType
   )
 import qualified HPath as P
 import HPath
@@ -49,6 +58,7 @@ import HSFM.Utils.IO
 import System.IO.Error
   (
     catchIOError
+  , ioeGetErrorType
   )
 
 import qualified System.Posix.Directory.ByteString as PFD
@@ -76,7 +86,7 @@ data FmIOException = FileDoesNotExist ByteString
                    | Can'tOpenDirectory ByteString
                    | CopyFailed String
                    | MoveFailed String
-  deriving (Typeable, Eq)
+  deriving (Typeable, Eq, Data)
 
 
 instance Show FmIOException where
@@ -304,3 +314,26 @@ bracketeer before after afterEx thing =
     r <- restore (thing a) `onException` afterEx a
     _ <- after a
     return r
+
+
+reactOnError :: IO a
+             -> [(IOErrorType, IO a)]   -- ^ reaction on IO errors
+             -> [(FmIOException, IO a)] -- ^ reaction on FmIOException
+             -> IO a
+reactOnError a ios fmios =
+  a `catches` [iohandler, fmiohandler]
+  where
+    iohandler = Handler $
+      \(ex :: IOException) ->
+         foldr (\(t, a') y -> if ioeGetErrorType ex == t
+                                then a'
+                                else y)
+               (throwIO ex)
+               ios
+    fmiohandler = Handler $
+      \(ex :: FmIOException) ->
+         foldr (\(t, a') y -> if toConstr ex == toConstr t
+                                then a'
+                                else y)
+               (throwIO ex)
+               fmios
