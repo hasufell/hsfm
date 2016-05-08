@@ -40,9 +40,16 @@ spec =
                 (specDir `ba` "outputFile")
       removeFileIfExists (specDir `ba` "outputFile")
 
-    it "copyFileOverwrite, output file already exists, all clear" $
+    it "copyFileOverwrite, output file already exists, all clear" $ do
+      copyFile' (specDir `ba` "alreadyExists") (specDir `ba` "alreadyExists.bak")
       copyFileOverwrite' (specDir `ba` "inputFile")
-                (specDir `ba` "alreadyExists")
+                         (specDir `ba` "alreadyExists")
+      (system $ "cmp -s " ++ specDir' ++ "inputFile" ++ " "
+                          ++ specDir' ++ "alreadyExists")
+        `shouldReturn` ExitSuccess
+      removeFileIfExists (specDir `ba` "alreadyExists")
+      copyFile' (specDir `ba` "alreadyExists.bak") (specDir `ba` "alreadyExists")
+      removeFileIfExists (specDir `ba` "alreadyExists.bak")
 
     it "copyFileOverwrite, and compare" $ do
       copyFileOverwrite' (specDir `ba` "inputFile")
