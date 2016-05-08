@@ -59,8 +59,6 @@ doFileOperation (FCopy (Copy (f':fs') to)) =
 doFileOperation (FMove (Move (f':fs') to)) =
   _doFileOperation (f':fs') to moveFileOverwrite moveFile
     $ doFileOperation (FMove $ Move fs' to)
-  where
-
 doFileOperation _ = return ()
 
 
