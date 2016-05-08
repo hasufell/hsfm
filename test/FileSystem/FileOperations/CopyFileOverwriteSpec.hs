@@ -4,6 +4,7 @@ module FileSystem.FileOperations.CopyFileOverwriteSpec where
 
 
 import Test.Hspec
+import HSFM.FileSystem.Errors
 import System.IO.Error
   (
     ioeGetErrorType
@@ -31,10 +32,6 @@ copyFileOverwriteSpec =
     it "copyFileOverwrite, output file already exists, all clear" $
       copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
                 "test/FileSystem/FileOperations/copyFileOverwriteSpec/alreadyExists"
-
-    it "copyFileOverwrite, output and input are same file" $
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
 
     it "copyFileOverwrite, and compare" $ do
       copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
@@ -87,3 +84,8 @@ copyFileOverwriteSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
+    -- custom failures --
+    it "copyFileOverwrite, output and input are same file" $
+      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
+                "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
+        `shouldThrow` isSameFile

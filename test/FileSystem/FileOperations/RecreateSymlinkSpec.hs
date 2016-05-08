@@ -4,6 +4,7 @@ module FileSystem.FileOperations.RecreateSymlinkSpec where
 
 
 import Test.Hspec
+import HSFM.FileSystem.Errors
 import System.IO.Error
   (
     ioeGetErrorType
@@ -73,9 +74,10 @@ recreateSymlinkSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 
+    -- custom failures --
     it "recreateSymLink, source and destination are the same file" $
       recreateSymlink' "test/FileSystem/FileOperations/recreateSymlinkSpec/myFileL"
                        "test/FileSystem/FileOperations/recreateSymlinkSpec/myFileL"
         `shouldThrow`
-        (\e -> ioeGetErrorType e == AlreadyExists)
+        isSameFile
 

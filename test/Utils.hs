@@ -82,6 +82,11 @@ copyDirRecursive' inputDirP outputDirP =
   withPwd' inputDirP outputDirP copyDirRecursive
 
 
+copyDirRecursiveOverwrite' :: ByteString -> ByteString -> IO ()
+copyDirRecursiveOverwrite' inputDirP outputDirP =
+  withPwd' inputDirP outputDirP copyDirRecursiveOverwrite
+
+
 createDir' :: ByteString -> IO ()
 createDir' dest = withPwd dest createDir
 

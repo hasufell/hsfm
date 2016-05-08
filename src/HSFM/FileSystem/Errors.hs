@@ -52,7 +52,11 @@ import System.IO.Error
   )
 
 import qualified System.Posix.Directory.ByteString as PFD
-import System.Posix.FilePath
+import System.Posix.Files.ByteString
+  (
+    fileAccess
+  , getFileStatus
+  )
 import qualified System.Posix.Files.ByteString as PF
 
 
@@ -156,18 +160,28 @@ throwDirDoesNotExist fp =
                                          . P.fromAbs $ fp)
 
 
-throwSameFile :: Path Abs -- ^ will be canonicalized
-              -> Path Abs -- ^ will be canonicalized
+-- |Uses `isSameFile` and throws `SameFile` if it returns True.
+throwSameFile :: Path Abs
+              -> Path Abs
               -> IO ()
-throwSameFile fp1 fp2 = do
-  fp1' <- fmap P.fromAbs $ P.canonicalizePath fp1
-  -- TODO: clean this up... if canonicalizing fp2 fails we try to
-  --       canonicalize `dirname fp2`
-  fp2' <- catchIOError (fmap P.fromAbs $ P.canonicalizePath fp2)
-                       (\_ -> fmap P.fromAbs
-                       $ (\x -> maybe x (\y -> x P.</> y) $ P.basename fp2)
-                                <$> (P.canonicalizePath $ P.dirname fp2))
-  when (equalFilePath fp1' fp2') (throw $ SameFile fp1' fp2')
+throwSameFile fp1 fp2 =
+  whenM (sameFile fp1 fp2)
+        (throw $ SameFile (P.fromAbs fp1) (P.fromAbs fp2))
+
+
+-- |Check if the files are the same by examining device and file id.
+-- This follows symbolic links.
+sameFile :: Path Abs -> Path Abs -> IO Bool
+sameFile fp1 fp2 =
+  P.withAbsPath fp1 $ \fp1' -> P.withAbsPath fp2 $ \fp2' ->
+    handleIOError (\_ -> return False) $ do
+      fs1 <- getFileStatus fp1'
+      fs2 <- getFileStatus fp2'
+
+      if ((PF.deviceID fs1, PF.fileID fs1) ==
+          (PF.deviceID fs2, PF.fileID fs2))
+        then return True
+        else return False
 
 
 -- |Checks whether the destination directory is contained
@@ -179,14 +193,13 @@ throwDestinationInSource :: Path Abs -- ^ source dir
                                      --   must exist
                          -> IO ()
 throwDestinationInSource source dest = do
-  source' <- P.canonicalizePath source
   dest'   <- (\x -> maybe x (\y -> x P.</> y) $ P.basename dest)
              <$> (P.canonicalizePath $ P.dirname dest)
   dids <- forM (P.getAllParents dest') $ \p -> do
           fs <- PF.getSymbolicLinkStatus (P.fromAbs p)
           return (PF.deviceID fs, PF.fileID fs)
   sid <- fmap (\x -> (PF.deviceID x, PF.fileID x))
-              $ PF.getSymbolicLinkStatus (P.fromAbs source')
+              $ PF.getFileStatus (P.fromAbs source)
   when (elem sid dids)
        (throw $ DestinationInSource (P.fromAbs dest)
                                     (P.fromAbs source))
@@ -208,6 +221,13 @@ doesDirectoryExist fp =
   handleIOError (\_ -> return False) $ do
     fs  <- PF.getSymbolicLinkStatus (P.fromAbs fp)
     return $ PF.isDirectory fs
+
+
+-- |Checks whether a file or folder is writable.
+isWritable :: Path Abs -> IO Bool
+isWritable fp =
+  handleIOError (\_ -> return False) $
+    fileAccess (P.fromAbs fp) False True False
 
 
 -- |Checks whether the directory at the given path exists and can be

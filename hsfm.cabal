@@ -27,6 +27,7 @@ library
                        HSFM.FileSystem.Errors
                        HSFM.FileSystem.FileOperations
                        HSFM.FileSystem.FileType
+                       HSFM.FileSystem.UtilTypes
                        HSFM.Utils.IO
                        HSFM.Utils.MyPrelude
 
@@ -120,7 +121,9 @@ Test-Suite spec
   Main-Is:              Spec.hs
   other-modules:
                         FileSystem.FileOperations.CopyDirRecursiveSpec
+                        FileSystem.FileOperations.CopyDirRecursiveOverwriteSpec
                         FileSystem.FileOperations.CopyFileSpec
+                        FileSystem.FileOperations.CopyFileOverwriteSpec
                         FileSystem.FileOperations.CreateDirSpec
                         FileSystem.FileOperations.CreateRegularFileSpec
                         FileSystem.FileOperations.DeleteDirRecursiveSpec

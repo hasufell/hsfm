@@ -4,6 +4,7 @@ module FileSystem.FileOperations.CopyFileSpec where
 
 
 import Test.Hspec
+import HSFM.FileSystem.Errors
 import System.IO.Error
   (
     ioeGetErrorType
@@ -73,12 +74,6 @@ copyFileSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
-    it "copyFile, output and input are same file" $
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileSpec/inputFile"
-        `shouldThrow`
-        (\e -> ioeGetErrorType e == AlreadyExists)
-
     it "copyFile, output file already exists" $
       copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFile"
                 "test/FileSystem/FileOperations/copyFileSpec/alreadyExists"
@@ -91,3 +86,9 @@ copyFileSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 
+    -- custom failures --
+    it "copyFile, output and input are same file" $
+      copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFile"
+                "test/FileSystem/FileOperations/copyFileSpec/inputFile"
+        `shouldThrow`
+        isSameFile

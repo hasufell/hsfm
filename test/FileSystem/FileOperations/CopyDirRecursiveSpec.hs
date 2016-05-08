@@ -75,12 +75,6 @@ copyDirRecursiveSpec =
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 
-    it "copyDirRecursive, destination and source same directory" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
-        `shouldThrow`
-        (\e -> ioeGetErrorType e == AlreadyExists)
-
     it "copyDirRecursive, wrong input (regular file)" $
       copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/wrongInput"
                         "test/FileSystem/FileOperations/copyDirRecursiveSpec/outputDir"
@@ -100,3 +94,8 @@ copyDirRecursiveSpec =
         `shouldThrow`
         isDestinationInSource
 
+    it "copyDirRecursive, destination and source same directory" $
+      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
+                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
+        `shouldThrow`
+        isSameFile

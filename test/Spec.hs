@@ -3,6 +3,7 @@
 import Test.Hspec
 
 import FileSystem.FileOperations.CopyDirRecursiveSpec
+import FileSystem.FileOperations.CopyDirRecursiveOverwriteSpec
 import FileSystem.FileOperations.CopyFileOverwriteSpec
 import FileSystem.FileOperations.CopyFileSpec
 import FileSystem.FileOperations.CreateDirSpec
@@ -26,6 +27,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
   let tests = [copyFileSpec
               ,copyFileOverwriteSpec
               ,copyDirRecursiveSpec
+              ,copyDirRecursiveOverwriteSpec
               ,createDirSpec
               ,createRegularFileSpec
               ,renameFileSpec
@@ -48,6 +50,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
     noWriteDirs =  ["test/FileSystem/FileOperations/copyFileSpec/outputDirNoWrite"
                    ,"test/FileSystem/FileOperations/copyFileOverwriteSpec/outputDirNoWrite"
                    ,"test/FileSystem/FileOperations/copyDirRecursiveSpec/noWritePerm"
+                   ,"test/FileSystem/FileOperations/copyDirRecursiveOverwriteSpec/noWritePerm"
                    ,"test/FileSystem/FileOperations/createDirSpec/noWritePerms"
                    ,"test/FileSystem/FileOperations/createRegularFileSpec/noWritePerms"
                    ,"test/FileSystem/FileOperations/renameFileSpec/noWritePerm"
@@ -57,6 +60,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
     noPermsDirs =  ["test/FileSystem/FileOperations/copyFileSpec/noPerms"
                    ,"test/FileSystem/FileOperations/copyFileOverwriteSpec/noPerms"
                    ,"test/FileSystem/FileOperations/copyDirRecursiveSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/copyDirRecursiveOverwriteSpec/noPerms"
                    ,"test/FileSystem/FileOperations/createDirSpec/noPerms"
                    ,"test/FileSystem/FileOperations/createRegularFileSpec/noPerms"
                    ,"test/FileSystem/FileOperations/renameFileSpec/noPerms"

@@ -49,8 +49,7 @@ import Control.Exception
   )
 import Control.Monad
   (
-    forM_
-  , void
+    void
   , when
   )
 import Data.ByteString
@@ -89,6 +88,10 @@ import Foreign.Ptr
   (
     Ptr
   )
+import GHC.IO.Exception
+  (
+    IOErrorType(..)
+  )
 import HPath
   (
     Path
@@ -97,7 +100,13 @@ import HPath
   )
 import qualified HPath as P
 import HSFM.FileSystem.Errors
+import HSFM.Utils.IO
 import Prelude hiding (readFile)
+import System.IO.Error
+  (
+    catchIOError
+  , ioeGetErrorType
+  )
 import System.Posix.ByteString
   (
     exclusive
@@ -128,6 +137,7 @@ import System.Posix.Files.ByteString
   , readSymbolicLink
   , removeLink
   , rename
+  , setFileMode
   , unionFileModes
   )
 import qualified System.Posix.Files.ByteString as PF
@@ -150,33 +160,10 @@ import System.Posix.Types
 
 
 
--- TODO: file operations should be threaded and not block the UI
 -- TODO: make sure we do the right thing for BlockDev, CharDev etc...
 --       most operations are not implemented for these
--- TODO: say which low-level syscalls are involved
 
 
--- |Data type describing an actual file operation that can be
--- carried out via `runFileOp`. Useful to build up a list of operations
--- or delay operations.
-data FileOperation = FCopy    Copy
-                   | FMove    Move
-                   | FDelete  [Path Abs]
-                   | FOpen    (Path Abs)
-                   | FExecute (Path Abs) [ByteString]
-                   | None
-
-
--- |Data type describing partial or complete file copy operation.
--- CC stands for a complete operation and can be used for `runFileOp`.
-data Copy = PartialCopy [Path Abs]
-          | Copy        [Path Abs] (Path Abs)
-
-
--- |Data type describing partial or complete file move operation.
--- MC stands for a complete operation and can be used for `runFileOp`.
-data Move = PartialMove [Path Abs]
-          | Move        [Path Abs] (Path Abs)
 
 
 data FileType = Directory
@@ -189,33 +176,6 @@ data FileType = Directory
   deriving (Eq, Show)
 
 
-
--- |Run a given FileOperation. If the FileOperation is partial, it will
--- be returned. Returns `Nothing` on success.
---
--- Since file operations can be delayed, this is `Path Abs` based, not
--- `File` based. This makes sure we don't have stale
--- file information.
-runFileOp :: FileOperation -> IO (Maybe FileOperation)
-runFileOp fo' =
-  case fo' of
-    (FCopy (Copy froms to)) -> do
-      forM_ froms $ \x -> do
-        toname <- P.basename x
-        easyCopy x (to P.</> toname)
-      return Nothing
-    (FCopy fo) -> return $ Just $ FCopy fo
-    (FMove (Move froms to)) -> do
-      forM_ froms $ \x -> do
-        toname <- P.basename x
-        moveFile x (to P.</> toname)
-      return Nothing
-    (FMove fo) -> return $ Just $ FMove fo
-    (FDelete fps) ->
-      mapM_ easyDelete fps >> return Nothing
-    (FOpen fp) -> openFile fp >> return Nothing
-    (FExecute fp args) -> executeFile fp args >> return Nothing
-    _ -> return Nothing
 
 
 
@@ -244,15 +204,16 @@ runFileOp fo' =
 --    - `PermissionDenied` if source directory can't be opened
 --    - `InvalidArgument` if source directory is wrong type (symlink)
 --    - `InvalidArgument` if source directory is wrong type (regular file)
---    - `AlreadyExists` if source and destination are the same directory
+--    - `SameFile` if source and destination are the same file (`FmIOException`)
 --    - `AlreadyExists` if destination already exists
---    - `DestinationInSource` if destination is contained in source
+--    - `DestinationInSource` if destination is contained in source (`FmIOException`)
 copyDirRecursive :: Path Abs  -- ^ source dir
                  -> Path Abs  -- ^ full destination
                  -> IO ()
 copyDirRecursive fromp destdirp
   = do
     -- for performance, sanity checks are only done for the top dir
+    throwSameFile fromp destdirp
     throwDestinationInSource fromp destdirp
     go fromp destdirp
   where
@@ -275,6 +236,51 @@ copyDirRecursive fromp destdirp
           _            -> ioError $ userError $ "No idea what to do with the" ++
                                                 "given filetype: " ++ show ftype
 
+-- |Like `copyDirRecursive` except it overwrites contents of directories
+-- if any.
+--
+-- Throws:
+--
+--    - `NoSuchThing` if source directory does not exist
+--    - `PermissionDenied` if output directory is not writable
+--    - `PermissionDenied` if source directory can't be opened
+--    - `InvalidArgument` if source directory is wrong type (symlink)
+--    - `InvalidArgument` if source directory is wrong type (regular file)
+--    - `SameFile` if source and destination are the same file (`FmIOException`)
+--    - `DestinationInSource` if destination is contained in source (`FmIOException`)
+copyDirRecursiveOverwrite :: Path Abs  -- ^ source dir
+                          -> Path Abs  -- ^ full destination
+                          -> IO ()
+copyDirRecursiveOverwrite fromp destdirp
+  = do
+    -- for performance, sanity checks are only done for the top dir
+    throwSameFile fromp destdirp
+    throwDestinationInSource fromp destdirp
+    go fromp destdirp
+  where
+    go :: Path Abs -> Path Abs -> IO ()
+    go fromp' destdirp' = do
+      -- order is important here, so we don't get empty directories
+      -- on failure
+      contents <- getDirsFiles fromp'
+
+      fmode' <- PF.fileMode <$> PF.getSymbolicLinkStatus (P.fromAbs fromp')
+      catchIOError (createDirectory (P.fromAbs destdirp') fmode') $ \e ->
+        case ioeGetErrorType e of
+          AlreadyExists -> setFileMode (P.fromAbs destdirp') fmode'
+          _             -> ioError e
+
+      for_ contents $ \f -> do
+        ftype <- getFileType f
+        newdest <- (destdirp' P.</>) <$> P.basename f
+        case ftype of
+          SymbolicLink -> whenM (doesFileExist newdest) (deleteFile newdest)
+                          >> recreateSymlink f newdest
+          Directory    -> go f newdest
+          RegularFile  -> copyFileOverwrite f newdest
+          _            -> ioError $ userError $ "No idea what to do with the" ++
+                                                "given filetype: " ++ show ftype
+
 
 -- |Recreate a symlink.
 --
@@ -285,7 +291,7 @@ copyDirRecursive fromp destdirp
 --    - `PermissionDenied` if output directory cannot be written to
 --    - `PermissionDenied` if source directory cannot be opened
 --    - `AlreadyExists` if destination file already exists
---    - `AlreadyExists` if destination and source are the same file
+--    - `SameFile` if source and destination are the same file (`FmIOException`)
 --
 -- Note: calls `symlink`
 recreateSymlink :: Path Abs  -- ^ the old symlink file
@@ -293,11 +299,12 @@ recreateSymlink :: Path Abs  -- ^ the old symlink file
                 -> IO ()
 recreateSymlink symsource newsym
   = do
+    throwSameFile symsource newsym
     sympoint <- readSymbolicLink (P.fromAbs symsource)
     createSymbolicLink sympoint (P.fromAbs newsym)
 
 
--- |Copies the given regular file to the given dir with the given filename.
+-- |Copies the given regular file to the given destination.
 -- Neither follows symbolic links, nor accepts them.
 -- For "copying" symbolic links, use `recreateSymlink` instead.
 --
@@ -308,18 +315,28 @@ recreateSymlink symsource newsym
 --    - `PermissionDenied` if source directory can't be opened
 --    - `InvalidArgument` if source file is wrong type (symlink)
 --    - `InvalidArgument` if source file is wrong type (directory)
---    - `AlreadyExists` if source and destination are the same file
+--    - `SameFile` if source and destination are the same file (`FmIOException`)
 --    - `AlreadyExists` if destination already exists
 --
 -- Note: calls `sendfile`
 copyFile :: Path Abs  -- ^ source file
          -> Path Abs  -- ^ destination file
          -> IO ()
-copyFile from to = _copyFile SPI.defaultFileFlags { exclusive = True } from to
+copyFile from to = do
+  throwSameFile from to
+  _copyFile [SPDF.oNofollow]
+            [SPDF.oNofollow, SPDF.oExcl]
+            from to
 
 
--- |Like `copyFile` except it overwrites the destination if it already exists.
+-- |Like `copyFile` except it overwrites the destination if it already
+-- exists.
 -- This also works if source and destination are the same file.
+--
+-- Safety/reliability concerns:
+--
+--    * not atomic
+--    * falls back to delete-copy method with explicit checks
 --
 -- Throws:
 --
@@ -328,19 +345,35 @@ copyFile from to = _copyFile SPI.defaultFileFlags { exclusive = True } from to
 --    - `PermissionDenied` if source directory can't be opened
 --    - `InvalidArgument` if source file is wrong type (symlink)
 --    - `InvalidArgument` if source file is wrong type (directory)
+--    - `SameFile` if source and destination are the same file (`FmIOException`)
 --
 -- Note: calls `sendfile`
 copyFileOverwrite :: Path Abs  -- ^ source file
                   -> Path Abs  -- ^ destination file
                   -> IO ()
-copyFileOverwrite from to = _copyFile SPI.defaultFileFlags { exclusive = False } from to
+copyFileOverwrite from to = do
+  throwSameFile from to
+  catchIOError (_copyFile [SPDF.oNofollow]
+                          [SPDF.oNofollow, SPDF.oTrunc]
+                          from to) $ \e ->
+    case ioeGetErrorType e of
+      -- if the destination file is not writable, we need to
+      -- figure out if we can still copy by deleting it first
+      PermissionDenied -> do
+        exists   <- doesFileExist to
+        writable <- isWritable (P.dirname to)
+        if exists && writable
+          then deleteFile to >> copyFile from to
+          else ioError e
+      _ -> ioError e
 
 
-_copyFile :: SPI.OpenFileFlags
+_copyFile :: [SPDF.Flags]
+          -> [SPDF.Flags]
           -> Path Abs  -- ^ source file
           -> Path Abs  -- ^ destination file
           -> IO ()
-_copyFile off from to
+_copyFile sflags dflags from to
   =
     -- from sendfile(2) manpage:
     --   Applications  may  wish  to  fall back to read(2)/write(2) in the case
@@ -352,24 +385,26 @@ _copyFile off from to
   where
     -- this is low-level stuff utilizing sendfile(2) for speed
     sendFileCopy source dest =
-      bracket (SPDT.openFd source SPI.ReadOnly [SPDF.oNofollow] Nothing)
+      bracket (SPDT.openFd source SPI.ReadOnly sflags Nothing)
               SPI.closeFd
               $ \sfd -> do
                 fileM <- System.Posix.Files.ByteString.fileMode
                          <$> getFdStatus sfd
-                bracketeer (SPI.openFd dest SPI.WriteOnly (Just fileM) off)
+                bracketeer (SPDT.openFd dest SPI.WriteOnly
+                             dflags $ Just fileM)
                            SPI.closeFd
                            (\fd -> SPI.closeFd fd >> deleteFile to)
                            $ \dfd -> sendfileFd dfd sfd EntireFile
     -- low-level copy operation utilizing read(2)/write(2)
     -- in case `sendFileCopy` fails/is unsupported
     fallbackCopy source dest =
-      bracket (SPDT.openFd source SPI.ReadOnly [SPDF.oNofollow] Nothing)
+      bracket (SPDT.openFd source SPI.ReadOnly sflags Nothing)
               SPI.closeFd
               $ \sfd -> do
                 fileM <- System.Posix.Files.ByteString.fileMode
                          <$> getFdStatus sfd
-                bracketeer (SPI.openFd dest SPI.WriteOnly (Just fileM) off)
+                bracketeer (SPDT.openFd dest SPI.WriteOnly
+                             dflags $ Just fileM)
                            SPI.closeFd
                            (\fd -> SPI.closeFd fd >> deleteFile to)
                             $ \dfd -> allocaBytes (fromIntegral bufSize) $ \buf ->
@@ -404,6 +439,23 @@ easyCopy from to = do
        SymbolicLink -> recreateSymlink from to
        RegularFile  -> copyFile from to
        Directory    -> copyDirRecursive from to
+       _            -> ioError $ userError $ "No idea what to do with the" ++
+                                             "given filetype: " ++ show ftype
+
+
+-- |Like `easyCopy` except it overwrites the destination if it already exists.
+-- For directories, this overwrites contents without pruning them, so the resulting
+-- directory may have more files than have been copied.
+easyCopyOverwrite :: Path Abs
+                  -> Path Abs
+                  -> IO ()
+easyCopyOverwrite from to = do
+  ftype <- getFileType from
+  case ftype of
+       SymbolicLink -> whenM (doesFileExist to) (deleteFile to)
+                       >> recreateSymlink from to
+       RegularFile  -> copyFileOverwrite from to
+       Directory    -> copyDirRecursiveOverwrite from to
        _            -> ioError $ userError $ "No idea what to do with the" ++
                                              "given filetype: " ++ show ftype
 
@@ -576,7 +628,7 @@ createDir dest = createDirectory (P.fromAbs dest) newDirPerms
 --     - `UnsupportedOperation` if source and destination are on different devices
 --     - `FileDoesExist` if destination file already exists
 --     - `DirDoesExist` if destination directory already exists
---     - `SameFile` if destination and source are the same file
+--     - `SameFile` if destination and source are the same file (`FmIOException`)
 --
 -- Note: calls `rename` (but does not allow to rename over existing files)
 renameFile :: Path Abs -> Path Abs -> IO ()
@@ -603,13 +655,14 @@ renameFile fromf tof = do
 --     - `PermissionDenied` if source directory cannot be opened
 --     - `FileDoesExist` if destination file already exists
 --     - `DirDoesExist` if destination directory already exists
---     - `SameFile` if destination and source are the same file
+--     - `SameFile` if destination and source are the same file (`FmIOException`)
 --
 -- Note: calls `rename` (but does not allow to rename over existing files)
 moveFile :: Path Abs  -- ^ file to move
          -> Path Abs  -- ^ destination
          -> IO ()
-moveFile from to =
+moveFile from to = do
+  throwSameFile from to
   catchErrno [eXDEV] (renameFile from to) $ do
     easyCopy from to
     easyDelete from
