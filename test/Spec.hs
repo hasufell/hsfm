@@ -3,6 +3,7 @@
 import Test.Hspec
 
 import FileSystem.FileOperations.CopyDirRecursiveSpec
+import FileSystem.FileOperations.CopyFileOverwriteSpec
 import FileSystem.FileOperations.CopyFileSpec
 import FileSystem.FileOperations.CreateDirSpec
 import FileSystem.FileOperations.CreateRegularFileSpec
@@ -23,15 +24,16 @@ import Utils
 main :: IO ()
 main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
   let tests = [copyFileSpec
-              , copyDirRecursiveSpec
-              , createDirSpec
-              , createRegularFileSpec
-              , renameFileSpec
-              , moveFileSpec
-              , recreateSymlinkSpec
-              , deleteFileSpec
-              , deleteDirSpec
-              , deleteDirRecursiveSpec
+              ,copyFileOverwriteSpec
+              ,copyDirRecursiveSpec
+              ,createDirSpec
+              ,createRegularFileSpec
+              ,renameFileSpec
+              ,moveFileSpec
+              ,recreateSymlinkSpec
+              ,deleteFileSpec
+              ,deleteDirSpec
+              ,deleteDirRecursiveSpec
               ]
 
   -- run all stateful tests twice to catch missing cleanups or state skew
@@ -44,6 +46,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
 
   where
     noWriteDirs =  ["test/FileSystem/FileOperations/copyFileSpec/outputDirNoWrite"
+                   ,"test/FileSystem/FileOperations/copyFileOverwriteSpec/outputDirNoWrite"
                    ,"test/FileSystem/FileOperations/copyDirRecursiveSpec/noWritePerm"
                    ,"test/FileSystem/FileOperations/createDirSpec/noWritePerms"
                    ,"test/FileSystem/FileOperations/createRegularFileSpec/noWritePerms"
@@ -52,6 +55,7 @@ main = hspec $ before_ fixPermissions $ after_ revertPermissions $ do
                    ,"test/FileSystem/FileOperations/recreateSymlinkSpec/noWritePerm"
                    ]
     noPermsDirs =  ["test/FileSystem/FileOperations/copyFileSpec/noPerms"
+                   ,"test/FileSystem/FileOperations/copyFileOverwriteSpec/noPerms"
                    ,"test/FileSystem/FileOperations/copyDirRecursiveSpec/noPerms"
                    ,"test/FileSystem/FileOperations/createDirSpec/noPerms"
                    ,"test/FileSystem/FileOperations/createRegularFileSpec/noPerms"

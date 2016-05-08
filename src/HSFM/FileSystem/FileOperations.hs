@@ -315,7 +315,32 @@ recreateSymlink symsource newsym
 copyFile :: Path Abs  -- ^ source file
          -> Path Abs  -- ^ destination file
          -> IO ()
-copyFile from to
+copyFile from to = _copyFile SPI.defaultFileFlags { exclusive = True } from to
+
+
+-- |Like `copyFile` except it overwrites the destination if it already exists.
+-- This also works if source and destination are the same file.
+--
+-- Throws:
+--
+--    - `NoSuchThing` if source file does not exist
+--    - `PermissionDenied` if output directory is not writable
+--    - `PermissionDenied` if source directory can't be opened
+--    - `InvalidArgument` if source file is wrong type (symlink)
+--    - `InvalidArgument` if source file is wrong type (directory)
+--
+-- Note: calls `sendfile`
+copyFileOverwrite :: Path Abs  -- ^ source file
+                  -> Path Abs  -- ^ destination file
+                  -> IO ()
+copyFileOverwrite from to = _copyFile SPI.defaultFileFlags { exclusive = False } from to
+
+
+_copyFile :: SPI.OpenFileFlags
+          -> Path Abs  -- ^ source file
+          -> Path Abs  -- ^ destination file
+          -> IO ()
+_copyFile off from to
   =
     -- from sendfile(2) manpage:
     --   Applications  may  wish  to  fall back to read(2)/write(2) in the case
@@ -332,8 +357,7 @@ copyFile from to
               $ \sfd -> do
                 fileM <- System.Posix.Files.ByteString.fileMode
                          <$> getFdStatus sfd
-                bracketeer (SPI.openFd dest SPI.WriteOnly (Just fileM)
-                                    SPI.defaultFileFlags { exclusive = True })
+                bracketeer (SPI.openFd dest SPI.WriteOnly (Just fileM) off)
                            SPI.closeFd
                            (\fd -> SPI.closeFd fd >> deleteFile to)
                            $ \dfd -> sendfileFd dfd sfd EntireFile
@@ -345,8 +369,7 @@ copyFile from to
               $ \sfd -> do
                 fileM <- System.Posix.Files.ByteString.fileMode
                          <$> getFdStatus sfd
-                bracketeer (SPI.openFd dest SPI.WriteOnly (Just fileM)
-                                    SPI.defaultFileFlags { exclusive = True })
+                bracketeer (SPI.openFd dest SPI.WriteOnly (Just fileM) off)
                            SPI.closeFd
                            (\fd -> SPI.closeFd fd >> deleteFile to)
                             $ \dfd -> allocaBytes (fromIntegral bufSize) $ \buf ->
@@ -360,6 +383,7 @@ copyFile from to
             if size == 0
               then return $ fromIntegral totalsize
               else do rsize <- SPB.fdWriteBuf dfd buf size
+                      -- TODO: switch to IOError?
                       when (rsize /= size) (throw . CopyFailed $ "wrong size!")
                       write' sfd dfd buf (totalsize + fromIntegral size)
 

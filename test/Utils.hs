@@ -72,6 +72,11 @@ copyFile' inputFileP outputFileP =
   withPwd' inputFileP outputFileP copyFile
 
 
+copyFileOverwrite' :: ByteString -> ByteString -> IO ()
+copyFileOverwrite' inputFileP outputFileP =
+  withPwd' inputFileP outputFileP copyFileOverwrite
+
+
 copyDirRecursive' :: ByteString -> ByteString -> IO ()
 copyDirRecursive' inputDirP outputDirP =
   withPwd' inputDirP outputDirP copyDirRecursive
