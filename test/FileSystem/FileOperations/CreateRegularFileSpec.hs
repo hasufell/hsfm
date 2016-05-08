@@ -13,6 +13,18 @@ import GHC.IO.Exception
     IOErrorType(..)
   )
 import Utils
+import qualified Data.ByteString as BS
+import           Data.ByteString.UTF8 (toString)
+
+
+ba :: BS.ByteString -> BS.ByteString -> BS.ByteString
+ba = BS.append
+
+specDir :: BS.ByteString
+specDir = "test/FileSystem/FileOperations/createRegularFileSpec/"
+
+specDir' :: String
+specDir' = toString specDir
 
 
 spec :: Spec
@@ -21,22 +33,22 @@ spec =
 
     -- successes --
     it "createRegularFile, all fine" $ do
-      createRegularFile' "test/FileSystem/FileOperations/createRegularFileSpec/newDir"
-      removeFileIfExists "test/FileSystem/FileOperations/createRegularFileSpec/newDir"
+      createRegularFile' (specDir `ba` "newDir")
+      removeFileIfExists (specDir `ba` "newDir")
 
     -- posix failures --
     it "createRegularFile, can't write to destination directory" $
-      createRegularFile' "test/FileSystem/FileOperations/createRegularFileSpec/noWritePerms/newDir"
+      createRegularFile' (specDir `ba` "noWritePerms/newDir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "createRegularFile, can't write to destination directory" $
-      createRegularFile' "test/FileSystem/FileOperations/createRegularFileSpec/noPerms/newDir"
+      createRegularFile' (specDir `ba` "noPerms/newDir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "createRegularFile, destination file already exists" $
-      createRegularFile' "test/FileSystem/FileOperations/createRegularFileSpec/alreadyExists"
+      createRegularFile' (specDir `ba` "alreadyExists")
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 

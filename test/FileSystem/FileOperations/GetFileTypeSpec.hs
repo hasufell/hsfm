@@ -14,7 +14,18 @@ import GHC.IO.Exception
     IOErrorType(..)
   )
 import Utils
+import qualified Data.ByteString as BS
+import           Data.ByteString.UTF8 (toString)
 
+
+ba :: BS.ByteString -> BS.ByteString -> BS.ByteString
+ba = BS.append
+
+specDir :: BS.ByteString
+specDir = "test/FileSystem/FileOperations/getFileTypeSpec/"
+
+specDir' :: String
+specDir' = toString specDir
 
 
 spec :: Spec
@@ -23,37 +34,37 @@ spec =
 
     -- successes --
     it "getFileType, regular file" $
-      getFileType' "test/FileSystem/FileOperations/getFileTypeSpec/regularfile"
+      getFileType' (specDir `ba` "regularfile")
         `shouldReturn` RegularFile
 
     it "getFileType, directory" $
-      getFileType' "test/FileSystem/FileOperations/getFileTypeSpec/directory"
+      getFileType' (specDir `ba` "directory")
         `shouldReturn` Directory
 
     it "getFileType, directory with null permissions" $
-      getFileType' "test/FileSystem/FileOperations/getFileTypeSpec/noPerms"
+      getFileType' (specDir `ba` "noPerms")
         `shouldReturn` Directory
 
     it "getFileType, symlink to file" $
-      getFileType' "test/FileSystem/FileOperations/getFileTypeSpec/symlink"
+      getFileType' (specDir `ba` "symlink")
         `shouldReturn` SymbolicLink
 
     it "getFileType, symlink to directory" $
-      getFileType' "test/FileSystem/FileOperations/getFileTypeSpec/symlinkD"
+      getFileType' (specDir `ba` "symlinkD")
         `shouldReturn` SymbolicLink
 
     it "getFileType, broken symlink" $
-      getFileType' "test/FileSystem/FileOperations/getFileTypeSpec/brokenSymlink"
+      getFileType' (specDir `ba` "brokenSymlink")
         `shouldReturn` SymbolicLink
 
     -- posix failures --
     it "getFileType, file does not exist" $
-      getFileType' "test/FileSystem/FileOperations/getFileTypeSpec/nothingHere"
+      getFileType' (specDir `ba` "nothingHere")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "getFileType, can't open directory" $
-      getFileType' "test/FileSystem/FileOperations/getFileTypeSpec/noPerms/forz"
+      getFileType' (specDir `ba` "noPerms/forz")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 

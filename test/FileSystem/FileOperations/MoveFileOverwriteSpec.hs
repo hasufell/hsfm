@@ -14,6 +14,18 @@ import GHC.IO.Exception
     IOErrorType(..)
   )
 import Utils
+import qualified Data.ByteString as BS
+import           Data.ByteString.UTF8 (toString)
+
+
+ba :: BS.ByteString -> BS.ByteString -> BS.ByteString
+ba = BS.append
+
+specDir :: BS.ByteString
+specDir = "test/FileSystem/FileOperations/moveFileOverwriteSpec/"
+
+specDir' :: String
+specDir' = toString specDir
 
 
 spec :: Spec
@@ -22,60 +34,60 @@ spec =
 
     -- successes --
     it "moveFileOverwrite, all fine" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/myFile"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/movedFile"
+      moveFileOverwrite' (specDir `ba` "myFile")
+                         (specDir `ba` "movedFile")
 
     it "moveFileOverwrite, all fine" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/myFile"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/dir/movedFile"
+      moveFileOverwrite' (specDir `ba` "myFile")
+                         (specDir `ba` "dir/movedFile")
 
     it "moveFileOverwrite, all fine on symlink" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/myFileL"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/movedFile"
+      moveFileOverwrite' (specDir `ba` "myFileL")
+                         (specDir `ba` "movedFile")
 
     it "moveFileOverwrite, all fine on directory" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/dir"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/movedFile"
+      moveFileOverwrite' (specDir `ba` "dir")
+                         (specDir `ba` "movedFile")
 
     it "moveFileOverwrite, destination file already exists" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/myFile"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/alreadyExists"
+      moveFileOverwrite' (specDir `ba` "myFile")
+                         (specDir `ba` "alreadyExists")
 
     -- posix failures --
     it "moveFileOverwrite, source file does not exist" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/fileDoesNotExist"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/movedFile"
+      moveFileOverwrite' (specDir `ba` "fileDoesNotExist")
+                         (specDir `ba` "movedFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "moveFileOverwrite, can't write to destination directory" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/myFile"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/noWritePerm/movedFile"
+      moveFileOverwrite' (specDir `ba` "myFile")
+                         (specDir `ba` "noWritePerm/movedFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "moveFileOverwrite, can't open destination directory" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/myFile"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/noPerms/movedFile"
+      moveFileOverwrite' (specDir `ba` "myFile")
+                         (specDir `ba` "noPerms/movedFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "moveFileOverwrite, can't open source directory" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/noPerms/myFile"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/movedFile"
+      moveFileOverwrite' (specDir `ba` "noPerms/myFile")
+                         (specDir `ba` "movedFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     -- custom failures --
     it "moveFileOverwrite, move from file to dir" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/myFile"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/alreadyExistsD"
+      moveFileOverwrite' (specDir `ba` "myFile")
+                         (specDir `ba` "alreadyExistsD")
         `shouldThrow`
         isDirDoesExist
 
     it "moveFileOverwrite, source and dest are same file" $
-      moveFileOverwrite' "test/FileSystem/FileOperations/moveFileOverwriteSpec/myFile"
-                         "test/FileSystem/FileOperations/moveFileOverwriteSpec/myFile"
+      moveFileOverwrite' (specDir `ba` "myFile")
+                         (specDir `ba` "myFile")
         `shouldThrow`
         isSameFile
 

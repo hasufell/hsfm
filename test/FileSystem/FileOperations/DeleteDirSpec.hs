@@ -17,6 +17,18 @@ import GHC.IO.Exception
     IOErrorType(..)
   )
 import Utils
+import qualified Data.ByteString as BS
+import           Data.ByteString.UTF8 (toString)
+
+
+ba :: BS.ByteString -> BS.ByteString -> BS.ByteString
+ba = BS.append
+
+specDir :: BS.ByteString
+specDir = "test/FileSystem/FileOperations/deleteDirSpec/"
+
+specDir' :: String
+specDir' = toString specDir
 
 
 spec :: Spec
@@ -25,58 +37,58 @@ spec =
 
     -- successes --
     it "deleteDir, empty directory, all fine" $ do
-      createDir' "test/FileSystem/FileOperations/deleteDirSpec/testDir"
-      deleteDir' "test/FileSystem/FileOperations/deleteDirSpec/testDir"
-      getSymbolicLinkStatus "test/FileSystem/FileOperations/deleteDirSpec/testDir"
+      createDir' (specDir `ba` "testDir")
+      deleteDir' (specDir `ba` "testDir")
+      getSymbolicLinkStatus (specDir `ba` "testDir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "deleteDir, directory with null permissions, all fine" $ do
-      createDir' "test/FileSystem/FileOperations/deleteDirSpec/noPerms/testDir"
-      noPerms "test/FileSystem/FileOperations/deleteDirSpec/noPerms/testDir"
-      deleteDir' "test/FileSystem/FileOperations/deleteDirSpec/noPerms/testDir"
-      getSymbolicLinkStatus "test/FileSystem/FileOperations/deleteDirSpec/testDir"
+      createDir' (specDir `ba` "noPerms/testDir")
+      noPerms (specDir `ba` "noPerms/testDir")
+      deleteDir' (specDir `ba` "noPerms/testDir")
+      getSymbolicLinkStatus (specDir `ba` "testDir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     -- posix failures --
     it "deleteDir, wrong file type (symlink to directory)" $
-      deleteDir' "test/FileSystem/FileOperations/deleteDirSpec/dirSym"
+      deleteDir' (specDir `ba` "dirSym")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
     it "deleteDir, wrong file type (regular file)" $
-      deleteDir' "test/FileSystem/FileOperations/deleteDirSpec/file"
+      deleteDir' (specDir `ba` "file")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
     it "deleteDir, directory does not exist" $
-      deleteDir' "test/FileSystem/FileOperations/deleteDirSpec/doesNotExist"
+      deleteDir' (specDir `ba` "doesNotExist")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "deleteDir, directory not empty" $
-      deleteDir' "test/FileSystem/FileOperations/deleteDirSpec/dir"
+      deleteDir' (specDir `ba` "dir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == UnsatisfiedConstraints)
 
     it "deleteDir, can't open parent directory" $ do
-      createDir' "test/FileSystem/FileOperations/deleteDirSpec/noPerms/foo"
-      noPerms "test/FileSystem/FileOperations/deleteDirSpec/noPerms"
-      (deleteDir' "test/FileSystem/FileOperations/deleteDirSpec/noPerms/foo"
+      createDir' (specDir `ba` "noPerms/foo")
+      noPerms (specDir `ba` "noPerms")
+      (deleteDir' (specDir `ba` "noPerms/foo")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied))
-        >> normalDirPerms "test/FileSystem/FileOperations/deleteDirSpec/noPerms"
-        >> deleteDir' "test/FileSystem/FileOperations/deleteDirSpec/noPerms/foo"
+        >> normalDirPerms (specDir `ba` "noPerms")
+        >> deleteDir' (specDir `ba` "noPerms/foo")
 
     it "deleteDir, can't write to parent directory, still fine" $ do
-      createDir' "test/FileSystem/FileOperations/deleteDirSpec/noWritable/foo"
-      noWritableDirPerms "test/FileSystem/FileOperations/deleteDirSpec/noWritable"
-      (deleteDir' "test/FileSystem/FileOperations/deleteDirSpec/noWritable/foo"
+      createDir' (specDir `ba` "noWritable/foo")
+      noWritableDirPerms (specDir `ba` "noWritable")
+      (deleteDir' (specDir `ba` "noWritable/foo")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied))
-      normalDirPerms "test/FileSystem/FileOperations/deleteDirSpec/noWritable"
-      deleteDir' "test/FileSystem/FileOperations/deleteDirSpec/noWritable/foo"
+      normalDirPerms (specDir `ba` "noWritable")
+      deleteDir' (specDir `ba` "noWritable/foo")
 
 
 

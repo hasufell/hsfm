@@ -26,7 +26,18 @@ import GHC.IO.Exception
     IOErrorType(..)
   )
 import Utils
+import qualified Data.ByteString as BS
+import           Data.ByteString.UTF8 (toString)
 
+
+ba :: BS.ByteString -> BS.ByteString -> BS.ByteString
+ba = BS.append
+
+specDir :: BS.ByteString
+specDir = "test/FileSystem/FileOperations/getDirsFilesSpec/"
+
+specDir' :: String
+specDir' = toString specDir
 
 
 spec :: Spec
@@ -36,39 +47,39 @@ spec =
     -- successes --
     it "getDirsFiles, all fine" $ do
       pwd <- fromJust <$> getEnv "PWD" >>= P.parseAbs
-      expectedFiles <- mapM P.parseRel ["test/FileSystem/FileOperations/getDirsFilesSpec/.hidden"
-                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/Lala"
-                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/dir"
-                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/dirsym"
-                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/file"
-                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/noPerms"
-                                       ,"test/FileSystem/FileOperations/getDirsFilesSpec/syml"]
-      (fmap sort $ getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec")
+      expectedFiles <- mapM P.parseRel [(specDir `ba ` ".hidden")
+                                       ,(specDir `ba ` "Lala")
+                                       ,(specDir `ba ` "dir")
+                                       ,(specDir `ba ` "dirsym")
+                                       ,(specDir `ba ` "file")
+                                       ,(specDir `ba ` "noPerms")
+                                       ,(specDir `ba ` "syml")]
+      (fmap sort $ getDirsFiles' specDir)
         `shouldReturn` fmap (pwd P.</>) expectedFiles
 
     -- posix failures --
     it "getDirsFiles, nonexistent directory" $
-      getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec/nothingHere"
+      getDirsFiles' (specDir `ba ` "nothingHere")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "getDirsFiles, wrong file type (file)" $
-      getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec/file"
+      getDirsFiles' (specDir `ba ` "file")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
     it "getDirsFiles, wrong file type (symlink to file)" $
-      getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec/syml"
+      getDirsFiles' (specDir `ba ` "syml")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InvalidArgument)
 
     it "getDirsFiles, wrong file type (symlink to dir)" $
-      getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec/dirsym"
+      getDirsFiles' (specDir `ba ` "dirsym")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InvalidArgument)
 
     it "getDirsFiles, can't open directory" $
-      getDirsFiles' "test/FileSystem/FileOperations/getDirsFilesSpec/noPerms"
+      getDirsFiles' (specDir `ba ` "noPerms")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 

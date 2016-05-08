@@ -17,6 +17,18 @@ import GHC.IO.Exception
     IOErrorType(..)
   )
 import Utils
+import qualified Data.ByteString as BS
+import           Data.ByteString.UTF8 (toString)
+
+
+ba :: BS.ByteString -> BS.ByteString -> BS.ByteString
+ba = BS.append
+
+specDir :: BS.ByteString
+specDir = "test/FileSystem/FileOperations/deleteFileSpec/"
+
+specDir' :: String
+specDir' = toString specDir
 
 
 spec :: Spec
@@ -25,33 +37,33 @@ spec =
 
     -- successes --
     it "deleteFile, regular file, all fine" $ do
-      createRegularFile' "test/FileSystem/FileOperations/deleteFileSpec/testFile"
-      deleteFile' "test/FileSystem/FileOperations/deleteFileSpec/testFile"
-      getSymbolicLinkStatus "test/FileSystem/FileOperations/deleteFileSpec/testFile"
+      createRegularFile' (specDir `ba` "testFile")
+      deleteFile' (specDir `ba` "testFile")
+      getSymbolicLinkStatus (specDir `ba` "testFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "deleteFile, symlink, all fine" $ do
-      recreateSymlink' "test/FileSystem/FileOperations/deleteFileSpec/syml"
-                       "test/FileSystem/FileOperations/deleteFileSpec/testFile"
-      deleteFile' "test/FileSystem/FileOperations/deleteFileSpec/testFile"
-      getSymbolicLinkStatus "test/FileSystem/FileOperations/deleteFileSpec/testFile"
+      recreateSymlink' (specDir `ba` "syml")
+                       (specDir `ba` "testFile")
+      deleteFile' (specDir `ba` "testFile")
+      getSymbolicLinkStatus (specDir `ba` "testFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     -- posix failures --
     it "deleteFile, wrong file type (directory)" $
-      deleteFile' "test/FileSystem/FileOperations/deleteFileSpec/dir"
+      deleteFile' (specDir `ba` "dir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
     it "deleteFile, file does not exist" $
-      deleteFile' "test/FileSystem/FileOperations/deleteFileSpec/doesNotExist"
+      deleteFile' (specDir `ba` "doesNotExist")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "deleteFile, can't read directory" $
-      deleteFile' "test/FileSystem/FileOperations/deleteFileSpec/noPerms/blah"
+      deleteFile' (specDir `ba` "noPerms/blah")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 

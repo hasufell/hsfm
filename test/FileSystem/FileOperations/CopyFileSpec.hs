@@ -16,7 +16,18 @@ import GHC.IO.Exception
 import System.Exit
 import System.Process
 import Utils
+import qualified Data.ByteString as BS
+import           Data.ByteString.UTF8 (toString)
 
+
+ba :: BS.ByteString -> BS.ByteString -> BS.ByteString
+ba = BS.append
+
+specDir :: BS.ByteString
+specDir = "test/FileSystem/FileOperations/copyFileSpec/"
+
+specDir' :: String
+specDir' = toString specDir
 
 
 spec :: Spec
@@ -25,70 +36,70 @@ spec =
 
     -- successes --
     it "copyFile, everything clear" $ do
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileSpec/outputFile"
-      removeFileIfExists "test/FileSystem/FileOperations/copyFileSpec/outputFile"
+      copyFile' (specDir `ba` "inputFile")
+                (specDir `ba` "outputFile")
+      removeFileIfExists (specDir `ba` "outputFile")
 
     it "copyFile, and compare" $ do
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileSpec/outputFile"
-      (system $ "cmp -s " ++ "test/FileSystem/FileOperations/copyFileSpec/inputFile" ++ " "
-                          ++ "test/FileSystem/FileOperations/copyFileSpec/outputFile")
+      copyFile' (specDir `ba` "inputFile")
+                (specDir `ba` "outputFile")
+      (system $ "cmp -s " ++ specDir' ++ "inputFile" ++ " "
+                          ++ specDir' ++ "outputFile")
         `shouldReturn` ExitSuccess
-      removeFileIfExists "test/FileSystem/FileOperations/copyFileSpec/outputFile"
+      removeFileIfExists (specDir `ba` "outputFile")
 
     -- posix failures --
     it "copyFile, input file does not exist" $
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/noSuchFile"
-                "test/FileSystem/FileOperations/copyFileSpec/outputFile"
+      copyFile' (specDir `ba` "noSuchFile")
+                (specDir `ba` "outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "copyFile, no permission to write to output directory" $
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileSpec/outputDirNoWrite/outputFile"
+      copyFile' (specDir `ba` "inputFile")
+                (specDir `ba` "outputDirNoWrite/outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "copyFile, cannot open output directory" $
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileSpec/noPerms/outputFile"
+      copyFile' (specDir `ba` "inputFile")
+                (specDir `ba` "noPerms/outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "copyFile, cannot open source directory" $
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/noPerms/inputFile"
-                "test/FileSystem/FileOperations/copyFileSpec/outputFile"
+      copyFile' (specDir `ba` "noPerms/inputFile")
+                (specDir `ba` "outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "copyFile, wrong input type (symlink)" $
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFileSymL"
-                "test/FileSystem/FileOperations/copyFileSpec/outputFile"
+      copyFile' (specDir `ba` "inputFileSymL")
+                (specDir `ba` "outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InvalidArgument)
 
     it "copyFile, wrong input type (directory)" $
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/wrongInput"
-                "test/FileSystem/FileOperations/copyFileSpec/outputFile"
+      copyFile' (specDir `ba` "wrongInput")
+                (specDir `ba` "outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
     it "copyFile, output file already exists" $
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileSpec/alreadyExists"
+      copyFile' (specDir `ba` "inputFile")
+                (specDir `ba` "alreadyExists")
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 
     it "copyFile, output file already exists and is a dir" $
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileSpec/alreadyExistsD"
+      copyFile' (specDir `ba` "inputFile")
+                (specDir `ba` "alreadyExistsD")
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 
     -- custom failures --
     it "copyFile, output and input are same file" $
-      copyFile' "test/FileSystem/FileOperations/copyFileSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileSpec/inputFile"
+      copyFile' (specDir `ba` "inputFile")
+                (specDir `ba` "inputFile")
         `shouldThrow`
         isSameFile

@@ -16,7 +16,18 @@ import GHC.IO.Exception
 import System.Exit
 import System.Process
 import Utils
+import qualified Data.ByteString as BS
+import           Data.ByteString.UTF8 (toString)
 
+
+ba :: BS.ByteString -> BS.ByteString -> BS.ByteString
+ba = BS.append
+
+specDir :: BS.ByteString
+specDir = "test/FileSystem/FileOperations/copyDirRecursiveSpec/"
+
+specDir' :: String
+specDir' = toString specDir
 
 
 spec :: Spec
@@ -25,77 +36,77 @@ spec =
 
     -- successes --
     it "copyDirRecursive, all fine" $ do
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/outputDir"
-      removeDirIfExists "test/FileSystem/FileOperations/copyDirRecursiveSpec/outputDir"
+      copyDirRecursive' (specDir `ba` "inputDir")
+                        (specDir `ba` "outputDir")
+      removeDirIfExists (specDir `ba` "outputDir")
 
     it "copyDirRecursive, all fine and compare" $ do
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/outputDir"
+      copyDirRecursive' (specDir `ba` "inputDir")
+                        (specDir `ba` "outputDir")
       (system $ "diff -r --no-dereference "
-                          ++ "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir" ++ " "
-                          ++ "test/FileSystem/FileOperations/copyDirRecursiveSpec/outputDir")
+                          ++ specDir' ++ "inputDir" ++ " "
+                          ++ specDir' ++ "outputDir")
         `shouldReturn` ExitSuccess
-      removeDirIfExists "test/FileSystem/FileOperations/copyDirRecursiveSpec/outputDir"
+      removeDirIfExists (specDir `ba` "outputDir")
 
     -- posix failures --
     it "copyDirRecursive, source directory does not exist" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/doesNotExist"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/outputDir"
+      copyDirRecursive' (specDir `ba` "doesNotExist")
+                        (specDir `ba` "outputDir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "copyDirRecursive, no write permission on output dir" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/noWritePerm/foo"
+      copyDirRecursive' (specDir `ba` "inputDir")
+                        (specDir `ba` "noWritePerm/foo")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "copyDirRecursive, cannot open output dir" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/noPerms/foo"
+      copyDirRecursive' (specDir `ba` "inputDir")
+                        (specDir `ba` "noPerms/foo")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "copyDirRecursive, cannot open source dir" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/noPerms/inputDir"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/foo"
+      copyDirRecursive' (specDir `ba` "noPerms/inputDir")
+                        (specDir `ba` "foo")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "copyDirRecursive, destination dir already exists" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/alreadyExistsD"
+      copyDirRecursive' (specDir `ba` "inputDir")
+                        (specDir `ba` "alreadyExistsD")
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 
     it "copyDirRecursive, destination already exists and is a file" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/alreadyExists"
+      copyDirRecursive' (specDir `ba` "inputDir")
+                        (specDir `ba` "alreadyExists")
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
 
     it "copyDirRecursive, wrong input (regular file)" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/wrongInput"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/outputDir"
+      copyDirRecursive' (specDir `ba` "wrongInput")
+                        (specDir `ba` "outputDir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
     it "copyDirRecursive, wrong input (symlink to directory)" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/wrongInputSymL"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/outputDir"
+      copyDirRecursive' (specDir `ba` "wrongInputSymL")
+                        (specDir `ba` "outputDir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InvalidArgument)
 
     -- custom failures
     it "copyDirRecursive, destination in source" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir/foo"
+      copyDirRecursive' (specDir `ba` "inputDir")
+                        (specDir `ba` "inputDir/foo")
         `shouldThrow`
         isDestinationInSource
 
     it "copyDirRecursive, destination and source same directory" $
-      copyDirRecursive' "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
-                        "test/FileSystem/FileOperations/copyDirRecursiveSpec/inputDir"
+      copyDirRecursive' (specDir `ba` "inputDir")
+                        (specDir `ba` "inputDir")
         `shouldThrow`
         isSameFile

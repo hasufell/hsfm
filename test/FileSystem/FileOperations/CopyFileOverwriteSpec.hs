@@ -16,7 +16,18 @@ import GHC.IO.Exception
 import System.Exit
 import System.Process
 import Utils
+import qualified Data.ByteString as BS
+import           Data.ByteString.UTF8 (toString)
 
+
+ba :: BS.ByteString -> BS.ByteString -> BS.ByteString
+ba = BS.append
+
+specDir :: BS.ByteString
+specDir = "test/FileSystem/FileOperations/copyFileOverwriteSpec/"
+
+specDir' :: String
+specDir' = toString specDir
 
 
 spec :: Spec
@@ -25,67 +36,67 @@ spec =
 
     -- successes --
     it "copyFileOverwrite, everything clear" $ do
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/outputFile"
-      removeFileIfExists "test/FileSystem/FileOperations/copyFileOverwriteSpec/outputFile"
+      copyFileOverwrite' (specDir `ba` "inputFile")
+                (specDir `ba` "outputFile")
+      removeFileIfExists (specDir `ba` "outputFile")
 
     it "copyFileOverwrite, output file already exists, all clear" $
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/alreadyExists"
+      copyFileOverwrite' (specDir `ba` "inputFile")
+                (specDir `ba` "alreadyExists")
 
     it "copyFileOverwrite, and compare" $ do
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/outputFile"
-      (system $ "cmp -s " ++ "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile" ++ " "
-                          ++ "test/FileSystem/FileOperations/copyFileOverwriteSpec/outputFile")
+      copyFileOverwrite' (specDir `ba` "inputFile")
+                (specDir `ba` "outputFile")
+      (system $ "cmp -s " ++ specDir' ++ "inputFile" ++ " "
+                          ++ specDir' ++ "outputFile")
         `shouldReturn` ExitSuccess
-      removeFileIfExists "test/FileSystem/FileOperations/copyFileOverwriteSpec/outputFile"
+      removeFileIfExists (specDir `ba` "outputFile")
 
     -- posix failures --
     it "copyFileOverwrite, input file does not exist" $
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/noSuchFile"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/outputFile"
+      copyFileOverwrite' (specDir `ba` "noSuchFile")
+                (specDir `ba` "outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == NoSuchThing)
 
     it "copyFileOverwrite, no permission to write to output directory" $
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/outputDirNoWrite/outputFile"
+      copyFileOverwrite' (specDir `ba` "inputFile")
+                (specDir `ba` "outputDirNoWrite/outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "copyFileOverwrite, cannot open output directory" $
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/noPerms/outputFile"
+      copyFileOverwrite' (specDir `ba` "inputFile")
+                (specDir `ba` "noPerms/outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "copyFileOverwrite, cannot open source directory" $
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/noPerms/inputFile"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/outputFile"
+      copyFileOverwrite' (specDir `ba` "noPerms/inputFile")
+                (specDir `ba` "outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "copyFileOverwrite, wrong input type (symlink)" $
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFileSymL"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/outputFile"
+      copyFileOverwrite' (specDir `ba` "inputFileSymL")
+                (specDir `ba` "outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InvalidArgument)
 
     it "copyFileOverwrite, wrong input type (directory)" $
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/wrongInput"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/outputFile"
+      copyFileOverwrite' (specDir `ba` "wrongInput")
+                (specDir `ba` "outputFile")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
     it "copyFileOverwrite, output file already exists and is a dir" $
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/alreadyExistsD"
+      copyFileOverwrite' (specDir `ba` "inputFile")
+                (specDir `ba` "alreadyExistsD")
         `shouldThrow`
         (\e -> ioeGetErrorType e == InappropriateType)
 
     -- custom failures --
     it "copyFileOverwrite, output and input are same file" $
-      copyFileOverwrite' "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
-                "test/FileSystem/FileOperations/copyFileOverwriteSpec/inputFile"
+      copyFileOverwrite' (specDir `ba` "inputFile")
+                (specDir `ba` "inputFile")
         `shouldThrow` isSameFile

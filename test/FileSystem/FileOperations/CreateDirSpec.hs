@@ -13,6 +13,18 @@ import GHC.IO.Exception
     IOErrorType(..)
   )
 import Utils
+import qualified Data.ByteString as BS
+import           Data.ByteString.UTF8 (toString)
+
+
+ba :: BS.ByteString -> BS.ByteString -> BS.ByteString
+ba = BS.append
+
+specDir :: BS.ByteString
+specDir = "test/FileSystem/FileOperations/createDirSpec/"
+
+specDir' :: String
+specDir' = toString specDir
 
 
 spec :: Spec
@@ -21,23 +33,22 @@ spec =
 
     -- successes --
     it "createDir, all fine" $ do
-      createDir' "test/FileSystem/FileOperations/createDirSpec/newDir"
-      removeDirIfExists "test/FileSystem/FileOperations/createDirSpec/newDir"
+      createDir' (specDir `ba` "newDir")
+      removeDirIfExists (specDir `ba` "newDir")
 
     -- posix failures --
     it "createDir, can't write to output directory" $
-      createDir' "test/FileSystem/FileOperations/createDirSpec/noWritePerms/newDir"
+      createDir' (specDir `ba` "noWritePerms/newDir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "createDir, can't open output directory" $
-      createDir' "test/FileSystem/FileOperations/createDirSpec/noPerms/newDir"
+      createDir' (specDir `ba` "noPerms/newDir")
         `shouldThrow`
         (\e -> ioeGetErrorType e == PermissionDenied)
 
     it "createDir, destination directory already exists" $
-      createDir' "test/FileSystem/FileOperations/createDirSpec/alreadyExists"
+      createDir' (specDir `ba` "alreadyExists")
         `shouldThrow`
         (\e -> ioeGetErrorType e == AlreadyExists)
-
 
