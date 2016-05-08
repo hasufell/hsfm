@@ -427,7 +427,7 @@ renameF [item] _ _ = withErrorDialog $ do
                                              P.</> fn) ++ "\"?"
     withConfirmationDialog cmsg $
       HSFM.FileSystem.FileOperations.renameFile (path item)
-                                                ((path item) P.</> fn)
+                                                ((P.dirname $ path item) P.</> fn)
 renameF _ _ _ = withErrorDialog
                   . throw $ InvalidOperation
                             "Operation not supported on multiple files"
