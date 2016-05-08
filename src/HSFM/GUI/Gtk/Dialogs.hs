@@ -35,7 +35,15 @@ import Control.Monad
   , when
   , void
   )
+import Data.ByteString
+  (
+    ByteString
+  )
 import qualified Data.ByteString as BS
+import Data.ByteString.UTF8
+  (
+    fromString
+  )
 import Data.Version
   (
     showVersion
@@ -69,6 +77,14 @@ import HSFM.GUI.Gtk.Errors
 import Paths_hsfm
   (
     getDataFileName
+  )
+import System.Glib.UTFString
+  (
+    GlibString
+  )
+import System.Posix.FilePath
+  (
+    takeFileName
   )
 
 
@@ -111,14 +127,15 @@ showConfirmationDialog str = do
     _           -> return False
 
 
-fileCollisionDialog :: String -> IO (Maybe FCollisonMode)
+fileCollisionDialog :: ByteString -> IO (Maybe FCollisonMode)
 fileCollisionDialog t = do
   chooserDialog <- messageDialogNew Nothing
                                     [DialogDestroyWithParent]
                                     MessageQuestion
                                     ButtonsNone
-                                    ("Target \"" ++ t ++
-                                     "\" exists, how to proceed?")
+                                    (fromString "Target \"" `BS.append`
+                                     t `BS.append`
+                                     fromString "\" exists, how to proceed?")
   _ <- dialogAddButton chooserDialog "Cancel"        (ResponseUser 0)
   _ <- dialogAddButton chooserDialog "Overwrite"     (ResponseUser 1)
   _ <- dialogAddButton chooserDialog "Overwrite all" (ResponseUser 2)
@@ -132,21 +149,22 @@ fileCollisionDialog t = do
     ResponseUser 2 -> return (Just OverwriteAll)
     ResponseUser 3 -> return (Just Skip)
     ResponseUser 4 -> do
-      mfn   <- textInputDialog "Enter new name"
+      mfn   <- textInputDialog (fromString "Enter new name") (takeFileName t)
       forM mfn $ \fn -> do
         pfn <- P.parseFn (P.userStringToFP fn)
         return $ Rename pfn
     _              -> throw  UnknownDialogButton
 
 
-renameDialog :: String -> IO (Maybe FCollisonMode)
+renameDialog :: ByteString -> IO (Maybe FCollisonMode)
 renameDialog t = do
   chooserDialog <- messageDialogNew Nothing
                                     [DialogDestroyWithParent]
                                     MessageQuestion
                                     ButtonsNone
-                                    ("Target \"" ++ t ++
-                                     "\" exists, how to proceed?")
+                                    (fromString "Target \"" `BS.append`
+                                     t `BS.append`
+                                     fromString "\" exists, how to proceed?")
   _ <- dialogAddButton chooserDialog "Cancel"        (ResponseUser 0)
   _ <- dialogAddButton chooserDialog "Skip"          (ResponseUser 1)
   _ <- dialogAddButton chooserDialog "Rename"        (ResponseUser 2)
@@ -156,7 +174,7 @@ renameDialog t = do
     ResponseUser 0 -> return Nothing
     ResponseUser 1 -> return (Just Skip)
     ResponseUser 2 -> do
-      mfn   <- textInputDialog "Enter new name"
+      mfn   <- textInputDialog (fromString "Enter new name") (takeFileName t)
       forM mfn $ \fn -> do
         pfn <- P.parseFn (P.userStringToFP fn)
         return $ Rename pfn
@@ -210,14 +228,18 @@ withErrorDialog io =
 
 -- |Asks the user which directory copy mode he wants via dialog popup
 -- and returns 'DirCopyMode'.
-textInputDialog :: String -> IO (Maybe String)
-textInputDialog title = do
+textInputDialog :: GlibString string
+                => string   -- ^ window title
+                -> string   -- ^ initial text in input widget
+                -> IO (Maybe String)
+textInputDialog title inittext = do
   chooserDialog <- messageDialogNew Nothing
                                     [DialogDestroyWithParent]
                                     MessageQuestion
                                     ButtonsNone
                                     title
   entry <- entryNew
+  entrySetText entry inittext
   cbox <- dialogGetActionArea chooserDialog
   _ <- dialogAddButton chooserDialog "Ok"     (ResponseUser 0)
   _ <- dialogAddButton chooserDialog "Cancel" (ResponseUser 1)

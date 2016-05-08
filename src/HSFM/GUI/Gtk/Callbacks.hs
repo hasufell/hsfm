@@ -40,6 +40,10 @@ import Control.Monad.IO.Class
   (
     liftIO
   )
+import Data.ByteString
+  (
+    ByteString
+  )
 import Data.Foldable
   (
     for_
@@ -399,7 +403,7 @@ operationFinal mygui myview mitem = withErrorDialog $ do
 -- |Create a new file.
 newFile :: MyGUI -> MyView -> IO ()
 newFile _ myview = withErrorDialog $ do
-  mfn   <- textInputDialog "Enter file name"
+  mfn   <- textInputDialog "Enter file name" ("" :: String)
   let pmfn = P.parseFn =<< P.userStringToFP <$> mfn
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
@@ -409,7 +413,7 @@ newFile _ myview = withErrorDialog $ do
 -- |Create a new directory.
 newDir :: MyGUI -> MyView -> IO ()
 newDir _ myview = withErrorDialog $ do
-  mfn   <- textInputDialog "Enter directory name"
+  mfn   <- textInputDialog "Enter directory name" ("" :: String)
   let pmfn = P.parseFn =<< P.userStringToFP <$> mfn
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
@@ -418,7 +422,8 @@ newDir _ myview = withErrorDialog $ do
 
 renameF :: [Item] -> MyGUI -> MyView -> IO ()
 renameF [item] _ _ = withErrorDialog $ do
-  mfn  <- textInputDialog "Enter new file name"
+  iname <- P.fromRel <$> (P.basename $ path item)
+  mfn  <- textInputDialog "Enter new file name" (iname :: ByteString)
   let pmfn = P.parseFn =<< P.userStringToFP <$> mfn
   for_ pmfn $ \fn -> do
     let cmsg = "Really rename \"" ++ getFPasStr item

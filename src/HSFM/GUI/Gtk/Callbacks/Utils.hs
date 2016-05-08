@@ -81,7 +81,7 @@ _doFileOperation (f:fs) to mcOverwrite mc rest = do
     ,(SameFile{}     , collisionAction renameDialog topath)]
   where
     collisionAction diag topath = do
-      mcm <- diag . P.fpToString . P.fromAbs $ topath
+      mcm <- diag . P.fromAbs $ topath
       forM_ mcm $ \cm -> case cm of
         Overwrite    -> mcOverwrite f topath >> rest
         OverwriteAll -> forM_ (f:fs) $ \x -> do
