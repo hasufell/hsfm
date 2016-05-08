@@ -20,8 +20,8 @@ import Utils
 
 
 
-deleteDirRecursiveSpec :: Spec
-deleteDirRecursiveSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.deleteDirRecursive" $ do
 
     -- successes --

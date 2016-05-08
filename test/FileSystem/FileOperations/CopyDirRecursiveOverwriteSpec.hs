@@ -19,8 +19,8 @@ import Utils
 
 
 
-copyDirRecursiveOverwriteSpec :: Spec
-copyDirRecursiveOverwriteSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.copyDirRecursiveOverwrite" $ do
 
     -- successes --

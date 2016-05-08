@@ -19,8 +19,8 @@ import Utils
 
 
 
-copyFileSpec :: Spec
-copyFileSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.copyFile" $ do
 
     -- successes --

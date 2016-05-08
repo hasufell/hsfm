@@ -16,8 +16,8 @@ import GHC.IO.Exception
 import Utils
 
 
-moveFileOverwriteSpec :: Spec
-moveFileOverwriteSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.moveFileOverwrite" $ do
 
     -- successes --

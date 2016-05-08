@@ -16,8 +16,8 @@ import GHC.IO.Exception
 import Utils
 
 
-recreateSymlinkSpec :: Spec
-recreateSymlinkSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.recreateSymlink" $ do
 
     -- successes --

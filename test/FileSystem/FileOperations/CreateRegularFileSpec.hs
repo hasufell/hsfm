@@ -15,8 +15,8 @@ import GHC.IO.Exception
 import Utils
 
 
-createRegularFileSpec :: Spec
-createRegularFileSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.createRegularFile" $ do
 
     -- successes --

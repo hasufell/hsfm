@@ -17,8 +17,8 @@ import Utils
 
 
 
-getFileTypeSpec :: Spec
-getFileTypeSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.getFileType" $ do
 
     -- successes --

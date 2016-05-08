@@ -19,8 +19,8 @@ import Utils
 
 
 
-copyFileOverwriteSpec :: Spec
-copyFileOverwriteSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.copyFileOverwrite" $ do
 
     -- successes --

@@ -15,8 +15,8 @@ import GHC.IO.Exception
 import Utils
 
 
-createDirSpec :: Spec
-createDirSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.createDir" $ do
 
     -- successes --

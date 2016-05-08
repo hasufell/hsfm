@@ -16,8 +16,8 @@ import GHC.IO.Exception
 import Utils
 
 
-moveFileSpec :: Spec
-moveFileSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.moveFile" $ do
 
     -- successes --

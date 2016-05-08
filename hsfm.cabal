@@ -119,8 +119,9 @@ Test-Suite spec
   Type:                 exitcode-stdio-1.0
   Default-Language:     Haskell2010
   Hs-Source-Dirs:       test
-  Main-Is:              Spec.hs
+  Main-Is:              Main.hs
   other-modules:
+                        Spec
                         FileSystem.FileOperations.CopyDirRecursiveSpec
                         FileSystem.FileOperations.CopyDirRecursiveOverwriteSpec
                         FileSystem.FileOperations.CopyFileSpec

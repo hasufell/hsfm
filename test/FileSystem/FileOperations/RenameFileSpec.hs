@@ -16,8 +16,8 @@ import GHC.IO.Exception
 import Utils
 
 
-renameFileSpec :: Spec
-renameFileSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.renameFile" $ do
 
     -- successes --

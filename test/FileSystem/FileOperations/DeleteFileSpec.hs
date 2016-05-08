@@ -19,8 +19,8 @@ import GHC.IO.Exception
 import Utils
 
 
-deleteFileSpec :: Spec
-deleteFileSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.deleteFile" $ do
 
     -- successes --

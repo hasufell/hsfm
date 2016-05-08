@@ -29,8 +29,8 @@ import Utils
 
 
 
-getDirsFilesSpec :: Spec
-getDirsFilesSpec =
+spec :: Spec
+spec =
   describe "HSFM.FileSystem.FileOperations.getDirsFiles" $ do
 
     -- successes --
