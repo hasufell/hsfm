@@ -33,8 +33,8 @@ import GHC.IO.Exception
     IOErrorType(..)
   )
 import qualified HPath as P
-import HSFM.FileSystem.Errors
-import HSFM.FileSystem.FileOperations
+import HPath.IO
+import HPath.IO.Errors
 import HSFM.FileSystem.FileType
 import HSFM.FileSystem.UtilTypes
 import HSFM.GUI.Gtk.Data

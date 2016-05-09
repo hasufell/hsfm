@@ -68,7 +68,7 @@ import Distribution.Verbosity
   )
 import Graphics.UI.Gtk
 import qualified HPath as P
-import HSFM.FileSystem.Errors
+import HPath.IO.Errors
 import HSFM.FileSystem.FileType
 import HSFM.FileSystem.UtilTypes
 import HSFM.GUI.Glib.GlibString()
@@ -222,7 +222,7 @@ withErrorDialog io =
     [ Handler (\e -> showErrorDialog
                        $ displayException (e :: IOException))
     , Handler (\e -> showErrorDialog
-                       $ displayException (e :: FmIOException))
+                       $ displayException (e :: HPathIOException))
     ]
 
 

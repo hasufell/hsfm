@@ -51,11 +51,8 @@ import HPath
   , Path
   )
 import qualified HPath as P
-import HSFM.FileSystem.Errors
-import HSFM.FileSystem.FileOperations
-  (
-    getDirsFiles
-  )
+import HPath.IO hiding (FileType(..))
+import HPath.IO.Errors
 import HSFM.Utils.MyPrelude
 import Prelude hiding(readFile)
 import System.IO.Error

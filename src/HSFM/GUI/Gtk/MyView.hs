@@ -47,7 +47,7 @@ import Data.Maybe
     catMaybes
   , fromJust
   )
-import HSFM.FileSystem.Errors
+import HPath.IO.Errors
   (
     canOpenDirectory
   )

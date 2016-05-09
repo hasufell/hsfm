@@ -33,11 +33,6 @@ import Control.Concurrent.STM.TVar
   , modifyTVar
   , TVar
   )
-import Control.Monad
-  (
-    when
-  , unless
-  )
 
 
 -- |Atomically write a TVar.
@@ -49,14 +44,3 @@ writeTVarIO tvar val = atomically $ writeTVar tvar val
 modifyTVarIO :: TVar a -> (a -> a) -> IO ()
 modifyTVarIO tvar f = atomically $ modifyTVar tvar f
 
-
--- |If the value of the first argument is True, then execute the action
--- provided in the second argument, otherwise do nothing.
-whenM :: Monad m => m Bool -> m () -> m ()
-whenM mb a = mb >>= (`when` a)
-
-
--- |If the value of the first argument is False, then execute the action
--- provided in the second argument, otherwise do nothing.
-unlessM :: Monad m => m Bool -> m () -> m ()
-unlessM mb a = mb >>= (`unless` a)

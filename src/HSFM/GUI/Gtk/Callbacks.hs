@@ -55,8 +55,9 @@ import HPath
       Abs
     , Path
     )
-import HSFM.FileSystem.Errors
-import HSFM.FileSystem.FileOperations
+import HPath.IO
+import HPath.IO.Errors
+import HPath.IO.Utils
 import HSFM.FileSystem.FileType
 import HSFM.FileSystem.UtilTypes
 import HSFM.GUI.Gtk.Callbacks.Utils
@@ -431,8 +432,8 @@ renameF [item] _ _ = withErrorDialog $ do
                ++ P.fpToString (P.fromAbs $ (P.dirname . path $ item)
                                              P.</> fn) ++ "\"?"
     withConfirmationDialog cmsg $
-      HSFM.FileSystem.FileOperations.renameFile (path item)
-                                                ((P.dirname $ path item) P.</> fn)
+      HPath.IO.renameFile (path item)
+                          ((P.dirname $ path item) P.</> fn)
 renameF _ _ _ = withErrorDialog
                   . throwIO $ InvalidOperation
                               "Operation not supported on multiple files"
