@@ -24,7 +24,6 @@ Installation
 git submodule update --init --recursive
 cabal sandbox init
 cabal sandbox add-source 3rdparty/hpath
-cabal sandbox add-source 3rdparty/hpath/3rdparty/posix-paths
 cabal sandbox add-source 3rdparty/simple-sendfile
 cabal install alex happy
 export PATH="$(pwd)/.cabal-sandbox/bin:$PATH"

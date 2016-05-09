@@ -37,6 +37,7 @@ import Control.Exception
     try
   , SomeException
   )
+import qualified Data.ByteString as BS
 import Data.Foldable
   (
     for_
@@ -75,6 +76,10 @@ import System.INotify
   , initINotify
   , killINotify
   , EventVariety(..)
+  )
+import System.Posix.FilePath
+  (
+    pathSeparator
   )
 
 
@@ -303,7 +308,7 @@ refreshView mygui myview mfp =
                                                      Item)
         case ecd of
           Right dir -> return (Just $ path dir)
-          Left _    -> return (P.parseAbs P.pathSeparator')
+          Left _    -> return (P.parseAbs $ BS.singleton pathSeparator)
 
 
 -- |Refreshes the View based on the given directory.

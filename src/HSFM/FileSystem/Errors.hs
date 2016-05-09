@@ -54,6 +54,10 @@ import HPath
       Abs
     , Path
     )
+import HPath.IO
+  (
+    canonicalizePath
+  )
 import HSFM.Utils.IO
 import System.IO.Error
   (
@@ -204,7 +208,7 @@ throwDestinationInSource :: Path Abs -- ^ source dir
                          -> IO ()
 throwDestinationInSource source dest = do
   dest'   <- (\x -> maybe x (\y -> x P.</> y) $ P.basename dest)
-             <$> (P.canonicalizePath $ P.dirname dest)
+             <$> (canonicalizePath $ P.dirname dest)
   dids <- forM (P.getAllParents dest') $ \p -> do
           fs <- PF.getSymbolicLinkStatus (P.fromAbs p)
           return (PF.deviceID fs, PF.fileID fs)
