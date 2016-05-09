@@ -148,26 +148,26 @@ isDirDoesExist _                = False
 
 throwFileDoesExist :: Path Abs -> IO ()
 throwFileDoesExist fp =
-  whenM (doesFileExist fp) (throw . FileDoesExist
-                                  . P.fromAbs $ fp)
+  whenM (doesFileExist fp) (throwIO . FileDoesExist
+                                    . P.fromAbs $ fp)
 
 
 throwDirDoesExist :: Path Abs -> IO ()
 throwDirDoesExist fp =
-  whenM (doesDirectoryExist fp) (throw . DirDoesExist
-                                       . P.fromAbs $ fp)
+  whenM (doesDirectoryExist fp) (throwIO . DirDoesExist
+                                         . P.fromAbs $ fp)
 
 
 throwFileDoesNotExist :: Path Abs -> IO ()
 throwFileDoesNotExist fp =
-  unlessM (doesFileExist fp) (throw . FileDoesNotExist
-                                    . P.fromAbs $ fp)
+  unlessM (doesFileExist fp) (throwIO . FileDoesNotExist
+                                      . P.fromAbs $ fp)
 
 
 throwDirDoesNotExist :: Path Abs -> IO ()
 throwDirDoesNotExist fp =
-  unlessM (doesDirectoryExist fp) (throw . DirDoesNotExist
-                                         . P.fromAbs $ fp)
+  unlessM (doesDirectoryExist fp) (throwIO . DirDoesNotExist
+                                           . P.fromAbs $ fp)
 
 
 -- |Uses `isSameFile` and throws `SameFile` if it returns True.
@@ -176,7 +176,7 @@ throwSameFile :: Path Abs
               -> IO ()
 throwSameFile fp1 fp2 =
   whenM (sameFile fp1 fp2)
-        (throw $ SameFile (P.fromAbs fp1) (P.fromAbs fp2))
+        (throwIO $ SameFile (P.fromAbs fp1) (P.fromAbs fp2))
 
 
 -- |Check if the files are the same by examining device and file id.
@@ -211,8 +211,8 @@ throwDestinationInSource source dest = do
   sid <- fmap (\x -> (PF.deviceID x, PF.fileID x))
               $ PF.getFileStatus (P.fromAbs source)
   when (elem sid dids)
-       (throw $ DestinationInSource (P.fromAbs dest)
-                                    (P.fromAbs source))
+       (throwIO $ DestinationInSource (P.fromAbs dest)
+                                      (P.fromAbs source))
 
 
 -- |Checks if the given file exists and is not a directory.
@@ -256,7 +256,7 @@ canOpenDirectory fp =
 throwCantOpenDirectory :: Path Abs -> IO ()
 throwCantOpenDirectory fp =
   unlessM (canOpenDirectory fp)
-          (throw . Can'tOpenDirectory . P.fromAbs $ fp)
+          (throwIO . Can'tOpenDirectory . P.fromAbs $ fp)
 
 
 
@@ -289,7 +289,7 @@ rethrowErrnoAs :: Exception e
                -> e             -- ^ rethrow as if errno matches
                -> IO a          -- ^ action to try
                -> IO a
-rethrowErrnoAs en fmex action = catchErrno en action (throw fmex)
+rethrowErrnoAs en fmex action = catchErrno en action (throwIO fmex)
 
 
 

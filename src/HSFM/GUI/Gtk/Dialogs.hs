@@ -24,7 +24,7 @@ module HSFM.GUI.Gtk.Dialogs where
 import Control.Exception
   (
     displayException
-  , throw
+  , throwIO
   , IOException
   , catches
   , Handler(..)
@@ -153,7 +153,7 @@ fileCollisionDialog t = do
       forM mfn $ \fn -> do
         pfn <- P.parseFn (P.userStringToFP fn)
         return $ Rename pfn
-    _              -> throw  UnknownDialogButton
+    _              -> throwIO UnknownDialogButton
 
 
 renameDialog :: ByteString -> IO (Maybe FCollisonMode)
@@ -178,7 +178,7 @@ renameDialog t = do
       forM mfn $ \fn -> do
         pfn <- P.parseFn (P.userStringToFP fn)
         return $ Rename pfn
-    _              -> throw  UnknownDialogButton
+    _              -> throwIO UnknownDialogButton
 
 
 -- |Shows the about dialog from the help menu.
@@ -250,7 +250,7 @@ textInputDialog title inittext = do
            -- TODO: make this more safe
            ResponseUser 0 -> Just <$> entryGetText entry
            ResponseUser 1 -> return Nothing
-           _              -> throw  UnknownDialogButton
+           _              -> throwIO UnknownDialogButton
   widgetDestroy chooserDialog
   return ret
 

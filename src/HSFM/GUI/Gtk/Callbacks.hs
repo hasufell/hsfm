@@ -28,7 +28,7 @@ import Control.Concurrent.STM
   )
 import Control.Exception
   (
-    throw
+    throwIO
   )
 import Control.Monad
   (
@@ -340,8 +340,8 @@ del items@(_:_) _ _ = withErrorDialog $ do
   withConfirmationDialog cmsg
     $ forM_ items $ \item -> easyDelete . path $ item
 del _ _ _ = withErrorDialog
-              . throw $ InvalidOperation
-                        "Operation not supported on multiple files"
+              . throwIO $ InvalidOperation
+                          "Operation not supported on multiple files"
 
 
 -- |Initializes a file move operation.
@@ -355,8 +355,8 @@ moveInit items@(_:_) mygui _ = do
   popStatusbar mygui
   void $ pushStatusBar mygui sbmsg
 moveInit _ _ _ = withErrorDialog
-                   . throw $ InvalidOperation
-                             "No file selected!"
+                   . throwIO $ InvalidOperation
+                               "No file selected!"
 
 -- |Supposed to be used with 'withRows'. Initializes a file copy operation.
 copyInit :: [Item] -> MyGUI -> MyView -> IO ()
@@ -369,8 +369,8 @@ copyInit items@(_:_) mygui _ = do
   popStatusbar mygui
   void $ pushStatusBar mygui sbmsg
 copyInit _ _ _ = withErrorDialog
-                   . throw $ InvalidOperation
-                             "No file selected!"
+                   . throwIO $ InvalidOperation
+                               "No file selected!"
 
 
 -- |Finalizes a file operation, such as copy or move.
@@ -434,8 +434,8 @@ renameF [item] _ _ = withErrorDialog $ do
       HSFM.FileSystem.FileOperations.renameFile (path item)
                                                 ((P.dirname $ path item) P.</> fn)
 renameF _ _ _ = withErrorDialog
-                  . throw $ InvalidOperation
-                            "Operation not supported on multiple files"
+                  . throwIO $ InvalidOperation
+                              "Operation not supported on multiple files"
 
 
 
@@ -468,8 +468,8 @@ execute :: [Item] -> MyGUI -> MyView -> IO ()
 execute [item] _ _ = withErrorDialog $
   void $ executeFile (path item) []
 execute _ _ _ = withErrorDialog
-                  . throw $ InvalidOperation
-                            "Operation not supported on multiple files"
+                  . throwIO $ InvalidOperation
+                              "Operation not supported on multiple files"
 
 
 -- |Supposed to be used with 'withRows'. Opens a file or directory.
@@ -485,8 +485,8 @@ open [item] mygui myview = withErrorDialog $
 open (FileLikeList fs) _ _ = withErrorDialog $
   forM_ fs $ \f -> void $ openFile . path $ f
 open _ _ _ = withErrorDialog
-               . throw $ InvalidOperation
-                         "Operation not supported on multiple files"
+               . throwIO $ InvalidOperation
+                           "Operation not supported on multiple files"
 
 
 -- |Go up one directory and visualize it in the treeView.

@@ -46,7 +46,7 @@ import Control.Exception
   (
     bracket
   , bracketOnError
-  , throw
+  , throwIO
   )
 import Control.Monad
   (
@@ -420,7 +420,7 @@ _copyFile sflags dflags from to
               then return $ fromIntegral totalsize
               else do rsize <- SPB.fdWriteBuf dfd buf size
                       -- TODO: switch to IOError?
-                      when (rsize /= size) (throw . CopyFailed $ "wrong size!")
+                      when (rsize /= size) (throwIO . CopyFailed $ "wrong size!")
                       write' sfd dfd buf (totalsize + fromIntegral size)
 
 
