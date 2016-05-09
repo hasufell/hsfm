@@ -6,3 +6,4 @@ cabal.sandbox.config
 *.prof
 *.old
 .liquid/
+3rdparty/hpath
