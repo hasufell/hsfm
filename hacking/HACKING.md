@@ -19,20 +19,6 @@ documentation.
 
 ## Hacking Overview
 
-The main data structure for the IO related File type is in
-[HSFM.FileSystem.FileType](./../src/HSFM/FileSystem/FileType.hs#L93), which
-should be seen as a library. This is the entry point where
-[directory contents are read](./../src/HSFM/FileSystem/FileType.hs#L465)
-and the File type in general [is constructed](./../src/HSFM/FileSystem/FileType.hs#L302).
-The File type uses a safe Path type under the hood instead of Strings,
-utilizing the [hpath](https://github.com/hasufell/hpath) library.
-Note that mostly only absolute paths are allowed on type level to improve
-path and thread safety.
-
-File operations (like copy, delete etc) are defined at
-[HSFM.FileSystem.FileOperation](./../src/HSFM/FileSystem/FileOperations.hs)
-which use this File type.
-
 Only a GTK GUI is currently implemented, the entry point being
 [HSFM.GUI.Gtk](./../src/HSFM/GUI/Gtk.hs). From there it flows down
 to creating a [MyGUI object](./../src/HSFM/GUI/Gtk/Data.hs#L51) in

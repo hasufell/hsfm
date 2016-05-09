@@ -21,9 +21,7 @@ Installation
 ------------
 
 ```
-git submodule update --init --recursive
 cabal sandbox init
-cabal sandbox add-source 3rdparty/hpath
 cabal install alex happy
 export PATH="$(pwd)/.cabal-sandbox/bin:$PATH"
 cabal install gtk2hs-buildtools
