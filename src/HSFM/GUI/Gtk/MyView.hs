@@ -80,6 +80,7 @@ import System.INotify
 import System.Posix.FilePath
   (
     pathSeparator
+  , hiddenFile
   )
 
 
@@ -398,7 +399,7 @@ constructView mygui myview = do
      item   <- treeModelGetRow rawModel' iter >>= (P.basename . path)
      if hidden
        then return True
-       else return $ not . P.hiddenFile $ item
+       else return . not . hiddenFile . P.fromRel $ item
 
   -- sorting
   sortedModel' <- treeModelSortNewWithModel filteredModel'
