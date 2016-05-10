@@ -37,6 +37,10 @@ import Control.Exception
     try
   , SomeException
   )
+import Control.Monad
+  (
+    forM_
+  )
 import qualified Data.ByteString as BS
 import Data.Foldable
   (
@@ -89,8 +93,12 @@ import System.Posix.FilePath
 newTab :: MyGUI -> IO FMView -> Path Abs -> IO MyView
 newTab mygui iofmv path = do
   myview <- createMyView mygui iofmv
-  _ <- notebookAppendPage (notebook mygui) (viewBox myview)
+  i <- notebookAppendPage (notebook mygui) (viewBox myview)
        (maybe (P.fromAbs path) P.fromRel $ P.basename path)
+  mpage <- notebookGetNthPage (notebook mygui) i
+  forM_ mpage $ \page -> notebookSetTabReorderable (notebook mygui)
+                                                   page
+                                                   True
   refreshView mygui myview (Just path)
   return myview
 

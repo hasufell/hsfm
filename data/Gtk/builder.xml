@@ -364,6 +364,7 @@
           <object class="GtkNotebook" id="notebook">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="scrollable">True</property>
             <child>
               <placeholder/>
             </child>
