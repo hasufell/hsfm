@@ -1,6 +1,8 @@
 HSFM
 ====
 
+[![Build Status](https://api.travis-ci.org/hasufell/hsfm.png?branch=master)](http://travis-ci.org/hasufell/hsfm)
+
 __NOTE: This project is in a highly experimental state! Don't complain if it deletes your whole home directory. You should use a chroot, docker environment or similar for testing.__
 
 A Gtk+:3 filemanager written in Haskell.
