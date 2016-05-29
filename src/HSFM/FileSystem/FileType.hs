@@ -341,10 +341,10 @@ readDirectoryContents :: (Path Abs -> IO a)  -- ^ fills free a variable
 readDirectoryContents ff p = do
   files <- getDirsFiles p
   fcs   <- mapM (readFile ff) files
-  return $ removeNonexistent fcs
+  return fcs
 
 
--- |A variant of `readDirectoryContents` where the third argument
+-- |A variant of `readDirectoryContents` where the second argument
 -- is a `File`. If a non-directory is passed returns an empty list.
 getContents :: (Path Abs -> IO a)
             -> File FileInfo
@@ -502,18 +502,6 @@ handleDT p
   = handleIOError $ \e -> return $ Failed p e
 
 
--- DoesNotExist errors not present at the topmost level could happen if a
--- named file or directory is deleted after being listed by
--- getDirectoryContents but before we can get it into memory.
---    So we filter those errors out because the user should not see errors
--- raised by the internal implementation of this module:
---    This leaves the error if it exists in the top (user-supplied) level:
-removeNonexistent :: [File a] -> [File a]
-removeNonexistent = filter isOkConstructor
-  where
-    isOkConstructor c = not (failed c) || isOkError c
-    isOkError = not . isDoesNotExistErrorType . ioeGetErrorType . err
-
 
 ---- SYMLINK HELPERS: ----
 
@@ -527,29 +515,9 @@ isBrokenSymlink (SymLink _ _ Failed{} _) = True
 isBrokenSymlink _ = False
 
 
----- OTHER: ----
 
 
--- |Apply a function on the free variable. If there is no free variable
--- for the given constructor the value from the `Default` class is used.
-fromFreeVar :: (Default d) => (a -> d) -> File a -> d
-fromFreeVar f df = maybeD f $ getFreeVar df
-
-
-getFPasStr :: File a -> String
-getFPasStr = toString . P.fromAbs . path
-
-
--- |Gets the free variable. Returns Nothing if the constructor is of `Failed`.
-getFreeVar :: File a -> Maybe a
-getFreeVar (Dir _  d)         = Just d
-getFreeVar (RegFile _  d)     = Just d
-getFreeVar (SymLink _  d _ _) = Just d
-getFreeVar (BlockDev _  d)    = Just d
-getFreeVar (CharDev _  d)     = Just d
-getFreeVar (NamedPipe _  d)   = Just d
-getFreeVar (Socket _  d)      = Just d
-getFreeVar _                  = Nothing
+---- PACKERS: ----
 
 
 -- |Pack the modification time into a string.
@@ -616,4 +584,31 @@ packLinkDestination :: File a -> Maybe ByteString
 packLinkDestination file = case file of
   SymLink { rawdest = dest } -> Just dest
   _                          -> Nothing
+
+
+
+
+---- OTHER: ----
+
+
+-- |Apply a function on the free variable. If there is no free variable
+-- for the given constructor the value from the `Default` class is used.
+fromFreeVar :: (Default d) => (a -> d) -> File a -> d
+fromFreeVar f df = maybeD f $ getFreeVar df
+
+
+getFPasStr :: File a -> String
+getFPasStr = toString . P.fromAbs . path
+
+
+-- |Gets the free variable. Returns Nothing if the constructor is of `Failed`.
+getFreeVar :: File a -> Maybe a
+getFreeVar (Dir _  d)         = Just d
+getFreeVar (RegFile _  d)     = Just d
+getFreeVar (SymLink _  d _ _) = Just d
+getFreeVar (BlockDev _  d)    = Just d
+getFreeVar (CharDev _  d)     = Just d
+getFreeVar (NamedPipe _  d)   = Just d
+getFreeVar (Socket _  d)      = Just d
+getFreeVar _                  = Nothing
 
