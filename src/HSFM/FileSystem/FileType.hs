@@ -38,6 +38,10 @@ module HSFM.FileSystem.FileType where
 
 
 import Data.ByteString(ByteString)
+import Data.ByteString.UTF8
+  (
+    toString
+  )
 import Data.Default
 import Data.Time.Clock.POSIX
   (
@@ -533,7 +537,7 @@ fromFreeVar f df = maybeD f $ getFreeVar df
 
 
 getFPasStr :: File a -> String
-getFPasStr = P.fpToString . P.fromAbs . path
+getFPasStr = toString . P.fromAbs . path
 
 
 -- |Gets the free variable. Returns Nothing if the constructor is of `Failed`.

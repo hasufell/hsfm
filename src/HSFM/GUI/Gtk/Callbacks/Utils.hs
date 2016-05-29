@@ -26,12 +26,18 @@ module HSFM.GUI.Gtk.Callbacks.Utils where
 
 import Control.Monad
   (
-    forM_
+    forM
+  , forM_
+  )
+import Control.Monad.IO.Class
+  (
+    liftIO
   )
 import GHC.IO.Exception
   (
     IOErrorType(..)
   )
+import Graphics.UI.Gtk
 import qualified HPath as P
 import HPath.IO
 import HPath.IO.Errors
@@ -46,6 +52,10 @@ import HSFM.Utils.IO
     modifyTVarIO
   )
 import Prelude hiding(readFile)
+import Control.Concurrent.STM.TVar
+  (
+    readTVarIO
+  )
 
 
 

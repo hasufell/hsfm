@@ -44,6 +44,11 @@ import Data.ByteString
   (
     ByteString
   )
+import Data.ByteString.UTF8
+  (
+    fromString
+  , toString
+  )
 import Data.Foldable
   (
     for_
@@ -384,20 +389,20 @@ operationFinal mygui myview mitem = withErrorDialog $ do
   case op of
     FMove (PartialMove s) -> do
       let cmsg = "Really move " ++ imsg s
-                  ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
+                  ++ " to \"" ++ toString (P.fromAbs cdir)
                   ++ "\"?"
       withConfirmationDialog cmsg $ doFileOperation (FMove $ Move s cdir)
       popStatusbar mygui
       writeTVarIO (operationBuffer mygui) None
     FCopy (PartialCopy s) -> do
       let cmsg = "Really copy " ++ imsg s
-                 ++ " to \"" ++ P.fpToString (P.fromAbs cdir)
+                 ++ " to \"" ++ toString (P.fromAbs cdir)
                  ++ "\"?"
       withConfirmationDialog cmsg $ doFileOperation (FCopy $ Copy s cdir)
     _ -> return ()
   where
     imsg s = case s of
-               (item:[]) -> "\"" ++ P.fpToString (P.fromAbs item) ++ "\""
+               (item:[]) -> "\"" ++ toString (P.fromAbs item) ++ "\""
                items     -> (show . length $ items) ++ " items"
 
 
@@ -405,7 +410,7 @@ operationFinal mygui myview mitem = withErrorDialog $ do
 newFile :: MyGUI -> MyView -> IO ()
 newFile _ myview = withErrorDialog $ do
   mfn   <- textInputDialog "Enter file name" ("" :: String)
-  let pmfn = P.parseFn =<< P.userStringToFP <$> mfn
+  let pmfn = P.parseFn =<< fromString <$> mfn
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
     createRegularFile (path cdir P.</> fn)
@@ -415,7 +420,7 @@ newFile _ myview = withErrorDialog $ do
 newDir :: MyGUI -> MyView -> IO ()
 newDir _ myview = withErrorDialog $ do
   mfn   <- textInputDialog "Enter directory name" ("" :: String)
-  let pmfn = P.parseFn =<< P.userStringToFP <$> mfn
+  let pmfn = P.parseFn =<< fromString <$> mfn
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
     createDir (path cdir P.</> fn)
@@ -425,11 +430,11 @@ renameF :: [Item] -> MyGUI -> MyView -> IO ()
 renameF [item] _ _ = withErrorDialog $ do
   iname <- P.fromRel <$> (P.basename $ path item)
   mfn  <- textInputDialog "Enter new file name" (iname :: ByteString)
-  let pmfn = P.parseFn =<< P.userStringToFP <$> mfn
+  let pmfn = P.parseFn =<< fromString <$> mfn
   for_ pmfn $ \fn -> do
     let cmsg = "Really rename \"" ++ getFPasStr item
                ++ "\"" ++ " to \""
-               ++ P.fpToString (P.fromAbs $ (P.dirname . path $ item)
+               ++ toString (P.fromAbs $ (P.dirname . path $ item)
                                              P.</> fn) ++ "\"?"
     withConfirmationDialog cmsg $
       HPath.IO.renameFile (path item)
