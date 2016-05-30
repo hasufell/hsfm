@@ -17,8 +17,11 @@ matrix:
   allow_failures:
     - env: CABALVER=head GHCVER=head
 
+# workaround since CABALVER=1.24 doesn't work yet
 before_install:
  - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
+ - cabal install cabal-1.24.0.0
+ - export PATH="~/.cabal/bin:$PATH"
 
 install:
  - cabal --version
