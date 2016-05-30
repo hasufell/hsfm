@@ -48,10 +48,7 @@ library
                        FlexibleInstances
                        ViewPatterns
   ghc-options:
-    -O2
-    -threaded
     -Wall
-    "-with-rtsopts=-N"
 
 executable hsfm-gtk
   main-is:             HSFM/GUI/Gtk.hs
@@ -97,8 +94,5 @@ executable hsfm-gtk
                        FlexibleInstances
                        ViewPatterns
   ghc-options:
-    -O2
-    -threaded
     -Wall
-    "-with-rtsopts=-N"
 
