@@ -61,6 +61,8 @@ This leads to the following benefits:
 * we can reason about filepaths and rely on them to be valid (don't confuse that with "they exist")
 * filepath functions like `(</>)` are now predictable and safe in contrast to the version from the `filepath` package
 
+The [hpath](https://hackage.haskell.org/package/hpath) library does exactly that for us.
+
 The only problem with this approach is that most libraries are still String
 based. Some provide dedicated `Foo.ByteString` modules though, but it
 might be necessary to fork libraries.
@@ -84,17 +86,10 @@ the call stack at point `b` in time, when the file information in memory
 could already be out of date. There are two approaches to make this less
 sucky:
 * use the hinotify library on GUI level to refresh the view (and the File representation in memory) whenever the contents of a directory changes
-* when we stuff something into the copy buffer, it is not saved as type `File a`, but as `Path Abs`... when the operation is finalized via `runFileOp`, then the file at the given path is read and the copy/move/whatnot function carried out immediately
-
-This means we should only interact with the `HSFM.FileSystem.FileOperation`
-module via the operation data types `FileOperation`, `Copy` and `Move` and
-the `runFileOp` function. This doesn't completely solve the problem, but for
-the rest we have to trust the posix functions to throw the proper exceptions.
+* when we stuff something into the copy buffer, it is not saved as type `File a`, but as `Path Abs`... when the operation is finalized  then the file at the given path is read and the copy/move/whatnot function carried out immediately
 
 In addition, we don't use the `directory` package, which is dangerous
-and broken. Instead, we implement our own low-level wrappers around
-the posix functions, so we have proper control over the internals
-and know the possible exceptions.
+and broken. Instead, we use the [HPath.IO](https://hackage.haskell.org/package/hpath/docs/HPath-IO.html).
 
 ### Exception handling
 
@@ -102,7 +97,7 @@ Exceptions are good. We don't want to wrap everything in Maybe/Either types
 unless we want to handle failure immediately. Otherwise we need to make
 sure that at least at some point IOExceptions are caught and visualized
 to the user. This is often done via e.g. `withErrorDialog` which catches
-`IOException` and `FmIOException`.
+`IOException` and [HPathIOException](https://hackage.haskell.org/package/hpath/docs/HPath-IO-Errors.html#t:HPathIOException).
 
 It's also important to clean up stuff like filedescriptors via
 functions like `bracket` directly in our low-level code in case
