@@ -22,6 +22,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.GUI.Gtk.Icons where
 
 
+import Control.Applicative
+  (
+    (<$>)
+  )
 import Data.Maybe
   (
     fromJust
