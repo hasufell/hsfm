@@ -1,6 +1,8 @@
 HSFM
 ====
 
+[![Join the chat at https://gitter.im/hasufell/hsfm](https://badges.gitter.im/hasufell/hsfm.svg)](https://gitter.im/hasufell/hsfm?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 [![Build Status](https://api.travis-ci.org/hasufell/hsfm.png?branch=master)](http://travis-ci.org/hasufell/hsfm)
 
 A Gtk+:3 filemanager written in Haskell.
