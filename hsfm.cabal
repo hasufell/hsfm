@@ -96,3 +96,7 @@ executable hsfm-gtk
   ghc-options:
     -Wall
 
+source-repository head
+  type:     git
+  location: https://github.com/hasufell/hsfm
+
