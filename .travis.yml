@@ -42,6 +42,9 @@ script:
    cd dist/;
    cabal sandbox init;
    if [ -f "$SRC_TGZ" ]; then
+      cabal install alex happy;
+      export PATH="$(pwd)/.cabal-sandbox/bin:$PATH";
+      cabal install gtk2hs-buildtools;
       cabal install "$SRC_TGZ" --enable-tests;
    else
       echo "expected '$SRC_TGZ' not found";
