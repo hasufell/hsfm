@@ -1,6 +1,8 @@
 HSFM
 ====
 
+[![Build Status](https://api.travis-ci.org/hasufell/hsfm.png?branch=master)](http://travis-ci.org/hasufell/hsfm)
+
 A Gtk+:3 filemanager written in Haskell.
 
 Design goals:
