@@ -349,8 +349,9 @@ closeTab mygui myview = do
 
 
 newTabHere :: MyGUI -> Item -> IO ()
-newTabHere mygui item =
+newTabHere mygui item@(DirOrSym _) =
   void $ newTab mygui createTreeView (path item)
+newTabHere _ _ = return ()
 
 
 
