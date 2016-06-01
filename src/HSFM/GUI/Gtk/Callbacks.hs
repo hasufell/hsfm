@@ -458,7 +458,7 @@ urlGoTo mygui myview = withErrorDialog $ do
   fp <- entryGetText (urlBar myview)
   forM_ (P.parseAbs fp :: Maybe (Path Abs)) $ \fp' ->
       whenM (canOpenDirectory fp')
-            (goDir mygui myview =<< (readFile getFileInfo $ fp'))
+            (goDir True mygui myview =<< (readFile getFileInfo $ fp'))
 
 
 goHome :: MyGUI -> MyView -> IO ()
@@ -466,7 +466,7 @@ goHome mygui myview =  withErrorDialog $ do
   mhomedir <- getEnv "HOME"
   forM_ (P.parseAbs =<< mhomedir :: Maybe (Path Abs)) $ \fp' ->
       whenM (canOpenDirectory fp')
-            (goDir mygui myview =<< (readFile getFileInfo $ fp'))
+            (goDir True mygui myview =<< (readFile getFileInfo $ fp'))
 
 
 -- |Execute a given file.
@@ -484,7 +484,7 @@ open [item] mygui myview = withErrorDialog $
   case item of
     DirOrSym r -> do
       nv <- readFile getFileInfo $ path r
-      goDir mygui myview nv
+      goDir True mygui myview nv
     r ->
       void $ openFile . path $ r
 -- this throws on the first error that occurs
@@ -500,7 +500,7 @@ upDir :: MyGUI -> MyView -> IO ()
 upDir mygui myview = withErrorDialog $ do
   cdir <- getCurrentDir myview
   nv <- goUp cdir
-  goDir mygui myview nv
+  goDir True mygui myview nv
 
 
 -- |Go "back" in the history.
@@ -514,7 +514,7 @@ goHistoryPrev mygui myview = do
       nv <- readFile getFileInfo $ x
       modifyTVarIO (history myview)
         (\(_, n) -> (xs, path cdir `addHistory` n))
-      refreshView' mygui myview nv
+      goDir False mygui myview nv
 
 
 -- |Go "forth" in the history.
@@ -528,5 +528,5 @@ goHistoryNext mygui myview = do
       nv <- readFile getFileInfo $ x
       modifyTVarIO (history myview)
         (\(p, _) -> (path cdir `addHistory` p, xs))
-      refreshView' mygui myview nv
+      goDir False mygui myview nv
 

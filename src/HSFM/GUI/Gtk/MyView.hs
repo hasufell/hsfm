@@ -345,12 +345,6 @@ refreshView' mygui myview item@Dir{} = do
 
   constructView mygui myview
 
-  -- set notebook tab label
-  page <- notebookGetCurrentPage (notebook mygui)
-  child <- fromJust <$> notebookGetNthPage (notebook mygui) page
-  notebookSetTabLabelText (notebook mygui) child
-       (maybe (P.fromAbs $ path item) P.fromRel $ P.basename . path $ item)
-
   -- reselect selected items
   -- TODO: not implemented for icon view yet
   case view' of

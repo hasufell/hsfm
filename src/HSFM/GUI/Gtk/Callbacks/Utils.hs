@@ -28,10 +28,15 @@ import Control.Monad
   (
     forM
   , forM_
+  , when
   )
 import Control.Monad.IO.Class
   (
     liftIO
+  )
+import Data.Maybe
+  (
+    fromJust
   )
 import GHC.IO.Exception
   (
@@ -101,10 +106,20 @@ _doFileOperation (f:fs) to mcOverwrite mc rest = do
 
 
 -- |Helper that is invoked for any directory change operations.
-goDir :: MyGUI -> MyView -> Item -> IO ()
-goDir mygui myview item = do
+goDir :: Bool    -- ^ whether to update the history
+      -> MyGUI
+      -> MyView
+      -> Item
+      -> IO ()
+goDir bhis mygui myview item = do
   cdir <- getCurrentDir myview
-  modifyTVarIO (history myview)
+  when bhis $ modifyTVarIO (history myview)
     (\(p, _) -> (path cdir `addHistory` p, []))
   refreshView' mygui myview item
+
+  -- set notebook tab label
+  page <- notebookGetCurrentPage (notebook mygui)
+  child <- fromJust <$> notebookGetNthPage (notebook mygui) page
+  notebookSetTabLabelText (notebook mygui) child
+       (maybe (P.fromAbs $ path item) P.fromRel $ P.basename . path $ item)
 
