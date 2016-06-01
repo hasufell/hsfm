@@ -350,7 +350,7 @@ closeTab mygui myview = do
 
 newTabHere :: MyGUI -> Item -> IO ()
 newTabHere mygui item@(DirOrSym _) =
-  void $ newTab mygui createTreeView (path item)
+  void $ withErrorDialog $ newTab mygui createTreeView item
 newTabHere _ _ = return ()
 
 

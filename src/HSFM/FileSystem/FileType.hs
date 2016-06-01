@@ -502,6 +502,17 @@ handleDT p
   = handleIOError $ \e -> return $ Failed p e
 
 
+-- |Carries out the action. If the action returns a file
+-- with a failed constructor, rethrows the IOError within.
+-- Otherwise, returns the file unchanged.
+rethrowFailed :: IO (File a) -> IO (File a)
+rethrowFailed a = do
+  file <- a
+  case file of
+       (Failed _ e) -> ioError e
+       _            -> return file
+
+
 
 ---- SYMLINK HELPERS: ----
 

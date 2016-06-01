@@ -51,6 +51,10 @@ import Data.Maybe
     catMaybes
   , fromJust
   )
+import Data.String
+  (
+    fromString
+  )
 import HPath.IO.Errors
   (
     canOpenDirectory
@@ -81,6 +85,11 @@ import System.INotify
   , killINotify
   , EventVariety(..)
   )
+import System.IO.Error
+  (
+    catchIOError
+  , ioError
+  )
 import System.Posix.FilePath
   (
     pathSeparator
@@ -90,16 +99,21 @@ import System.Posix.FilePath
 
 
 -- |Creates a new tab with its own view and refreshes the view.
-newTab :: MyGUI -> IO FMView -> Path Abs -> IO MyView
-newTab mygui iofmv path = do
+newTab :: MyGUI -> IO FMView -> Item -> IO MyView
+newTab mygui iofmv item = do
   myview <- createMyView mygui iofmv
   i <- notebookAppendPage (notebook mygui) (viewBox myview)
-       (maybe (P.fromAbs path) P.fromRel $ P.basename path)
+    (maybe (P.fromAbs $ path item) P.fromRel $ P.basename $ path item)
   mpage <- notebookGetNthPage (notebook mygui) i
   forM_ mpage $ \page -> notebookSetTabReorderable (notebook mygui)
                                                    page
                                                    True
-  refreshView mygui myview (Just path)
+  catchIOError (refreshView' mygui myview item) $ \e -> do
+    forM_ mpage $ \page -> do
+      refreshView mygui myview (P.parseAbs $ fromString "/")
+      notebookSetTabLabelText (notebook mygui) page "/"
+    ioError e
+
   return myview
 
 
@@ -324,6 +338,9 @@ refreshView mygui myview mfp =
 --
 -- If the directory is not a Dir or a Symlink pointing to a Dir, then
 -- calls `refreshView` with the 3rd argument being Nothing.
+--
+-- Does not do fallbacks if the directory cannot be read, but
+-- throws an error.
 refreshView' :: MyGUI
              -> MyView
              -> Item

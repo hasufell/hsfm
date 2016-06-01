@@ -29,27 +29,35 @@ import Data.Maybe
   )
 import Graphics.UI.Gtk
 import qualified HPath as P
+import HSFM.FileSystem.FileType
 import HSFM.GUI.Gtk.Callbacks
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.MyGUI
 import HSFM.GUI.Gtk.MyView
+import Prelude hiding(readFile)
 import Safe
   (
     headDef
+  )
+import System.IO.Error
+  (
+    catchIOError
   )
 import qualified System.Posix.Env.ByteString as SPE
 
 
 main :: IO ()
 main = do
-  _ <- initGUI
-
   args <- SPE.getArgs
   let mdir = fromMaybe (fromJust $ P.parseAbs "/")
                        (P.parseAbs . headDef "/" $ args)
 
+  file <- catchIOError (rethrowFailed $ readFile getFileInfo mdir) $
+    \_ -> readFile getFileInfo  . fromJust $ P.parseAbs "/"
+
+  _ <- initGUI
   mygui <- createMyGUI
-  _ <- newTab mygui createTreeView mdir
+  _ <- newTab mygui createTreeView file
 
   setGUICallbacks mygui
 
