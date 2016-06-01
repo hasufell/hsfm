@@ -32,16 +32,11 @@ import Control.Concurrent.STM
     newTVarIO
   , readTVarIO
   )
-import Control.Exception
-  (
-    try
-  , SomeException
-  )
 import Control.Monad
   (
     forM_
+  , unless
   )
-import qualified Data.ByteString as BS
 import Data.Foldable
   (
     for_
@@ -55,17 +50,8 @@ import Data.String
   (
     fromString
   )
-import HPath.IO.Errors
-  (
-    canOpenDirectory
-  )
 import Graphics.UI.Gtk
 import {-# SOURCE #-} HSFM.GUI.Gtk.Callbacks (setViewCallbacks)
-import HPath
-  (
-    Path
-  , Abs
-  )
 import qualified HPath as P
 import HSFM.FileSystem.FileType
 import HSFM.GUI.Glib.GlibString()
@@ -89,11 +75,11 @@ import System.IO.Error
   (
     catchIOError
   , ioError
+  , isUserError
   )
 import System.Posix.FilePath
   (
-    pathSeparator
-  , hiddenFile
+    hiddenFile
   )
 
 
@@ -108,11 +94,12 @@ newTab mygui iofmv item = do
   forM_ mpage $ \page -> notebookSetTabReorderable (notebook mygui)
                                                    page
                                                    True
-  catchIOError (refreshView' mygui myview item) $ \e -> do
+  catchIOError (refreshView mygui myview item) $ \e -> do
     forM_ mpage $ \page -> do
-      refreshView mygui myview (P.parseAbs $ fromString "/")
+      file <- readFile getFileInfo . fromJust . P.parseAbs . fromString $ "/"
+      refreshView mygui myview file
       notebookSetTabLabelText (notebook mygui) page "/"
-    ioError e
+    unless (isUserError e) (ioError e)
 
   return myview
 
@@ -208,7 +195,7 @@ switchView mygui myview iofmv = do
                  $ P.basename . path $ cwd) oldpage
   notebookSetCurrentPage (notebook mygui) newpage
 
-  refreshView' mygui nview cwd
+  refreshView mygui nview cwd
 
 
 -- |Destroys the current view by disconnecting the watcher
@@ -305,49 +292,18 @@ createTreeView = do
   return $ FMTreeView treeView
 
 
--- |Re-reads the current directory or the given one and updates the View.
--- This is more or less a wrapper around `refreshView'`
---
--- If the third argument is Nothing, it tries to re-read the current directory.
--- If that fails, it reads "/" instead.
---
--- If the third argument is (Just path) it tries to read "path". If that
--- fails, it reads "/" instead.
-refreshView :: MyGUI
-            -> MyView
-            -> Maybe (Path Abs)
-            -> IO ()
-refreshView mygui myview mfp =
-  case mfp of
-    Just fp  -> do
-      canopen <- canOpenDirectory fp
-      if canopen
-         then refreshView' mygui myview =<< readFile getFileInfo fp
-         else refreshView mygui myview =<< getAlternativeDir
-    Nothing  -> refreshView mygui myview =<< getAlternativeDir
-    where
-      getAlternativeDir = do
-        ecd <- try (getCurrentDir myview) :: IO (Either SomeException
-                                                     Item)
-        case ecd of
-          Right dir -> return (Just $ path dir)
-          Left _    -> return (P.parseAbs $ BS.singleton pathSeparator)
-
-
 -- |Refreshes the View based on the given directory.
 --
--- If the directory is not a Dir or a Symlink pointing to a Dir, then
--- calls `refreshView` with the 3rd argument being Nothing.
+-- Throws:
 --
--- Does not do fallbacks if the directory cannot be read, but
--- throws an error.
-refreshView' :: MyGUI
+--   - `userError` on inappropriate type
+refreshView :: MyGUI
              -> MyView
              -> Item
              -> IO ()
-refreshView' mygui myview SymLink { sdest = d@Dir{} } =
-  refreshView' mygui myview d
-refreshView' mygui myview item@Dir{} = do
+refreshView mygui myview SymLink { sdest = d@Dir{} } =
+  refreshView mygui myview d
+refreshView mygui myview item@Dir{} = do
   newRawModel  <- fileListStore item myview
   writeTVarIO (rawModel myview) newRawModel
 
@@ -370,8 +326,7 @@ refreshView' mygui myview item@Dir{} = do
       ntps <- mapM treeRowReferenceGetPath trs
       mapM_ (treeSelectionSelectPath tvs) ntps
     _ -> return ()
-refreshView' mygui myview Failed{} = refreshView mygui myview Nothing
-refreshView' _ _ _ = return ()
+refreshView _ _ _ = ioError $ userError "Inappropriate type!"
 
 
 -- |Constructs the visible View with the current underlying mutable models,
@@ -403,7 +358,8 @@ constructView mygui myview = do
 
   view' <- readTVarIO $ view myview
 
-  cdirp <- path <$> getCurrentDir myview
+  cdir <- getCurrentDir myview
+  let cdirp = path cdir
 
   -- update urlBar
   entrySetText (urlBar myview) (P.fromAbs cdirp)
@@ -461,7 +417,7 @@ constructView mygui myview = do
          newi
          [Move, MoveIn, MoveOut, MoveSelf, Create, Delete, DeleteSelf]
          (P.fromAbs cdirp)
-         (\_ -> postGUIAsync $ refreshView mygui myview (Just $ cdirp))
+         (\_ -> postGUIAsync $ refreshView mygui myview cdir)
   putMVar (inotify myview) newi
 
   return ()

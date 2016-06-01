@@ -185,7 +185,7 @@ setViewCallbacks mygui myview = do
            goHome mygui myview
       _ <- refreshViewB myview `on` buttonActivated $ do
            cdir <- liftIO $ getCurrentDir myview
-           refreshView' mygui myview cdir
+           refreshView mygui myview cdir
 
       -- key events
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
@@ -194,7 +194,7 @@ setViewCallbacks mygui myview = do
         cdir <- liftIO $ getCurrentDir myview
         liftIO $ modifyTVarIO (settings mygui)
                               (\x -> x { showHidden = not . showHidden $ x})
-                 >> refreshView' mygui myview cdir
+                 >> refreshView mygui myview cdir
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Alt] <- eventModifier
         "Up"  <- fmap glibToString eventKeyName

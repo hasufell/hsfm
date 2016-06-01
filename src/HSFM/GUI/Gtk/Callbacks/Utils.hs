@@ -26,13 +26,8 @@ module HSFM.GUI.Gtk.Callbacks.Utils where
 
 import Control.Monad
   (
-    forM
-  , forM_
+    forM_
   , when
-  )
-import Control.Monad.IO.Class
-  (
-    liftIO
   )
 import Data.Maybe
   (
@@ -57,10 +52,6 @@ import HSFM.Utils.IO
     modifyTVarIO
   )
 import Prelude hiding(readFile)
-import Control.Concurrent.STM.TVar
-  (
-    readTVarIO
-  )
 
 
 
@@ -115,7 +106,7 @@ goDir bhis mygui myview item = do
   cdir <- getCurrentDir myview
   when bhis $ modifyTVarIO (history myview)
     (\(p, _) -> (path cdir `addHistory` p, []))
-  refreshView' mygui myview item
+  refreshView mygui myview item
 
   -- set notebook tab label
   page <- notebookGetCurrentPage (notebook mygui)
