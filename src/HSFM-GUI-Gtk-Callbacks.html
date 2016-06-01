@@ -359,7 +359,7 @@
 <a name="line-350"></a>
 <a name="line-351"></a><a name="newTabHere"></a><span class='hs-definition'>newTabHere</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MyGUI</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Item</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
 <a name="line-352"></a><span class='hs-definition'>newTabHere</span> <span class='hs-varid'>mygui</span> <span class='hs-varid'>item</span><span class='hs-keyglyph'>@</span><span class='hs-layout'>(</span><span class='hs-conid'>DirOrSym</span> <span class='hs-keyword'>_</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span>
-<a name="line-353"></a>  <span class='hs-varid'>void</span> <span class='hs-varop'>$</span> <span class='hs-varid'>newTab</span> <span class='hs-varid'>mygui</span> <span class='hs-varid'>createTreeView</span> <span class='hs-layout'>(</span><span class='hs-varid'>path</span> <span class='hs-varid'>item</span><span class='hs-layout'>)</span>
+<a name="line-353"></a>  <span class='hs-varid'>void</span> <span class='hs-varop'>$</span> <span class='hs-varid'>withErrorDialog</span> <span class='hs-varop'>$</span> <span class='hs-varid'>newTab</span> <span class='hs-varid'>mygui</span> <span class='hs-varid'>createTreeView</span> <span class='hs-varid'>item</span>
 <a name="line-354"></a><span class='hs-definition'>newTabHere</span> <span class='hs-keyword'>_</span> <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>return</span> <span class='hs-conid'>()</span>
 <a name="line-355"></a>
 <a name="line-356"></a>
