@@ -33,6 +33,8 @@ import Control.Exception
 import Control.Monad
   (
     forM_
+  , forM
+  , join
   , void
   , when
   )
@@ -229,7 +231,7 @@ setViewCallbacks mygui myview = do
         "t"       <- fmap glibToString eventKeyName
         liftIO $ void $ do
           cwd <- getCurrentDir myview
-          newTab mygui createTreeView (path cwd)
+          newTabHere mygui cwd
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Control] <- eventModifier
         "w"       <- fmap glibToString eventKeyName
@@ -238,7 +240,7 @@ setViewCallbacks mygui myview = do
         "F4"       <- fmap glibToString eventKeyName
         liftIO $ void $ openTerminalHere myview
 
-      -- righ-click
+      -- mouse button click
       _ <- view `on` buttonPressEvent $ do
         eb <- eventButton
         t  <- eventTime
@@ -260,6 +262,22 @@ setViewCallbacks mygui myview = do
                   return $ elem tp selectedTps
                 -- no item under the cursor, pass on the signal
                 Nothing -> return False
+          MiddleButton -> do
+            (x, y) <- eventCoordinates
+            mitem  <- liftIO $ (getPathAtPos fmv (x, y))
+                               >>= \mpos -> fmap join
+                                 $ forM mpos (rawPathToItem myview)
+
+            case mitem of
+              -- item under the cursor, only pass on the signal
+              -- if the item under the cursor is not within the current
+              -- selection
+              (Just item) -> do
+                liftIO $ newTabHere mygui item
+                return True
+              -- no item under the cursor, pass on the signal
+              Nothing -> return False
+
           OtherButton 8 -> do
             liftIO $ goHistoryPrev mygui myview
             return False
@@ -328,6 +346,11 @@ closeTab :: MyGUI -> MyView -> IO ()
 closeTab mygui myview = do
   n <- notebookGetNPages (notebook mygui)
   when (n > 1) $ void $ destroyView mygui myview
+
+
+newTabHere :: MyGUI -> Item -> IO ()
+newTabHere mygui item =
+  void $ newTab mygui createTreeView (path item)
 
 
 
