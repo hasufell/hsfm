@@ -17,7 +17,12 @@ matrix:
   allow_failures:
     - env: CABALVER=head GHCVER=head
 
+env:
+  global:
+    - secure: "qAzj5tgAghFIfO6R/+Hdc5KcFhwXKNXMICNH7VLmqLzmYxk1UEkpi6hgX/f1bP5mLd07D+0IaeGFIUIWQOp+F/Du1NiX3yGbFuTt/Ja4I0K4ooCQc0w9uYLv8epxzp3VEOEI5sVCSpSomFjr7V0jwwTcBbxGUvv1VaGkJwAexRxCHuwU23KD0toECkVDsOMN/Gg2Ue/r2o+MsGx1/B9WMF0g6+zWlnrYfYZXWetl0DwATK5lZTa/21THdMrbuPX0fijGXTywvURDpCd3wIdfx9n7jPO2Gp2rcxPL/WkcIpzI211g4hEiheS+AlVyW39+C4i4MKaNK8YC+/5DRl/YHrFc7n3SZPDh+RMs6r3DS41RyRhQhz8DE0Pg4zfe/WUX4+h72TijCZ1zduh146rofwku/IGtCz5cuel+7cmTPk9ZyENYnH0ZMftkZjor9J/KamcMsN4zfaQBNJuIM3Kg8HVts3ymNIWrJ1LUn41MNt1eBDDvOWxZaHrjLyATRCFYvMr4RE01pqYKnWZ9RFfzVaYjD0QQWPWAXcCtkcAHSR6T0NxAqjLmHBNm+yWYIKG+bK2CvPNYTTNN8n4UvY1SrBpJEnLcRRns3U8nM7SVZ4GMaYzOTWtN1n0zamsl42wV0L/wqpz1SePkRZ34jca3V07XRLQSN2wjj8DyvOZUFR0="
+
 before_install:
+ - sudo apt-get install -y hscolour
  - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
 
 install:
@@ -48,6 +53,11 @@ script:
       echo "expected '$SRC_TGZ' not found";
       exit 1;
    fi
+ - sed -i -e '/hsfm,/d' hsfm.cabal
+ - cabal haddock --executables --internal --hyperlink-source --html-location=https://hackage.haskell.org/package/\$pkg-\$version/docs/
+
+after_script:
+    - ./update-gh-pages.sh
 
 notifications:
   email:
