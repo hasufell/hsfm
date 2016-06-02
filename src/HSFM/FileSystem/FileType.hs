@@ -192,14 +192,19 @@ sdir f       = (False, f)
 
 
 -- |Matches on any non-directory kind of files, excluding symlinks.
+pattern FileLike :: File FileInfo -> File FileInfo
 pattern FileLike  f <- (fileLike  -> (True, f))
 
 -- |Matches a list of directories or symlinks pointing to directories.
+pattern DirList :: (Foldable t, Functor t)
+                => t (File FileInfo) -> t (File FileInfo)
 pattern DirList fs <- (\fs -> (and . fmap (fst . sdir) $ fs, fs)
                                 -> (True, fs))
 
 -- |Matches a list of any non-directory kind of files or symlinks
 -- pointing to such.
+pattern FileLikeList :: (Foldable t, Functor t)
+                     => t (File FileInfo) -> t (File FileInfo)
 pattern FileLikeList fs <- (\fs -> (and
                                      . fmap (fst . sfileLike)
                                      $ fs, fs) -> (True, fs))
@@ -236,9 +241,11 @@ dirSym f = (False, f)
 
 
 -- |Matches on symlinks pointing to file-like files only.
+pattern FileLikeSym :: File FileInfo -> File FileInfo
 pattern FileLikeSym  f <- (fileLikeSym  -> (True, f))
 
 -- |Matches on broken symbolic links.
+pattern BrokenSymlink :: File FileInfo -> File FileInfo
 pattern BrokenSymlink  f <- (brokenSymlink  -> (True, f))
 
 
@@ -246,9 +253,11 @@ pattern BrokenSymlink  f <- (brokenSymlink  -> (True, f))
 -- If the symlink is pointing to a symlink pointing to a directory, then
 -- it will return True, but also return the first element in the symlink-
 -- chain, not the last.
+pattern DirOrSym :: File FileInfo -> File FileInfo
 pattern DirOrSym  f <- (sdir  -> (True, f))
 
 -- |Matches on symlinks pointing to directories only.
+pattern DirSym :: File FileInfo -> File FileInfo
 pattern DirSym   f <- (dirSym  -> (True, f))
 
 -- |Matches on any non-directory kind of files or symlinks pointing to
@@ -256,6 +265,7 @@ pattern DirSym   f <- (dirSym  -> (True, f))
 -- If the symlink is pointing to a symlink pointing to such a file, then
 -- it will return True, but also return the first element in the symlink-
 -- chain, not the last.
+pattern FileLikeOrSym :: File FileInfo -> File FileInfo
 pattern FileLikeOrSym  f <- (sfileLike  -> (True, f))
 
 
