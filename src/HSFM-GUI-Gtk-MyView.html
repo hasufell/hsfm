@@ -310,7 +310,7 @@
 <a name="line-301"></a>             <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyView</span>
 <a name="line-302"></a>             <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Item</span>
 <a name="line-303"></a>             <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
-<a name="line-304"></a><span class='hs-definition'>refreshView</span> <span class='hs-varid'>mygui</span> <span class='hs-varid'>myview</span> <span class='hs-conid'>SymLink</span> <span class='hs-layout'>{</span> <span class='hs-varid'>sdest</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>d</span><span class='hs-keyglyph'>@</span><span class='hs-conid'>Dir</span><span class='hs-layout'>{</span><span class='hs-layout'>}</span> <span class='hs-layout'>}</span> <span class='hs-keyglyph'>=</span>
+<a name="line-304"></a><span class='hs-definition'>refreshView</span> <span class='hs-varid'>mygui</span> <span class='hs-varid'>myview</span> <span class='hs-conid'>SymLink</span> <span class='hs-layout'>{</span> <span class='hs-varid'>sdest</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Just</span> <span class='hs-varid'>d</span><span class='hs-keyglyph'>@</span><span class='hs-conid'>Dir</span><span class='hs-layout'>{</span><span class='hs-layout'>}</span> <span class='hs-layout'>}</span> <span class='hs-keyglyph'>=</span>
 <a name="line-305"></a>  <span class='hs-varid'>refreshView</span> <span class='hs-varid'>mygui</span> <span class='hs-varid'>myview</span> <span class='hs-varid'>d</span>
 <a name="line-306"></a><span class='hs-definition'>refreshView</span> <span class='hs-varid'>mygui</span> <span class='hs-varid'>myview</span> <span class='hs-varid'>item</span><span class='hs-keyglyph'>@</span><span class='hs-conid'>Dir</span><span class='hs-layout'>{</span><span class='hs-layout'>}</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
 <a name="line-307"></a>  <span class='hs-varid'>newRawModel</span>  <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>fileListStore</span> <span class='hs-varid'>item</span> <span class='hs-varid'>myview</span>
@@ -360,75 +360,74 @@
 <a name="line-351"></a>      <span class='hs-varid'>dirtreePix</span> <span class='hs-conid'>FileLike</span><span class='hs-layout'>{</span><span class='hs-layout'>}</span>      <span class='hs-keyglyph'>=</span> <span class='hs-varid'>filePix</span>
 <a name="line-352"></a>      <span class='hs-varid'>dirtreePix</span> <span class='hs-conid'>DirSym</span><span class='hs-layout'>{</span><span class='hs-layout'>}</span>        <span class='hs-keyglyph'>=</span> <span class='hs-varid'>folderSymPix</span>
 <a name="line-353"></a>      <span class='hs-varid'>dirtreePix</span> <span class='hs-conid'>FileLikeSym</span><span class='hs-layout'>{</span><span class='hs-layout'>}</span>   <span class='hs-keyglyph'>=</span> <span class='hs-varid'>fileSymPix</span>
-<a name="line-354"></a>      <span class='hs-varid'>dirtreePix</span> <span class='hs-conid'>Failed</span><span class='hs-layout'>{</span><span class='hs-layout'>}</span>        <span class='hs-keyglyph'>=</span> <span class='hs-varid'>errorPix</span>
-<a name="line-355"></a>      <span class='hs-varid'>dirtreePix</span> <span class='hs-conid'>BrokenSymlink</span><span class='hs-layout'>{</span><span class='hs-layout'>}</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>errorPix</span>
-<a name="line-356"></a>      <span class='hs-varid'>dirtreePix</span> <span class='hs-keyword'>_</span>               <span class='hs-keyglyph'>=</span> <span class='hs-varid'>errorPix</span>
+<a name="line-354"></a>      <span class='hs-varid'>dirtreePix</span> <span class='hs-conid'>BrokenSymlink</span><span class='hs-layout'>{</span><span class='hs-layout'>}</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>errorPix</span>
+<a name="line-355"></a>      <span class='hs-varid'>dirtreePix</span> <span class='hs-keyword'>_</span>               <span class='hs-keyglyph'>=</span> <span class='hs-varid'>errorPix</span>
+<a name="line-356"></a>
 <a name="line-357"></a>
-<a name="line-358"></a>
-<a name="line-359"></a>  <span class='hs-varid'>view'</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>readTVarIO</span> <span class='hs-varop'>$</span> <span class='hs-varid'>view</span> <span class='hs-varid'>myview</span>
-<a name="line-360"></a>
-<a name="line-361"></a>  <span class='hs-varid'>cdir</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>getCurrentDir</span> <span class='hs-varid'>myview</span>
-<a name="line-362"></a>  <span class='hs-keyword'>let</span> <span class='hs-varid'>cdirp</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>path</span> <span class='hs-varid'>cdir</span>
-<a name="line-363"></a>
-<a name="line-364"></a>  <span class='hs-comment'>-- update urlBar</span>
-<a name="line-365"></a>  <span class='hs-varid'>entrySetText</span> <span class='hs-layout'>(</span><span class='hs-varid'>urlBar</span> <span class='hs-varid'>myview</span><span class='hs-layout'>)</span> <span class='hs-layout'>(</span><span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>fromAbs</span> <span class='hs-varid'>cdirp</span><span class='hs-layout'>)</span>
-<a name="line-366"></a>
-<a name="line-367"></a>  <span class='hs-varid'>rawModel'</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>readTVarIO</span> <span class='hs-varop'>$</span> <span class='hs-varid'>rawModel</span> <span class='hs-varid'>myview</span>
-<a name="line-368"></a>
-<a name="line-369"></a>  <span class='hs-comment'>-- filtering</span>
-<a name="line-370"></a>  <span class='hs-varid'>filteredModel'</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelFilterNew</span> <span class='hs-varid'>rawModel'</span> <span class='hs-conid'>[]</span>
-<a name="line-371"></a>  <span class='hs-varid'>writeTVarIO</span> <span class='hs-layout'>(</span><span class='hs-varid'>filteredModel</span> <span class='hs-varid'>myview</span><span class='hs-layout'>)</span> <span class='hs-varid'>filteredModel'</span>
-<a name="line-372"></a>  <span class='hs-varid'>treeModelFilterSetVisibleFunc</span> <span class='hs-varid'>filteredModel'</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>iter</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
-<a name="line-373"></a>     <span class='hs-varid'>hidden</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>showHidden</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>readTVarIO</span> <span class='hs-layout'>(</span><span class='hs-varid'>settings</span> <span class='hs-varid'>mygui</span><span class='hs-layout'>)</span>
-<a name="line-374"></a>     <span class='hs-varid'>item</span>   <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelGetRow</span> <span class='hs-varid'>rawModel'</span> <span class='hs-varid'>iter</span> <span class='hs-varop'>&gt;&gt;=</span> <span class='hs-layout'>(</span><span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>basename</span> <span class='hs-varop'>.</span> <span class='hs-varid'>path</span><span class='hs-layout'>)</span>
-<a name="line-375"></a>     <span class='hs-keyword'>if</span> <span class='hs-varid'>hidden</span>
-<a name="line-376"></a>       <span class='hs-keyword'>then</span> <span class='hs-varid'>return</span> <span class='hs-conid'>True</span>
-<a name="line-377"></a>       <span class='hs-keyword'>else</span> <span class='hs-varid'>return</span> <span class='hs-varop'>.</span> <span class='hs-varid'>not</span> <span class='hs-varop'>.</span> <span class='hs-varid'>hiddenFile</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>fromRel</span> <span class='hs-varop'>$</span> <span class='hs-varid'>item</span>
-<a name="line-378"></a>
-<a name="line-379"></a>  <span class='hs-comment'>-- sorting</span>
-<a name="line-380"></a>  <span class='hs-varid'>sortedModel'</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelSortNewWithModel</span> <span class='hs-varid'>filteredModel'</span>
-<a name="line-381"></a>  <span class='hs-varid'>writeTVarIO</span> <span class='hs-layout'>(</span><span class='hs-varid'>sortedModel</span> <span class='hs-varid'>myview</span><span class='hs-layout'>)</span> <span class='hs-varid'>sortedModel'</span>
-<a name="line-382"></a>  <span class='hs-varid'>treeSortableSetSortFunc</span> <span class='hs-varid'>sortedModel'</span> <span class='hs-num'>1</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>iter1</span> <span class='hs-varid'>iter2</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
-<a name="line-383"></a>      <span class='hs-varid'>cIter1</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelFilterConvertIterToChildIter</span> <span class='hs-varid'>filteredModel'</span> <span class='hs-varid'>iter1</span>
-<a name="line-384"></a>      <span class='hs-varid'>cIter2</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelFilterConvertIterToChildIter</span> <span class='hs-varid'>filteredModel'</span> <span class='hs-varid'>iter2</span>
-<a name="line-385"></a>      <span class='hs-varid'>item1</span>  <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelGetRow</span> <span class='hs-varid'>rawModel'</span> <span class='hs-varid'>cIter1</span>
-<a name="line-386"></a>      <span class='hs-varid'>item2</span>  <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelGetRow</span> <span class='hs-varid'>rawModel'</span> <span class='hs-varid'>cIter2</span>
-<a name="line-387"></a>      <span class='hs-varid'>return</span> <span class='hs-varop'>$</span> <span class='hs-varid'>compare</span> <span class='hs-varid'>item1</span> <span class='hs-varid'>item2</span>
-<a name="line-388"></a>  <span class='hs-varid'>treeSortableSetSortColumnId</span> <span class='hs-varid'>sortedModel'</span> <span class='hs-num'>1</span> <span class='hs-conid'>SortAscending</span>
-<a name="line-389"></a>
-<a name="line-390"></a>  <span class='hs-comment'>-- set values</span>
-<a name="line-391"></a>  <span class='hs-varid'>treeModelSetColumn</span> <span class='hs-varid'>rawModel'</span> <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdPixbuf</span> <span class='hs-num'>0</span><span class='hs-layout'>)</span>
-<a name="line-392"></a>                     <span class='hs-varid'>dirtreePix</span>
-<a name="line-393"></a>  <span class='hs-varid'>treeModelSetColumn</span> <span class='hs-varid'>rawModel'</span> <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdString</span> <span class='hs-num'>1</span><span class='hs-layout'>)</span>
-<a name="line-394"></a>                     <span class='hs-layout'>(</span><span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>toFilePath</span> <span class='hs-varop'>.</span> <span class='hs-varid'>fromJust</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>basename</span> <span class='hs-varop'>.</span> <span class='hs-varid'>path</span><span class='hs-layout'>)</span>
-<a name="line-395"></a>  <span class='hs-varid'>treeModelSetColumn</span> <span class='hs-varid'>rawModel'</span> <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdString</span> <span class='hs-num'>2</span><span class='hs-layout'>)</span>
-<a name="line-396"></a>                     <span class='hs-varid'>packModTime</span>
-<a name="line-397"></a>  <span class='hs-varid'>treeModelSetColumn</span> <span class='hs-varid'>rawModel'</span> <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdString</span> <span class='hs-num'>3</span><span class='hs-layout'>)</span>
-<a name="line-398"></a>                     <span class='hs-varid'>packPermissions</span>
-<a name="line-399"></a>
-<a name="line-400"></a>  <span class='hs-comment'>-- update model of view</span>
-<a name="line-401"></a>  <span class='hs-keyword'>case</span> <span class='hs-varid'>view'</span> <span class='hs-keyword'>of</span>
-<a name="line-402"></a>    <span class='hs-conid'>FMTreeView</span> <span class='hs-varid'>treeView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
-<a name="line-403"></a>      <span class='hs-varid'>treeViewSetModel</span> <span class='hs-varid'>treeView</span> <span class='hs-varid'>sortedModel'</span>
-<a name="line-404"></a>      <span class='hs-varid'>treeViewSetRubberBanding</span> <span class='hs-varid'>treeView</span> <span class='hs-conid'>True</span>
-<a name="line-405"></a>    <span class='hs-conid'>FMIconView</span> <span class='hs-varid'>iconView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
-<a name="line-406"></a>      <span class='hs-varid'>iconViewSetModel</span> <span class='hs-varid'>iconView</span> <span class='hs-layout'>(</span><span class='hs-conid'>Just</span> <span class='hs-varid'>sortedModel'</span><span class='hs-layout'>)</span>
-<a name="line-407"></a>      <span class='hs-varid'>iconViewSetPixbufColumn</span> <span class='hs-varid'>iconView</span>
-<a name="line-408"></a>                              <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdPixbuf</span> <span class='hs-num'>0</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>ColumnId</span> <span class='hs-varid'>item</span> <span class='hs-conid'>Pixbuf</span><span class='hs-layout'>)</span>
-<a name="line-409"></a>      <span class='hs-varid'>iconViewSetTextColumn</span> <span class='hs-varid'>iconView</span>
-<a name="line-410"></a>                            <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdString</span> <span class='hs-num'>1</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>ColumnId</span> <span class='hs-varid'>item</span> <span class='hs-conid'>String</span><span class='hs-layout'>)</span>
-<a name="line-411"></a>
-<a name="line-412"></a>  <span class='hs-comment'>-- add watcher</span>
-<a name="line-413"></a>  <span class='hs-varid'>mi</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>tryTakeMVar</span> <span class='hs-layout'>(</span><span class='hs-varid'>inotify</span> <span class='hs-varid'>myview</span><span class='hs-layout'>)</span>
-<a name="line-414"></a>  <span class='hs-varid'>for_</span> <span class='hs-varid'>mi</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>i</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>killINotify</span> <span class='hs-varid'>i</span>
-<a name="line-415"></a>  <span class='hs-varid'>newi</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>initINotify</span>
-<a name="line-416"></a>  <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>addWatch</span>
-<a name="line-417"></a>         <span class='hs-varid'>newi</span>
-<a name="line-418"></a>         <span class='hs-keyglyph'>[</span><span class='hs-conid'>Move</span><span class='hs-layout'>,</span> <span class='hs-conid'>MoveIn</span><span class='hs-layout'>,</span> <span class='hs-conid'>MoveOut</span><span class='hs-layout'>,</span> <span class='hs-conid'>MoveSelf</span><span class='hs-layout'>,</span> <span class='hs-conid'>Create</span><span class='hs-layout'>,</span> <span class='hs-conid'>Delete</span><span class='hs-layout'>,</span> <span class='hs-conid'>DeleteSelf</span><span class='hs-keyglyph'>]</span>
-<a name="line-419"></a>         <span class='hs-layout'>(</span><span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>fromAbs</span> <span class='hs-varid'>cdirp</span><span class='hs-layout'>)</span>
-<a name="line-420"></a>         <span class='hs-layout'>(</span><span class='hs-keyglyph'>\</span><span class='hs-keyword'>_</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>postGUIAsync</span> <span class='hs-varop'>$</span> <span class='hs-varid'>refreshView</span> <span class='hs-varid'>mygui</span> <span class='hs-varid'>myview</span> <span class='hs-varid'>cdir</span><span class='hs-layout'>)</span>
-<a name="line-421"></a>  <span class='hs-varid'>putMVar</span> <span class='hs-layout'>(</span><span class='hs-varid'>inotify</span> <span class='hs-varid'>myview</span><span class='hs-layout'>)</span> <span class='hs-varid'>newi</span>
-<a name="line-422"></a>
-<a name="line-423"></a>  <span class='hs-varid'>return</span> <span class='hs-conid'>()</span>
+<a name="line-358"></a>  <span class='hs-varid'>view'</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>readTVarIO</span> <span class='hs-varop'>$</span> <span class='hs-varid'>view</span> <span class='hs-varid'>myview</span>
+<a name="line-359"></a>
+<a name="line-360"></a>  <span class='hs-varid'>cdir</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>getCurrentDir</span> <span class='hs-varid'>myview</span>
+<a name="line-361"></a>  <span class='hs-keyword'>let</span> <span class='hs-varid'>cdirp</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>path</span> <span class='hs-varid'>cdir</span>
+<a name="line-362"></a>
+<a name="line-363"></a>  <span class='hs-comment'>-- update urlBar</span>
+<a name="line-364"></a>  <span class='hs-varid'>entrySetText</span> <span class='hs-layout'>(</span><span class='hs-varid'>urlBar</span> <span class='hs-varid'>myview</span><span class='hs-layout'>)</span> <span class='hs-layout'>(</span><span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>fromAbs</span> <span class='hs-varid'>cdirp</span><span class='hs-layout'>)</span>
+<a name="line-365"></a>
+<a name="line-366"></a>  <span class='hs-varid'>rawModel'</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>readTVarIO</span> <span class='hs-varop'>$</span> <span class='hs-varid'>rawModel</span> <span class='hs-varid'>myview</span>
+<a name="line-367"></a>
+<a name="line-368"></a>  <span class='hs-comment'>-- filtering</span>
+<a name="line-369"></a>  <span class='hs-varid'>filteredModel'</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelFilterNew</span> <span class='hs-varid'>rawModel'</span> <span class='hs-conid'>[]</span>
+<a name="line-370"></a>  <span class='hs-varid'>writeTVarIO</span> <span class='hs-layout'>(</span><span class='hs-varid'>filteredModel</span> <span class='hs-varid'>myview</span><span class='hs-layout'>)</span> <span class='hs-varid'>filteredModel'</span>
+<a name="line-371"></a>  <span class='hs-varid'>treeModelFilterSetVisibleFunc</span> <span class='hs-varid'>filteredModel'</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>iter</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
+<a name="line-372"></a>     <span class='hs-varid'>hidden</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>showHidden</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>readTVarIO</span> <span class='hs-layout'>(</span><span class='hs-varid'>settings</span> <span class='hs-varid'>mygui</span><span class='hs-layout'>)</span>
+<a name="line-373"></a>     <span class='hs-varid'>item</span>   <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelGetRow</span> <span class='hs-varid'>rawModel'</span> <span class='hs-varid'>iter</span> <span class='hs-varop'>&gt;&gt;=</span> <span class='hs-layout'>(</span><span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>basename</span> <span class='hs-varop'>.</span> <span class='hs-varid'>path</span><span class='hs-layout'>)</span>
+<a name="line-374"></a>     <span class='hs-keyword'>if</span> <span class='hs-varid'>hidden</span>
+<a name="line-375"></a>       <span class='hs-keyword'>then</span> <span class='hs-varid'>return</span> <span class='hs-conid'>True</span>
+<a name="line-376"></a>       <span class='hs-keyword'>else</span> <span class='hs-varid'>return</span> <span class='hs-varop'>.</span> <span class='hs-varid'>not</span> <span class='hs-varop'>.</span> <span class='hs-varid'>hiddenFile</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>fromRel</span> <span class='hs-varop'>$</span> <span class='hs-varid'>item</span>
+<a name="line-377"></a>
+<a name="line-378"></a>  <span class='hs-comment'>-- sorting</span>
+<a name="line-379"></a>  <span class='hs-varid'>sortedModel'</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelSortNewWithModel</span> <span class='hs-varid'>filteredModel'</span>
+<a name="line-380"></a>  <span class='hs-varid'>writeTVarIO</span> <span class='hs-layout'>(</span><span class='hs-varid'>sortedModel</span> <span class='hs-varid'>myview</span><span class='hs-layout'>)</span> <span class='hs-varid'>sortedModel'</span>
+<a name="line-381"></a>  <span class='hs-varid'>treeSortableSetSortFunc</span> <span class='hs-varid'>sortedModel'</span> <span class='hs-num'>1</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>iter1</span> <span class='hs-varid'>iter2</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
+<a name="line-382"></a>      <span class='hs-varid'>cIter1</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelFilterConvertIterToChildIter</span> <span class='hs-varid'>filteredModel'</span> <span class='hs-varid'>iter1</span>
+<a name="line-383"></a>      <span class='hs-varid'>cIter2</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelFilterConvertIterToChildIter</span> <span class='hs-varid'>filteredModel'</span> <span class='hs-varid'>iter2</span>
+<a name="line-384"></a>      <span class='hs-varid'>item1</span>  <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelGetRow</span> <span class='hs-varid'>rawModel'</span> <span class='hs-varid'>cIter1</span>
+<a name="line-385"></a>      <span class='hs-varid'>item2</span>  <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>treeModelGetRow</span> <span class='hs-varid'>rawModel'</span> <span class='hs-varid'>cIter2</span>
+<a name="line-386"></a>      <span class='hs-varid'>return</span> <span class='hs-varop'>$</span> <span class='hs-varid'>compare</span> <span class='hs-varid'>item1</span> <span class='hs-varid'>item2</span>
+<a name="line-387"></a>  <span class='hs-varid'>treeSortableSetSortColumnId</span> <span class='hs-varid'>sortedModel'</span> <span class='hs-num'>1</span> <span class='hs-conid'>SortAscending</span>
+<a name="line-388"></a>
+<a name="line-389"></a>  <span class='hs-comment'>-- set values</span>
+<a name="line-390"></a>  <span class='hs-varid'>treeModelSetColumn</span> <span class='hs-varid'>rawModel'</span> <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdPixbuf</span> <span class='hs-num'>0</span><span class='hs-layout'>)</span>
+<a name="line-391"></a>                     <span class='hs-varid'>dirtreePix</span>
+<a name="line-392"></a>  <span class='hs-varid'>treeModelSetColumn</span> <span class='hs-varid'>rawModel'</span> <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdString</span> <span class='hs-num'>1</span><span class='hs-layout'>)</span>
+<a name="line-393"></a>                     <span class='hs-layout'>(</span><span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>toFilePath</span> <span class='hs-varop'>.</span> <span class='hs-varid'>fromJust</span> <span class='hs-varop'>.</span> <span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>basename</span> <span class='hs-varop'>.</span> <span class='hs-varid'>path</span><span class='hs-layout'>)</span>
+<a name="line-394"></a>  <span class='hs-varid'>treeModelSetColumn</span> <span class='hs-varid'>rawModel'</span> <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdString</span> <span class='hs-num'>2</span><span class='hs-layout'>)</span>
+<a name="line-395"></a>                     <span class='hs-varid'>packModTime</span>
+<a name="line-396"></a>  <span class='hs-varid'>treeModelSetColumn</span> <span class='hs-varid'>rawModel'</span> <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdString</span> <span class='hs-num'>3</span><span class='hs-layout'>)</span>
+<a name="line-397"></a>                     <span class='hs-varid'>packPermissions</span>
+<a name="line-398"></a>
+<a name="line-399"></a>  <span class='hs-comment'>-- update model of view</span>
+<a name="line-400"></a>  <span class='hs-keyword'>case</span> <span class='hs-varid'>view'</span> <span class='hs-keyword'>of</span>
+<a name="line-401"></a>    <span class='hs-conid'>FMTreeView</span> <span class='hs-varid'>treeView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
+<a name="line-402"></a>      <span class='hs-varid'>treeViewSetModel</span> <span class='hs-varid'>treeView</span> <span class='hs-varid'>sortedModel'</span>
+<a name="line-403"></a>      <span class='hs-varid'>treeViewSetRubberBanding</span> <span class='hs-varid'>treeView</span> <span class='hs-conid'>True</span>
+<a name="line-404"></a>    <span class='hs-conid'>FMIconView</span> <span class='hs-varid'>iconView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
+<a name="line-405"></a>      <span class='hs-varid'>iconViewSetModel</span> <span class='hs-varid'>iconView</span> <span class='hs-layout'>(</span><span class='hs-conid'>Just</span> <span class='hs-varid'>sortedModel'</span><span class='hs-layout'>)</span>
+<a name="line-406"></a>      <span class='hs-varid'>iconViewSetPixbufColumn</span> <span class='hs-varid'>iconView</span>
+<a name="line-407"></a>                              <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdPixbuf</span> <span class='hs-num'>0</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>ColumnId</span> <span class='hs-varid'>item</span> <span class='hs-conid'>Pixbuf</span><span class='hs-layout'>)</span>
+<a name="line-408"></a>      <span class='hs-varid'>iconViewSetTextColumn</span> <span class='hs-varid'>iconView</span>
+<a name="line-409"></a>                            <span class='hs-layout'>(</span><span class='hs-varid'>makeColumnIdString</span> <span class='hs-num'>1</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>ColumnId</span> <span class='hs-varid'>item</span> <span class='hs-conid'>String</span><span class='hs-layout'>)</span>
+<a name="line-410"></a>
+<a name="line-411"></a>  <span class='hs-comment'>-- add watcher</span>
+<a name="line-412"></a>  <span class='hs-varid'>mi</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>tryTakeMVar</span> <span class='hs-layout'>(</span><span class='hs-varid'>inotify</span> <span class='hs-varid'>myview</span><span class='hs-layout'>)</span>
+<a name="line-413"></a>  <span class='hs-varid'>for_</span> <span class='hs-varid'>mi</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>i</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>killINotify</span> <span class='hs-varid'>i</span>
+<a name="line-414"></a>  <span class='hs-varid'>newi</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>initINotify</span>
+<a name="line-415"></a>  <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>addWatch</span>
+<a name="line-416"></a>         <span class='hs-varid'>newi</span>
+<a name="line-417"></a>         <span class='hs-keyglyph'>[</span><span class='hs-conid'>Move</span><span class='hs-layout'>,</span> <span class='hs-conid'>MoveIn</span><span class='hs-layout'>,</span> <span class='hs-conid'>MoveOut</span><span class='hs-layout'>,</span> <span class='hs-conid'>MoveSelf</span><span class='hs-layout'>,</span> <span class='hs-conid'>Create</span><span class='hs-layout'>,</span> <span class='hs-conid'>Delete</span><span class='hs-layout'>,</span> <span class='hs-conid'>DeleteSelf</span><span class='hs-keyglyph'>]</span>
+<a name="line-418"></a>         <span class='hs-layout'>(</span><span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>fromAbs</span> <span class='hs-varid'>cdirp</span><span class='hs-layout'>)</span>
+<a name="line-419"></a>         <span class='hs-layout'>(</span><span class='hs-keyglyph'>\</span><span class='hs-keyword'>_</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>postGUIAsync</span> <span class='hs-varop'>$</span> <span class='hs-varid'>refreshView</span> <span class='hs-varid'>mygui</span> <span class='hs-varid'>myview</span> <span class='hs-varid'>cdir</span><span class='hs-layout'>)</span>
+<a name="line-420"></a>  <span class='hs-varid'>putMVar</span> <span class='hs-layout'>(</span><span class='hs-varid'>inotify</span> <span class='hs-varid'>myview</span><span class='hs-layout'>)</span> <span class='hs-varid'>newi</span>
+<a name="line-421"></a>
+<a name="line-422"></a>  <span class='hs-varid'>return</span> <span class='hs-conid'>()</span>
 </pre></body>
 </html>
