@@ -10,7 +10,7 @@ copyright:           Copyright: (c) 2016 Julian Ospald
 homepage:            https://github.com/hasufell/hsfm
 category:            Desktop
 build-type:          Simple
-cabal-version:       >=1.24
+cabal-version:       >=1.22
 
 data-files:
                      LICENSE
@@ -66,7 +66,7 @@ executable hsfm-gtk
                        HSFM.Utils.MyPrelude
 
   build-depends:
-                       Cabal >= 1.24.0.0,
+                       Cabal >= 1.22.0.0,
                        base >= 4.8 && < 5,
                        bytestring,
                        data-default,
