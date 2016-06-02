@@ -59,11 +59,6 @@ import HPath.IO hiding (FileType(..))
 import HPath.IO.Errors
 import HSFM.Utils.MyPrelude
 import Prelude hiding(readFile)
-import System.IO.Error
-  (
-    ioeGetErrorType
-  , isDoesNotExistErrorType
-  )
 import System.Posix.FilePath
   (
     (</>)
@@ -98,13 +93,9 @@ import System.Posix.Types
 -- |The String in the path field is always a full path.
 -- The free type variable is used in the File/Dir constructor and can hold
 -- Handles, Strings representing a file's contents or anything else you can
--- think of. We catch any IO errors in the Failed constructor.
+-- think of.
 data File a =
-    Failed {
-    path :: !(Path Abs)
-  , err  :: IOError
-  }
-  | Dir {
+  Dir {
     path :: !(Path Abs)
   , fvar :: a
   }
@@ -115,8 +106,8 @@ data File a =
   | SymLink {
     path    :: !(Path Abs)
   , fvar    :: a
-  , sdest   :: File a  -- ^ symlink madness,
-                       --   we need to know where it points to
+  , sdest   :: Maybe (File a)  -- ^ symlink madness,
+                               --   we need to know where it points to
   , rawdest :: !ByteString
   }
   | BlockDev {
@@ -187,14 +178,14 @@ fileLike f             = (False, f)
 
 
 sdir :: File FileInfo -> (Bool, File FileInfo)
-sdir f@SymLink{ sdest = (s@SymLink{} )}
+sdir f@SymLink{ sdest = (Just s@SymLink{} )}
   -- we have to follow a chain of symlinks here, but
   -- return only the very first level
   -- TODO: this is probably obsolete now
   = case sdir s of
       (True, _) -> (True, f)
       _         -> (False, f)
-sdir f@SymLink{ sdest = Dir{} }
+sdir f@SymLink{ sdest = Just Dir{} }
   = (True, f)
 sdir f@Dir{} = (True, f)
 sdir f       = (False, f)
@@ -223,24 +214,24 @@ brokenSymlink f = (isBrokenSymlink f, f)
 
 
 fileLikeSym :: File FileInfo -> (Bool, File FileInfo)
-fileLikeSym f@SymLink{ sdest = s@SymLink{} }
+fileLikeSym f@SymLink{ sdest = Just s@SymLink{} }
   = case fileLikeSym s of
       (True, _) -> (True, f)
       _         -> (False, f)
-fileLikeSym f@SymLink{ sdest = RegFile{} }   = (True, f)
-fileLikeSym f@SymLink{ sdest = BlockDev{} }  = (True, f)
-fileLikeSym f@SymLink{ sdest = CharDev{} }   = (True, f)
-fileLikeSym f@SymLink{ sdest = NamedPipe{} } = (True, f)
-fileLikeSym f@SymLink{ sdest = Socket{} }    = (True, f)
+fileLikeSym f@SymLink{ sdest = Just RegFile{} }   = (True, f)
+fileLikeSym f@SymLink{ sdest = Just BlockDev{} }  = (True, f)
+fileLikeSym f@SymLink{ sdest = Just CharDev{} }   = (True, f)
+fileLikeSym f@SymLink{ sdest = Just NamedPipe{} } = (True, f)
+fileLikeSym f@SymLink{ sdest = Just Socket{} }    = (True, f)
 fileLikeSym f                                = (False, f)
 
 
 dirSym :: File FileInfo -> (Bool, File FileInfo)
-dirSym f@SymLink{ sdest = s@SymLink{} }
+dirSym f@SymLink{ sdest = Just s@SymLink{} }
   = case dirSym s of
       (True, _) -> (True, f)
       _         -> (False, f)
-dirSym f@SymLink{ sdest = Dir{} } = (True, f)
+dirSym f@SymLink{ sdest = Just Dir{} } = (True, f)
 dirSym f = (False, f)
 
 
@@ -306,8 +297,7 @@ instance Ord (File FileInfo) where
 readFile :: (Path Abs -> IO a)
          -> Path Abs
          -> IO (File a)
-readFile ff p =
-  handleDT p $ do
+readFile ff p = do
     fs   <- PF.getSymbolicLinkStatus (P.toFilePath p)
     fv   <- ff p
     constructFile fs fv p
@@ -317,11 +307,12 @@ readFile ff p =
           -- symlink madness, we need to make sure we save the correct
           -- File
           x <- PF.readSymbolicLink (P.fromAbs p')
-          resolvedSyml <- handleDT p' $ do
+          resolvedSyml <- handleIOError (\_ -> return Nothing) $ do
             -- watch out, we call </> from 'filepath' here, but it is safe
             let sfp = (P.fromAbs . P.dirname $ p') </> x
             rsfp <- realpath sfp
-            readFile ff =<< P.parseAbs rsfp
+            f <- readFile ff =<< P.parseAbs rsfp
+            return $ Just f
           return $ SymLink p' fv resolvedSyml x
       | PF.isDirectory       fs = return $ Dir       p' fv
       | PF.isRegularFile     fs = return $ RegFile   p' fv
@@ -329,8 +320,7 @@ readFile ff p =
       | PF.isCharacterDevice fs = return $ CharDev   p' fv
       | PF.isNamedPipe       fs = return $ NamedPipe p' fv
       | PF.isSocket          fs = return $ Socket    p' fv
-      | otherwise               = return $ Failed    p' (userError
-                                                         "Unknown filetype!")
+      | otherwise               = ioError $ userError "Unknown filetype!"
 
 
 -- |Get the contents of a given directory and return them as a list
@@ -340,8 +330,7 @@ readDirectoryContents :: (Path Abs -> IO a)  -- ^ fills free a variable
                       -> IO [File a]
 readDirectoryContents ff p = do
   files <- getDirsFiles p
-  fcs   <- mapM (readFile ff) files
-  return fcs
+  mapM (readFile ff) files
 
 
 -- |A variant of `readDirectoryContents` where the second argument
@@ -373,28 +362,6 @@ goUp' fp = readFile getFileInfo $ P.dirname fp
 
 
 
----- HANDLING FAILURES ----
-
-
--- |True if any Failed constructors in the tree.
-anyFailed :: [File a] -> Bool
-anyFailed = not . successful
-
--- |True if there are no Failed constructors in the tree.
-successful :: [File a] -> Bool
-successful = null . failures
-
-
--- |Returns true if argument is a `Failed` constructor.
-failed :: File a -> Bool
-failed (Failed _ _) = True
-failed _            = False
-
-
--- |Returns a list of 'Failed' constructors only.
-failures :: [File a] -> [File a]
-failures = filter failed
-
 
 
 ---- ORDERING AND EQUALITY ----
@@ -402,11 +369,7 @@ failures = filter failed
 
  -- HELPER: a non-recursive comparison
 comparingConstr :: File FileInfo -> File FileInfo -> Ordering
-comparingConstr (Failed _ _)      (DirOrSym _)      = LT
-comparingConstr (Failed _ _)      (FileLikeOrSym _) = LT
-comparingConstr (FileLikeOrSym _) (Failed _ _)      = GT
 comparingConstr (FileLikeOrSym _) (DirOrSym _)      = GT
-comparingConstr (DirOrSym _)      (Failed _ _)      = GT
 comparingConstr (DirOrSym _)      (FileLikeOrSym _) = LT
  -- else compare on the names of constructors that are the same, without
  -- looking at the contents of Dir constructors:
@@ -490,28 +453,6 @@ getFileInfo fp = do
 
 
 
----- FAILURE HELPERS: ----
-
-
--- Handles an IO exception by returning a Failed constructor filled with that
--- exception. Does not handle FmIOExceptions.
-handleDT :: Path Abs
-         -> IO (File a)
-         -> IO (File a)
-handleDT p
-  = handleIOError $ \e -> return $ Failed p e
-
-
--- |Carries out the action. If the action returns a file
--- with a failed constructor, rethrows the IOError within.
--- Otherwise, returns the file unchanged.
-rethrowFailed :: IO (File a) -> IO (File a)
-rethrowFailed a = do
-  file <- a
-  case file of
-       (Failed _ e) -> ioError e
-       _            -> return file
-
 
 
 ---- SYMLINK HELPERS: ----
@@ -522,7 +463,7 @@ rethrowFailed a = do
 --
 -- When called on a non-symlink, returns False.
 isBrokenSymlink :: File FileInfo -> Bool
-isBrokenSymlink (SymLink _ _ Failed{} _) = True
+isBrokenSymlink (SymLink _ _ Nothing _) = True
 isBrokenSymlink _ = False
 
 
@@ -563,7 +504,6 @@ packPermissions dt = fromFreeVar (pStr . fileMode) dt
           CharDev {}   -> "c"
           NamedPipe {} -> "p"
           Socket {}    -> "s"
-          _            -> "?"
         ownerModeStr =    hasFmStr PF.ownerReadMode    "r"
                        ++ hasFmStr PF.ownerWriteMode   "w"
                        ++ hasFmStr PF.ownerExecuteMode "x"
@@ -588,7 +528,6 @@ packFileType file = case file of
   CharDev {}   -> "Char Device"
   NamedPipe {} -> "Named Pipe"
   Socket {}    -> "Socket"
-  _            -> "Unknown"
 
 
 packLinkDestination :: File a -> Maybe ByteString
@@ -621,5 +560,4 @@ getFreeVar (BlockDev _  d)    = Just d
 getFreeVar (CharDev _  d)     = Just d
 getFreeVar (NamedPipe _  d)   = Just d
 getFreeVar (Socket _  d)      = Just d
-getFreeVar _                  = Nothing
 

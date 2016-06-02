@@ -301,7 +301,7 @@ refreshView :: MyGUI
              -> MyView
              -> Item
              -> IO ()
-refreshView mygui myview SymLink { sdest = d@Dir{} } =
+refreshView mygui myview SymLink { sdest = Just d@Dir{} } =
   refreshView mygui myview d
 refreshView mygui myview item@Dir{} = do
   newRawModel  <- fileListStore item myview
@@ -351,7 +351,6 @@ constructView mygui myview = do
       dirtreePix FileLike{}      = filePix
       dirtreePix DirSym{}        = folderSymPix
       dirtreePix FileLikeSym{}   = fileSymPix
-      dirtreePix Failed{}        = errorPix
       dirtreePix BrokenSymlink{} = errorPix
       dirtreePix _               = errorPix
 

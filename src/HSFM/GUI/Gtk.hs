@@ -52,7 +52,7 @@ main = do
   let mdir = fromMaybe (fromJust $ P.parseAbs "/")
                        (P.parseAbs . headDef "/" $ args)
 
-  file <- catchIOError (rethrowFailed $ readFile getFileInfo mdir) $
+  file <- catchIOError (readFile getFileInfo mdir) $
     \_ -> readFile getFileInfo  . fromJust $ P.parseAbs "/"
 
   _ <- initGUI
