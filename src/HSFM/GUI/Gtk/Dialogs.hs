@@ -21,12 +21,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.GUI.Gtk.Dialogs where
 
 
+import Codec.Binary.UTF8.String
+  (
+    decodeString
+  )
 import Control.Exception
   (
-    displayException
+    catches
+  , displayException
   , throwIO
   , IOException
-  , catches
   , Handler(..)
   )
 import Control.Monad
@@ -220,7 +224,9 @@ withErrorDialog :: IO a -> IO ()
 withErrorDialog io =
   catches (void io)
     [ Handler (\e -> showErrorDialog
-                       $ displayException (e :: IOException))
+                       . decodeString
+                       . displayException
+                       $ (e :: IOException))
     , Handler (\e -> showErrorDialog
                        $ displayException (e :: HPathIOException))
     ]
