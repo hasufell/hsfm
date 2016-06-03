@@ -111,6 +111,14 @@ goDir bhis mygui myview item = do
   -- set notebook tab label
   page <- notebookGetCurrentPage (notebook mygui)
   child <- fromJust <$> notebookGetNthPage (notebook mygui) page
-  notebookSetTabLabelText (notebook mygui) child
-       (maybe (P.fromAbs $ path item) P.fromRel $ P.basename . path $ item)
+
+  -- get the label
+  ebox <- (castToEventBox . fromJust)
+    <$> notebookGetTabLabel (notebook mygui) child
+  label <- (castToLabel . head) <$> containerGetChildren ebox
+
+  -- set the label
+  labelSetText label
+    (maybe (P.fromAbs $ path item)
+           P.fromRel $ P.basename . path $ item)
 

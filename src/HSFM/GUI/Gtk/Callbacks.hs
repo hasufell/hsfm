@@ -32,9 +32,10 @@ import Control.Exception
   )
 import Control.Monad
   (
-    forM_
-  , forM
+    forM
+  , forM_
   , join
+  , unless
   , void
   , when
   )
@@ -54,6 +55,10 @@ import Data.ByteString.UTF8
 import Data.Foldable
   (
     for_
+  )
+import Data.Maybe
+  (
+    fromJust
   )
 import Graphics.UI.Gtk
 import qualified HPath as P
@@ -77,6 +82,11 @@ import Prelude hiding(readFile)
 import System.Glib.UTFString
   (
     glibToString
+  )
+import System.IO.Error
+  (
+    catchIOError
+  , isUserError
   )
 import System.Posix.Env.ByteString
   (
@@ -296,6 +306,13 @@ setViewCallbacks mygui myview = do
         liftIO $ newFile mygui myview
       _ <- (rcFileNewDir . rcmenu) myview `on` menuItemActivated $
         liftIO $ newDir mygui myview
+      _ <- (rcFileNewTab . rcmenu) myview `on` menuItemActivated $
+        liftIO $ do
+          cwd <- getCurrentDir myview
+          newTabHere mygui cwd
+      _ <- (rcFileNewTabHere . rcmenu) myview `on` menuItemActivated $
+        liftIO $ withItems mygui myview $ \items mygui' _ ->
+          forM_ items $ newTabHere mygui'
       _ <- (rcFileCopy . rcmenu) myview `on` menuItemActivated $
         liftIO $ withItems mygui myview copyInit
       _ <- (rcFileRename . rcmenu) myview `on` menuItemActivated $
@@ -352,6 +369,42 @@ newTabHere :: MyGUI -> Item -> IO ()
 newTabHere mygui item@(DirOrSym _) =
   void $ withErrorDialog $ newTab mygui createTreeView item
 newTabHere _ _ = return ()
+
+
+-- |Creates a new tab with its own view and refreshes the view.
+newTab :: MyGUI -> IO FMView -> Item -> IO MyView
+newTab mygui iofmv item = do
+  -- create eventbox with label
+  label <- labelNewWithMnemonic
+    (maybe (P.fromAbs $ path item) P.fromRel $ P.basename $ path item)
+  ebox <- eventBoxNew
+  eventBoxSetVisibleWindow ebox False
+  containerAdd ebox label
+  widgetShowAll label
+
+  myview <- createMyView mygui iofmv
+  _ <- notebookAppendPageMenu (notebook mygui) (viewBox myview)
+    ebox ebox
+
+  notebookSetTabReorderable (notebook mygui) (viewBox myview) True
+
+  catchIOError (refreshView mygui myview item) $ \e -> do
+    unless (isUserError e) (ioError e)
+    file <- readFile getFileInfo . fromJust . P.parseAbs . fromString
+      $ "/"
+    refreshView mygui myview file
+    labelSetText label (fromString "/")
+
+  -- close callback
+  _ <- ebox `on` buttonPressEvent $ do
+    eb <- eventButton
+    case eb of
+      MiddleButton -> do
+        _ <- liftIO $ closeTab mygui myview
+        return True
+      _ -> return False
+
+  return myview
 
 
 

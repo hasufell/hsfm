@@ -32,11 +32,6 @@ import Control.Concurrent.STM
     newTVarIO
   , readTVarIO
   )
-import Control.Monad
-  (
-    forM_
-  , unless
-  )
 import Data.Foldable
   (
     for_
@@ -45,10 +40,6 @@ import Data.Maybe
   (
     catMaybes
   , fromJust
-  )
-import Data.String
-  (
-    fromString
   )
 import Graphics.UI.Gtk
 import {-# SOURCE #-} HSFM.GUI.Gtk.Callbacks (setViewCallbacks)
@@ -73,35 +64,13 @@ import System.INotify
   )
 import System.IO.Error
   (
-    catchIOError
-  , ioError
-  , isUserError
+    ioError
   )
 import System.Posix.FilePath
   (
     hiddenFile
   )
 
-
-
--- |Creates a new tab with its own view and refreshes the view.
-newTab :: MyGUI -> IO FMView -> Item -> IO MyView
-newTab mygui iofmv item = do
-  myview <- createMyView mygui iofmv
-  i <- notebookAppendPage (notebook mygui) (viewBox myview)
-    (maybe (P.fromAbs $ path item) P.fromRel $ P.basename $ path item)
-  mpage <- notebookGetNthPage (notebook mygui) i
-  forM_ mpage $ \page -> notebookSetTabReorderable (notebook mygui)
-                                                   page
-                                                   True
-  catchIOError (refreshView mygui myview item) $ \e -> do
-    forM_ mpage $ \page -> do
-      file <- readFile getFileInfo . fromJust . P.parseAbs . fromString $ "/"
-      refreshView mygui myview file
-      notebookSetTabLabelText (notebook mygui) page "/"
-    unless (isUserError e) (ioError e)
-
-  return myview
 
 
 -- |Constructs the initial MyView object with a few dummy models.
@@ -138,6 +107,10 @@ createMyView mygui iofmv = do
                        "rcFileNewRegFile"
   rcFileNewDir      <- builderGetObject builder castToImageMenuItem
                        "rcFileNewDir"
+  rcFileNewTab      <- builderGetObject builder castToImageMenuItem
+                       "rcFileNewTab"
+  rcFileNewTabHere  <- builderGetObject builder castToImageMenuItem
+                       "rcFileNewTabHere"
   rcFileCut         <- builderGetObject builder castToImageMenuItem
                        "rcFileCut"
   rcFileCopy        <- builderGetObject builder castToImageMenuItem
@@ -198,7 +171,7 @@ switchView mygui myview iofmv = do
   refreshView mygui nview cwd
 
 
--- |Destroys the current view by disconnecting the watcher
+-- |Destroys the given view by disconnecting the watcher
 -- and destroying the active FMView container.
 --
 -- Everything that needs to be done in order to forget about a
@@ -211,7 +184,7 @@ destroyView mygui myview = do
   mi <- tryTakeMVar (inotify myview)
   for_ mi $ \i -> killINotify i
 
-  page <- notebookGetCurrentPage (notebook mygui)
+  page <- fromJust <$> notebookPageNum (notebook mygui) (viewBox myview)
 
   -- destroy old view and tab page
   view' <- readTVarIO $ view myview
