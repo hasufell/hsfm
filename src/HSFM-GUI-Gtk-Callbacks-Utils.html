@@ -120,8 +120,16 @@
 <a name="line-111"></a>  <span class='hs-comment'>-- set notebook tab label</span>
 <a name="line-112"></a>  <span class='hs-varid'>page</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>notebookGetCurrentPage</span> <span class='hs-layout'>(</span><span class='hs-varid'>notebook</span> <span class='hs-varid'>mygui</span><span class='hs-layout'>)</span>
 <a name="line-113"></a>  <span class='hs-varid'>child</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>fromJust</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>notebookGetNthPage</span> <span class='hs-layout'>(</span><span class='hs-varid'>notebook</span> <span class='hs-varid'>mygui</span><span class='hs-layout'>)</span> <span class='hs-varid'>page</span>
-<a name="line-114"></a>  <span class='hs-varid'>notebookSetTabLabelText</span> <span class='hs-layout'>(</span><span class='hs-varid'>notebook</span> <span class='hs-varid'>mygui</span><span class='hs-layout'>)</span> <span class='hs-varid'>child</span>
-<a name="line-115"></a>       <span class='hs-layout'>(</span><span class='hs-varid'>maybe</span> <span class='hs-layout'>(</span><span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>fromAbs</span> <span class='hs-varop'>$</span> <span class='hs-varid'>path</span> <span class='hs-varid'>item</span><span class='hs-layout'>)</span> <span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>fromRel</span> <span class='hs-varop'>$</span> <span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>basename</span> <span class='hs-varop'>.</span> <span class='hs-varid'>path</span> <span class='hs-varop'>$</span> <span class='hs-varid'>item</span><span class='hs-layout'>)</span>
-<a name="line-116"></a>
+<a name="line-114"></a>
+<a name="line-115"></a>  <span class='hs-comment'>-- get the label</span>
+<a name="line-116"></a>  <span class='hs-varid'>ebox</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-layout'>(</span><span class='hs-varid'>castToEventBox</span> <span class='hs-varop'>.</span> <span class='hs-varid'>fromJust</span><span class='hs-layout'>)</span>
+<a name="line-117"></a>    <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>notebookGetTabLabel</span> <span class='hs-layout'>(</span><span class='hs-varid'>notebook</span> <span class='hs-varid'>mygui</span><span class='hs-layout'>)</span> <span class='hs-varid'>child</span>
+<a name="line-118"></a>  <span class='hs-varid'>label</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-layout'>(</span><span class='hs-varid'>castToLabel</span> <span class='hs-varop'>.</span> <span class='hs-varid'>head</span><span class='hs-layout'>)</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>containerGetChildren</span> <span class='hs-varid'>ebox</span>
+<a name="line-119"></a>
+<a name="line-120"></a>  <span class='hs-comment'>-- set the label</span>
+<a name="line-121"></a>  <span class='hs-varid'>labelSetText</span> <span class='hs-varid'>label</span>
+<a name="line-122"></a>    <span class='hs-layout'>(</span><span class='hs-varid'>maybe</span> <span class='hs-layout'>(</span><span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>fromAbs</span> <span class='hs-varop'>$</span> <span class='hs-varid'>path</span> <span class='hs-varid'>item</span><span class='hs-layout'>)</span>
+<a name="line-123"></a>           <span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>fromRel</span> <span class='hs-varop'>$</span> <span class='hs-conid'>P</span><span class='hs-varop'>.</span><span class='hs-varid'>basename</span> <span class='hs-varop'>.</span> <span class='hs-varid'>path</span> <span class='hs-varop'>$</span> <span class='hs-varid'>item</span><span class='hs-layout'>)</span>
+<a name="line-124"></a>
 </pre></body>
 </html>
