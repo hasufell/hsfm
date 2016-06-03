@@ -45,7 +45,6 @@ import Paths_hsfm
 -- |Set up the GUI. This only creates the permanent widgets.
 createMyGUI :: IO MyGUI
 createMyGUI = do
-
   let settings' = MkFMSettings False True 24
   settings <- newTVarIO settings'
   operationBuffer <- newTVarIO None
@@ -84,6 +83,10 @@ createMyGUI = do
                        "fpropLDEntry"
   notebook          <- builderGetObject builder castToNotebook
                        "notebook"
+
+  -- this is required so that hotkeys work as expected, because
+  -- we then can connect to signals from `viewBox` more reliably
+  widgetSetCanFocus notebook False
 
   -- construct the gui object
   let menubar = MkMenuBar {..}
