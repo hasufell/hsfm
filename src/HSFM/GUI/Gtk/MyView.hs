@@ -108,11 +108,11 @@ newTab mygui iofmv item pos = do
   notebookSetTabReorderable (notebook mygui) (viewBox myview) True
 
   catchIOError (refreshView mygui myview item) $ \e -> do
-    unless (isUserError e) (ioError e)
     file <- readFile getFileInfo . fromJust . P.parseAbs . fromString
       $ "/"
     refreshView mygui myview file
     labelSetText label (fromString "/" :: String)
+    unless (isUserError e) (ioError e)
 
   -- close callback
   _ <- ebox `on` buttonPressEvent $ do
