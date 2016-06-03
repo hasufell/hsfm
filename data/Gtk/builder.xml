@@ -518,10 +518,19 @@
             </child>
             <child>
               <object class="GtkImageMenuItem" id="rcFileNewTab">
-                <property name="label" translatable="yes">New Tab</property>
+                <property name="label" translatable="yes">Tab</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="image">image8</property>
+                <property name="use_stock">False</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkImageMenuItem" id="rcFileNewTerm">
+                <property name="label" translatable="yes">Terminal</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="image">image9</property>
                 <property name="use_stock">False</property>
               </object>
             </child>
@@ -633,6 +642,11 @@
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="stock">gtk-add</property>
+  </object>
+  <object class="GtkImage" id="image9">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="icon_name">utilities-terminal</property>
   </object>
   <object class="GtkBox" id="viewBox">
     <property name="visible">True</property>

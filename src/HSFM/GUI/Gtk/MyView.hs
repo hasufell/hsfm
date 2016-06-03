@@ -163,6 +163,8 @@ createMyView mygui iofmv = do
                        "rcFileNewDir"
   rcFileNewTab      <- builderGetObject builder castToImageMenuItem
                        "rcFileNewTab"
+  rcFileNewTerm     <- builderGetObject builder castToImageMenuItem
+                       "rcFileNewTerm"
   rcFileCut         <- builderGetObject builder castToImageMenuItem
                        "rcFileCut"
   rcFileCopy        <- builderGetObject builder castToImageMenuItem

@@ -296,6 +296,8 @@ setViewCallbacks mygui myview = do
         liftIO $ newDir mygui myview
       _ <- (rcFileNewTab . rcmenu) myview `on` menuItemActivated $
         liftIO $ newTab' mygui myview
+      _ <- (rcFileNewTerm . rcmenu) myview `on` menuItemActivated $
+        liftIO $ void $ openTerminalHere myview
       _ <- (rcFileCopy . rcmenu) myview `on` menuItemActivated $
         liftIO $ withItems mygui myview copyInit
       _ <- (rcFileRename . rcmenu) myview `on` menuItemActivated $
