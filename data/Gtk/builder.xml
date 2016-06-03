@@ -525,15 +525,6 @@
                 <property name="use_stock">False</property>
               </object>
             </child>
-            <child>
-              <object class="GtkImageMenuItem" id="rcFileNewTabHere">
-                <property name="label" translatable="yes">New Tab here</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="image">image9</property>
-                <property name="use_stock">False</property>
-              </object>
-            </child>
           </object>
         </child>
       </object>
@@ -639,11 +630,6 @@
     </child>
   </object>
   <object class="GtkImage" id="image8">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-add</property>
-  </object>
-  <object class="GtkImage" id="image9">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="stock">gtk-add</property>

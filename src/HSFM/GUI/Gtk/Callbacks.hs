@@ -229,9 +229,7 @@ setViewCallbacks mygui myview = do
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Control] <- eventModifier
         "t"       <- fmap glibToString eventKeyName
-        liftIO $ void $ do
-          cwd <- getCurrentDir myview
-          newTabHere mygui cwd
+        liftIO $ void $ newTab' mygui myview
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Control] <- eventModifier
         "w"       <- fmap glibToString eventKeyName
@@ -273,7 +271,7 @@ setViewCallbacks mygui myview = do
               -- if the item under the cursor is not within the current
               -- selection
               (Just item) -> do
-                liftIO $ newTabHere mygui item
+                liftIO $ opeInNewTab mygui item
                 return True
               -- no item under the cursor, pass on the signal
               Nothing -> return False
@@ -297,12 +295,7 @@ setViewCallbacks mygui myview = do
       _ <- (rcFileNewDir . rcmenu) myview `on` menuItemActivated $
         liftIO $ newDir mygui myview
       _ <- (rcFileNewTab . rcmenu) myview `on` menuItemActivated $
-        liftIO $ do
-          cwd <- getCurrentDir myview
-          newTabHere mygui cwd
-      _ <- (rcFileNewTabHere . rcmenu) myview `on` menuItemActivated $
-        liftIO $ withItems mygui myview $ \items mygui' _ ->
-          forM_ items $ newTabHere mygui'
+        liftIO $ newTab' mygui myview
       _ <- (rcFileCopy . rcmenu) myview `on` menuItemActivated $
         liftIO $ withItems mygui myview copyInit
       _ <- (rcFileRename . rcmenu) myview `on` menuItemActivated $
@@ -355,12 +348,16 @@ closeTab mygui myview = do
   when (n > 1) $ void $ destroyView mygui myview
 
 
-newTabHere :: MyGUI -> Item -> IO ()
-newTabHere mygui item@(DirOrSym _) =
+newTab' :: MyGUI -> MyView -> IO ()
+newTab' mygui myview = do
+  cwd <- getCurrentDir myview
+  void $ withErrorDialog $ newTab mygui createTreeView cwd (-1)
+
+
+opeInNewTab :: MyGUI -> Item -> IO ()
+opeInNewTab mygui item@(DirOrSym _) =
   void $ withErrorDialog $ newTab mygui createTreeView item (-1)
-newTabHere _ _ = return ()
-
-
+opeInNewTab _ _ = return ()
 
 
 
@@ -520,12 +517,11 @@ open [item] mygui myview = withErrorDialog $
       goDir True mygui myview nv
     r ->
       void $ openFile . path $ r
--- this throws on the first error that occurs
-open (FileLikeList fs) _ _ = withErrorDialog $
-  forM_ fs $ \f -> void $ openFile . path $ f
-open _ _ _ = withErrorDialog
-               . throwIO $ InvalidOperation
-                           "Operation not supported on multiple files"
+open items mygui _ = do
+  let dirs  = filter (fst . sdir) items
+      files = filter (fst . sfileLike) items
+  forM_ dirs (withErrorDialog . opeInNewTab mygui)
+  forM_ files (withErrorDialog . openFile . path)
 
 
 -- |Go up one directory and visualize it in the treeView.

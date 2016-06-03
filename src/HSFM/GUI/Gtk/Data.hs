@@ -108,7 +108,6 @@ data RightClickMenu = MkRightClickMenu {
   , rcFileNewRegFile :: !ImageMenuItem
   , rcFileNewDir     :: !ImageMenuItem
   , rcFileNewTab     :: !ImageMenuItem
-  , rcFileNewTabHere :: !ImageMenuItem
   , rcFileCut        :: !ImageMenuItem
   , rcFileCopy       :: !ImageMenuItem
   , rcFileRename     :: !ImageMenuItem
