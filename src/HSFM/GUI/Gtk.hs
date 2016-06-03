@@ -57,7 +57,7 @@ main = do
 
   _ <- initGUI
   mygui <- createMyGUI
-  _ <- newTab mygui createTreeView file
+  _ <- newTab mygui createTreeView file (-1)
 
   setGUICallbacks mygui
 

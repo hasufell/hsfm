@@ -16,6 +16,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
+{-# LANGUAGE RecordWildCards #-}
 
 
 module HSFM.GUI.Gtk.MyView where
@@ -32,6 +33,16 @@ import Control.Concurrent.STM
     newTVarIO
   , readTVarIO
   )
+import Control.Monad
+  (
+    unless
+  , void
+  , when
+  )
+import Control.Monad.IO.Class
+  (
+    liftIO
+  )
 import Data.Foldable
   (
     for_
@@ -40,6 +51,10 @@ import Data.Maybe
   (
     catMaybes
   , fromJust
+  )
+import Data.String
+  (
+    fromString
   )
 import Graphics.UI.Gtk
 import {-# SOURCE #-} HSFM.GUI.Gtk.Callbacks (setViewCallbacks)
@@ -64,13 +79,52 @@ import System.INotify
   )
 import System.IO.Error
   (
-    ioError
+    catchIOError
+  , ioError
+  , isUserError
   )
 import System.Posix.FilePath
   (
     hiddenFile
   )
 
+
+
+-- |Creates a new tab with its own view and refreshes the view.
+newTab :: MyGUI -> IO FMView -> Item -> Int -> IO MyView
+newTab mygui iofmv item pos = do
+  -- create eventbox with label
+  label <- labelNewWithMnemonic
+    (maybe (P.fromAbs $ path item) P.fromRel $ P.basename $ path item)
+  ebox <- eventBoxNew
+  eventBoxSetVisibleWindow ebox False
+  containerAdd ebox label
+  widgetShowAll label
+
+  myview <- createMyView mygui iofmv
+  _ <- notebookInsertPageMenu (notebook mygui) (viewBox myview)
+    ebox ebox pos
+
+  notebookSetTabReorderable (notebook mygui) (viewBox myview) True
+
+  catchIOError (refreshView mygui myview item) $ \e -> do
+    unless (isUserError e) (ioError e)
+    file <- readFile getFileInfo . fromJust . P.parseAbs . fromString
+      $ "/"
+    refreshView mygui myview file
+    labelSetText label (fromString "/" :: String)
+
+  -- close callback
+  _ <- ebox `on` buttonPressEvent $ do
+    eb <- eventButton
+    case eb of
+      MiddleButton -> liftIO $ do
+        n <- notebookGetNPages (notebook mygui)
+        when (n > 1) $ void $ destroyView mygui myview
+        return True
+      _ -> return False
+
+  return myview
 
 
 -- |Constructs the initial MyView object with a few dummy models.
@@ -162,11 +216,10 @@ switchView mygui myview iofmv = do
   oldpage <- destroyView mygui myview
 
   -- create new view and tab page where the previous one was
-  nview <- createMyView mygui iofmv
-  newpage <- notebookInsertPage (notebook mygui) (viewBox nview)
-             (maybe (P.fromAbs $ path cwd) P.fromRel
-                 $ P.basename . path $ cwd) oldpage
-  notebookSetCurrentPage (notebook mygui) newpage
+  nview <- newTab mygui iofmv cwd oldpage
+
+  page <- fromJust <$> notebookPageNum (notebook mygui) (viewBox nview)
+  notebookSetCurrentPage (notebook mygui) page
 
   refreshView mygui nview cwd
 
