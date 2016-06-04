@@ -26,6 +26,7 @@ library
   exposed-modules:
                        HSFM.FileSystem.FileType
                        HSFM.FileSystem.UtilTypes
+                       HSFM.History
                        HSFM.Utils.IO
                        HSFM.Utils.MyPrelude
 
