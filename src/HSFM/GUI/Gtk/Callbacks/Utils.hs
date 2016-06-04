@@ -111,7 +111,7 @@ goDir bhis mygui myview item = do
   when bhis $ do
     mhs <- tryTakeMVar (history myview)
     for_ mhs $ \hs -> do
-      let nhs = goNewPath (path item) hs
+      let nhs = historyNewPath (path item) hs
       putMVar (history myview) nhs
   refreshView mygui myview item
 

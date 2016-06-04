@@ -42,6 +42,10 @@ import Control.Monad.IO.Class
   (
     liftIO
   )
+import Control.Monad.Loops
+  (
+    iterateUntil
+  )
 import Data.ByteString
   (
     ByteString
@@ -58,10 +62,11 @@ import Data.Foldable
 import Graphics.UI.Gtk
 import qualified HPath as P
 import HPath
-    (
-      Abs
-    , Path
-    )
+  (
+    fromAbs
+  , Abs
+  , Path
+  )
 import HPath.IO
 import HPath.IO.Errors
 import HPath.IO.Utils
@@ -91,7 +96,8 @@ import System.Posix.Types
 import Control.Concurrent.MVar
   (
     putMVar
-  , tryTakeMVar
+  , readMVar
+  , takeMVar
   )
 
 
@@ -184,6 +190,34 @@ setViewCallbacks mygui myview = do
       let view = fmViewToContainer fmv
 
       -- GUI events
+      _ <- backViewB myview `on` buttonPressEvent $ do
+        eb <- eventButton
+        t  <- eventTime
+        case eb of
+          LeftButton  -> do
+            liftIO $ void $ goHistoryBack mygui myview
+            return True
+          RightButton -> do
+            his <- liftIO $ readMVar (history myview)
+            menu <- liftIO $ mkHistoryMenuB mygui myview
+                               (backwardsHistory his)
+            _ <- liftIO $ menuPopup menu $ Just (RightButton, t)
+            return True
+          _           -> return False
+      _ <- forwardViewB myview `on` buttonPressEvent $ do
+        eb <- eventButton
+        t  <- eventTime
+        case eb of
+          LeftButton  -> do
+            liftIO $ void $ goHistoryForward mygui myview
+            return True
+          RightButton -> do
+            his <- liftIO $ readMVar (history myview)
+            menu <- liftIO $ mkHistoryMenuF mygui myview
+                               (forwardHistory his)
+            _ <- liftIO $ menuPopup menu $ Just (RightButton, t)
+            return True
+          _           -> return False
       _ <- urlBar myview `on` entryActivated $ urlGoTo mygui myview
       _ <- upViewB myview `on` buttonActivated $
            upDir mygui myview
@@ -208,11 +242,11 @@ setViewCallbacks mygui myview = do
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Alt] <- eventModifier
         "Left"  <- fmap glibToString eventKeyName
-        liftIO $ goHistoryBack mygui myview
+        liftIO $ void $ goHistoryBack mygui myview
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Alt] <- eventModifier
         "Right"  <- fmap glibToString eventKeyName
-        liftIO $ goHistoryForward mygui myview
+        liftIO $ void $ goHistoryForward mygui myview
       _ <- view `on` keyPressEvent $ tryEvent $ do
         "Delete"  <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview del
@@ -283,10 +317,10 @@ setViewCallbacks mygui myview = do
               Nothing -> return False
 
           OtherButton 8 -> do
-            liftIO $ goHistoryBack mygui myview
+            liftIO $ void $ goHistoryBack mygui myview
             return False
           OtherButton 9 -> do
-            liftIO $ goHistoryForward mygui myview
+            liftIO $ void $ goHistoryForward mygui myview
             return False
           -- not right-click, so pass on the signal
           _ -> return False
@@ -541,23 +575,51 @@ upDir mygui myview = withErrorDialog $ do
 
 
 -- |Go "back" in the history.
-goHistoryBack :: MyGUI -> MyView -> IO ()
+goHistoryBack :: MyGUI -> MyView -> IO (Path Abs)
 goHistoryBack mygui myview = do
-  mhs <- tryTakeMVar (history myview)
-  for_ mhs $ \hs -> do
-    let nhs = goBack hs
-    putMVar (history myview) nhs
-    nv <- readFile getFileInfo $ currentDir nhs
-    goDir False mygui myview nv
+  hs <- takeMVar (history myview)
+  let nhs = historyBack hs
+  putMVar (history myview) nhs
+  nv <- readFile getFileInfo $ currentDir nhs
+  goDir False mygui myview nv
+  return $ currentDir nhs
 
 
 -- |Go "forward" in the history.
-goHistoryForward :: MyGUI -> MyView -> IO ()
+goHistoryForward :: MyGUI -> MyView -> IO (Path Abs)
 goHistoryForward mygui myview = do
-  mhs <- tryTakeMVar (history myview)
-  for_ mhs $ \hs -> do
-    let nhs = goForward hs
-    putMVar (history myview) nhs
-    nv <- readFile getFileInfo $ currentDir nhs
-    goDir False mygui myview nv
+  hs <- takeMVar (history myview)
+  let nhs = historyForward hs
+  putMVar (history myview) nhs
+  nv <- readFile getFileInfo $ currentDir nhs
+  goDir False mygui myview nv
+  return $ currentDir nhs
+
+
+-- |Show backwards history in a drop-down menu, depending on the input.
+mkHistoryMenuB :: MyGUI -> MyView -> [Path Abs] -> IO Menu
+mkHistoryMenuB mygui myview hs = do
+  menu <- menuNew
+  menuitems <- forM hs $ \p -> do
+    item <- menuItemNewWithLabel (fromAbs p)
+    _ <- item `on` menuItemActivated $
+      void $ iterateUntil (== p) (goHistoryBack mygui myview)
+    return item
+  forM_ menuitems $ \item -> menuShellAppend menu item
+  widgetShowAll menu
+  return menu
+
+
+-- |Show forward history in a drop-down menu, depending on the input.
+mkHistoryMenuF :: MyGUI -> MyView -> [Path Abs] -> IO Menu
+mkHistoryMenuF mygui myview hs = do
+  menu <- menuNew
+  menuitems <- forM hs $ \p -> do
+    item <- menuItemNewWithLabel (fromAbs p)
+    _ <- item `on` menuItemActivated $
+      void $ iterateUntil (== p) (goHistoryForward mygui myview)
+    return item
+  forM_ menuitems $ \item -> menuShellAppend menu item
+  widgetShowAll menu
+  return menu
 

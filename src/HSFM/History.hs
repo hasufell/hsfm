@@ -41,21 +41,21 @@ data BrowsingHistory = BrowsingHistory {
 
 -- |This is meant to be called after e.g. a new path is entered
 -- (not navigated to via the history) and the history needs updating.
-goNewPath :: Path Abs -> BrowsingHistory -> BrowsingHistory
-goNewPath p (BrowsingHistory b cd _ s) =
+historyNewPath :: Path Abs -> BrowsingHistory -> BrowsingHistory
+historyNewPath p (BrowsingHistory b cd _ s) =
   BrowsingHistory (take s $ cd:b) p [] s
 
 
--- |Go back in the history.
-goBack :: BrowsingHistory -> BrowsingHistory
-goBack bh@(BrowsingHistory [] _ _ _)   = bh
-goBack (BrowsingHistory (b:bs) cd fs s) =
+-- |Go back one step in the history.
+historyBack :: BrowsingHistory -> BrowsingHistory
+historyBack bh@(BrowsingHistory [] _ _ _)   = bh
+historyBack (BrowsingHistory (b:bs) cd fs s) =
   BrowsingHistory bs b (take s $ cd:fs) s
 
 
--- |Go forward in the history.
-goForward :: BrowsingHistory -> BrowsingHistory
-goForward bh@(BrowsingHistory _ _ [] _) = bh
-goForward (BrowsingHistory bs cd (f:fs) s) =
+-- |Go forward one step in the history.
+historyForward :: BrowsingHistory -> BrowsingHistory
+historyForward bh@(BrowsingHistory _ _ [] _) = bh
+historyForward (BrowsingHistory bs cd (f:fs) s) =
   BrowsingHistory (take s $ cd:bs) f fs s
 

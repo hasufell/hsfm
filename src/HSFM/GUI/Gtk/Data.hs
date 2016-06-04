@@ -85,7 +85,9 @@ data MyView = MkMyView {
   , scroll       :: !ScrolledWindow
   , viewBox      :: !Box
   , rcmenu       :: !RightClickMenu
+  , backViewB    :: !Button
   , upViewB      :: !Button
+  , forwardViewB :: !Button
   , homeViewB    :: !Button
   , refreshViewB :: !Button
   , urlBar       :: !Entry

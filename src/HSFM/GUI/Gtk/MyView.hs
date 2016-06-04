@@ -189,8 +189,12 @@ createMyView mygui iofmv = do
                        "rcFileIconView"
   rcFileTreeView    <- builderGetObject builder castToImageMenuItem
                        "rcFileTreeView"
+  backViewB         <- builderGetObject builder castToButton
+                       "backViewB"
   upViewB           <- builderGetObject builder castToButton
                        "upViewB"
+  forwardViewB      <- builderGetObject builder castToButton
+                       "forwardViewB"
   homeViewB         <- builderGetObject builder castToButton
                        "homeViewB"
   refreshViewB      <- builderGetObject builder castToButton
