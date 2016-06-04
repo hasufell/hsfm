@@ -30,13 +30,9 @@ import Control.Concurrent.STM
     TVar
   )
 import Graphics.UI.Gtk hiding (MenuBar)
-import HPath
-  (
-    Abs
-  , Path
-  )
 import HSFM.FileSystem.FileType
 import HSFM.FileSystem.UtilTypes
+import HSFM.History
 import System.INotify
   (
     INotify
@@ -83,7 +79,7 @@ data MyView = MkMyView {
 
   -- the first part of the tuple represents the "go back"
   -- the second part the "go forth" in the history
-  , history         :: !(TVar ([Path Abs], [Path Abs]))
+  , history         :: !(MVar BrowsingHistory)
 
   -- sub-widgets
   , scroll       :: !ScrolledWindow

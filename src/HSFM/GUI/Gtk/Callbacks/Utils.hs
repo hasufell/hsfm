@@ -29,6 +29,10 @@ import Control.Monad
     forM_
   , when
   )
+import Data.Foldable
+  (
+    for_
+  )
 import Data.Maybe
   (
     fromJust
@@ -46,12 +50,13 @@ import HSFM.FileSystem.UtilTypes
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Dialogs
 import HSFM.GUI.Gtk.MyView
-import HSFM.GUI.Gtk.Utils
-import HSFM.Utils.IO
-  (
-    modifyTVarIO
-  )
+import HSFM.History
 import Prelude hiding(readFile)
+import Control.Concurrent.MVar
+  (
+    putMVar
+  , tryTakeMVar
+  )
 
 
 
@@ -103,9 +108,11 @@ goDir :: Bool    -- ^ whether to update the history
       -> Item
       -> IO ()
 goDir bhis mygui myview item = do
-  cdir <- getCurrentDir myview
-  when bhis $ modifyTVarIO (history myview)
-    (\(p, _) -> (path cdir `addHistory` p, []))
+  when bhis $ do
+    mhs <- tryTakeMVar (history myview)
+    for_ mhs $ \hs -> do
+      let nhs = goNewPath (path item) hs
+      putMVar (history myview) nhs
   refreshView mygui myview item
 
   -- set notebook tab label

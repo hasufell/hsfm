@@ -64,6 +64,7 @@ import HSFM.GUI.Glib.GlibString()
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Icons
 import HSFM.GUI.Gtk.Utils
+import HSFM.History
 import HSFM.Utils.IO
 import Paths_hsfm
   (
@@ -93,6 +94,8 @@ import System.Posix.FilePath
 -- |Creates a new tab with its own view and refreshes the view.
 newTab :: MyGUI -> IO FMView -> Item -> Int -> IO MyView
 newTab mygui iofmv item pos = do
+
+
   -- create eventbox with label
   label <- labelNewWithMnemonic
     (maybe (P.fromAbs $ path item) P.fromRel $ P.basename $ path item)
@@ -104,6 +107,11 @@ newTab mygui iofmv item pos = do
   myview <- createMyView mygui iofmv
   _ <- notebookInsertPageMenu (notebook mygui) (viewBox myview)
     ebox ebox pos
+
+  -- set initial history
+  let historySize = 5
+  putMVar (history myview)
+          (BrowsingHistory [] (path item) [] historySize)
 
   notebookSetTabReorderable (notebook mygui) (viewBox myview) True
 
@@ -134,7 +142,7 @@ createMyView :: MyGUI
              -> IO MyView
 createMyView mygui iofmv = do
   inotify <- newEmptyMVar
-  history <- newTVarIO ([],[])
+  history <- newEmptyMVar
 
   builder <- builderNew
   builderAddFromFile builder =<< getDataFileName "data/Gtk/builder.xml"

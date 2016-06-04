@@ -152,15 +152,3 @@ rawPathToItem myview tp = do
   miter     <- rawPathToIter myview tp
   forM miter $ \iter -> treeModelGetRow rawModel' iter
 
-
--- |Makes sure the list is max 5. This is probably not very efficient
--- but we don't care, since it's a small list anyway.
-addHistory :: Eq a => a -> [a] -> [a]
-addHistory i [] = [i]
-addHistory i xs@(x:_)
-  | i == x                 = xs
-  | length xs == maxLength = i : take (maxLength - 1) xs
-  | otherwise              = i : xs
-  where
-    maxLength = 10
-

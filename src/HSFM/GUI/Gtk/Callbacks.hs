@@ -72,6 +72,7 @@ import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Dialogs
 import HSFM.GUI.Gtk.MyView
 import HSFM.GUI.Gtk.Utils
+import HSFM.History
 import HSFM.Utils.IO
 import Prelude hiding(readFile)
 import System.Glib.UTFString
@@ -86,6 +87,11 @@ import qualified System.Posix.Process.ByteString as SPP
 import System.Posix.Types
   (
     ProcessID
+  )
+import Control.Concurrent.MVar
+  (
+    putMVar
+  , tryTakeMVar
   )
 
 
@@ -202,11 +208,11 @@ setViewCallbacks mygui myview = do
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Alt] <- eventModifier
         "Left"  <- fmap glibToString eventKeyName
-        liftIO $ goHistoryPrev mygui myview
+        liftIO $ goHistoryBack mygui myview
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
         [Alt] <- eventModifier
         "Right"  <- fmap glibToString eventKeyName
-        liftIO $ goHistoryNext mygui myview
+        liftIO $ goHistoryForward mygui myview
       _ <- view `on` keyPressEvent $ tryEvent $ do
         "Delete"  <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview del
@@ -277,10 +283,10 @@ setViewCallbacks mygui myview = do
               Nothing -> return False
 
           OtherButton 8 -> do
-            liftIO $ goHistoryPrev mygui myview
+            liftIO $ goHistoryBack mygui myview
             return False
           OtherButton 9 -> do
-            liftIO $ goHistoryNext mygui myview
+            liftIO $ goHistoryForward mygui myview
             return False
           -- not right-click, so pass on the signal
           _ -> return False
@@ -535,29 +541,23 @@ upDir mygui myview = withErrorDialog $ do
 
 
 -- |Go "back" in the history.
-goHistoryPrev :: MyGUI -> MyView -> IO ()
-goHistoryPrev mygui myview = do
-  hs <- readTVarIO (history myview)
-  case hs of
-    ([], _) -> return ()
-    (x:xs, _) -> do
-      cdir <- getCurrentDir myview
-      nv <- readFile getFileInfo $ x
-      modifyTVarIO (history myview)
-        (\(_, n) -> (xs, path cdir `addHistory` n))
-      goDir False mygui myview nv
+goHistoryBack :: MyGUI -> MyView -> IO ()
+goHistoryBack mygui myview = do
+  mhs <- tryTakeMVar (history myview)
+  for_ mhs $ \hs -> do
+    let nhs = goBack hs
+    putMVar (history myview) nhs
+    nv <- readFile getFileInfo $ currentDir nhs
+    goDir False mygui myview nv
 
 
--- |Go "forth" in the history.
-goHistoryNext :: MyGUI -> MyView -> IO ()
-goHistoryNext mygui myview = do
-  hs <- readTVarIO (history myview)
-  case hs of
-    (_, []) -> return ()
-    (_, x:xs) -> do
-      cdir <- getCurrentDir myview
-      nv <- readFile getFileInfo $ x
-      modifyTVarIO (history myview)
-        (\(p, _) -> (path cdir `addHistory` p, xs))
-      goDir False mygui myview nv
+-- |Go "forward" in the history.
+goHistoryForward :: MyGUI -> MyView -> IO ()
+goHistoryForward mygui myview = do
+  mhs <- tryTakeMVar (history myview)
+  for_ mhs $ \hs -> do
+    let nhs = goForward hs
+    putMVar (history myview) nhs
+    nv <- readFile getFileInfo $ currentDir nhs
+    goDir False mygui myview nv
 
