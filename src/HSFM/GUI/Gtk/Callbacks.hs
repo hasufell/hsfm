@@ -574,6 +574,11 @@ upDir mygui myview = withErrorDialog $ do
   goDir True mygui myview nv
 
 
+
+
+---- HISTORY CALLBACKS ----
+
+
 -- |Go "back" in the history.
 goHistoryBack :: MyGUI -> MyView -> IO (Path Abs)
 goHistoryBack mygui myview = do
