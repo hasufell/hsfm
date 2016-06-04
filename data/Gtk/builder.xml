@@ -658,11 +658,16 @@
         <property name="can_focus">False</property>
         <child>
           <object class="GtkButton" id="backViewB">
-            <property name="label">gtk-go-back</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
-            <property name="use_stock">True</property>
+            <child>
+              <object class="GtkImage" id="imageGoBack">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="stock">gtk-go-back</property>
+              </object>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -673,11 +678,16 @@
         </child>
         <child>
           <object class="GtkButton" id="upViewB">
-            <property name="label">gtk-go-up</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
-            <property name="use_stock">True</property>
+            <child>
+              <object class="GtkImage" id="imageGoUp">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="stock">gtk-go-up</property>
+              </object>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -688,11 +698,16 @@
         </child>
         <child>
           <object class="GtkButton" id="forwardViewB">
-            <property name="label">gtk-go-forward</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
-            <property name="use_stock">True</property>
+            <child>
+              <object class="GtkImage" id="imageGoForward">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="stock">gtk-go-forward</property>
+              </object>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -703,11 +718,16 @@
         </child>
         <child>
           <object class="GtkButton" id="refreshViewB">
-            <property name="label">gtk-refresh</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
-            <property name="use_stock">True</property>
+            <child>
+              <object class="GtkImage" id="imageRefresh">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="stock">gtk-refresh</property>
+              </object>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -718,11 +738,16 @@
         </child>
         <child>
           <object class="GtkButton" id="homeViewB">
-            <property name="label">gtk-home</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
-            <property name="use_stock">True</property>
+            <child>
+              <object class="GtkImage" id="imageHome">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="stock">gtk-home</property>
+              </object>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
