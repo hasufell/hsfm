@@ -161,17 +161,5 @@
 <a name="line-152"></a>  <span class='hs-varid'>miter</span>     <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>rawPathToIter</span> <span class='hs-varid'>myview</span> <span class='hs-varid'>tp</span>
 <a name="line-153"></a>  <span class='hs-varid'>forM</span> <span class='hs-varid'>miter</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>iter</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>treeModelGetRow</span> <span class='hs-varid'>rawModel'</span> <span class='hs-varid'>iter</span>
 <a name="line-154"></a>
-<a name="line-155"></a>
-<a name="line-156"></a><a name="addHistory"></a><span class='hs-comment'>-- |Makes sure the list is max 5. This is probably not very efficient</span>
-<a name="line-157"></a><span class='hs-comment'>-- but we don't care, since it's a small list anyway.</span>
-<a name="line-158"></a><span class='hs-definition'>addHistory</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Eq</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyglyph'>[</span><span class='hs-varid'>a</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyglyph'>[</span><span class='hs-varid'>a</span><span class='hs-keyglyph'>]</span>
-<a name="line-159"></a><span class='hs-definition'>addHistory</span> <span class='hs-varid'>i</span> <span class='hs-conid'>[]</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyglyph'>[</span><span class='hs-varid'>i</span><span class='hs-keyglyph'>]</span>
-<a name="line-160"></a><span class='hs-definition'>addHistory</span> <span class='hs-varid'>i</span> <span class='hs-varid'>xs</span><span class='hs-keyglyph'>@</span><span class='hs-layout'>(</span><span class='hs-varid'>x</span><span class='hs-conop'>:</span><span class='hs-keyword'>_</span><span class='hs-layout'>)</span>
-<a name="line-161"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-varid'>i</span> <span class='hs-varop'>==</span> <span class='hs-varid'>x</span>                 <span class='hs-keyglyph'>=</span> <span class='hs-varid'>xs</span>
-<a name="line-162"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-varid'>length</span> <span class='hs-varid'>xs</span> <span class='hs-varop'>==</span> <span class='hs-varid'>maxLength</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>i</span> <span class='hs-conop'>:</span> <span class='hs-varid'>take</span> <span class='hs-layout'>(</span><span class='hs-varid'>maxLength</span> <span class='hs-comment'>-</span> <span class='hs-num'>1</span><span class='hs-layout'>)</span> <span class='hs-varid'>xs</span>
-<a name="line-163"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-varid'>otherwise</span>              <span class='hs-keyglyph'>=</span> <span class='hs-varid'>i</span> <span class='hs-conop'>:</span> <span class='hs-varid'>xs</span>
-<a name="line-164"></a>  <span class='hs-keyword'>where</span>
-<a name="line-165"></a>    <span class='hs-varid'>maxLength</span> <span class='hs-keyglyph'>=</span> <span class='hs-num'>10</span>
-<a name="line-166"></a>
 </pre></body>
 </html>
