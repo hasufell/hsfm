@@ -46,7 +46,7 @@ import qualified HPath as P
 import HPath.IO
 import HPath.IO.Errors
 import HSFM.FileSystem.FileType
-import HSFM.FileSystem.UtilTypes
+import qualified HSFM.FileSystem.UtilTypes as UT
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Dialogs
 import HSFM.GUI.Gtk.MyView
@@ -63,27 +63,26 @@ import Control.Concurrent.MVar
 
 -- |Carries out a file operation with the appropriate error handling
 -- allowing the user to react to various exceptions with further input.
-doFileOperation :: FileOperation -> IO ()
-doFileOperation (FCopy (Copy (f':fs') to)) =
-  _doFileOperation (f':fs') to easyCopyOverwrite easyCopy
-    $ doFileOperation (FCopy $ Copy fs' to)
-doFileOperation (FMove (Move (f':fs') to)) =
-  _doFileOperation (f':fs') to moveFileOverwrite moveFile
-    $ doFileOperation (FMove $ Move fs' to)
+doFileOperation :: UT.FileOperation -> IO ()
+doFileOperation (UT.FCopy (UT.Copy (f':fs') to)) =
+  _doFileOperation (f':fs') to (\p1 p2 cm -> easyCopy p1 p2 cm FailEarly)
+    $ doFileOperation (UT.FCopy $ UT.Copy fs' to)
+doFileOperation (UT.FMove (UT.Move (f':fs') to)) =
+  _doFileOperation (f':fs') to moveFile
+    $ doFileOperation (UT.FMove $ UT.Move fs' to)
 doFileOperation _ = return ()
 
 
 _doFileOperation :: [P.Path b1]
                  -> P.Path P.Abs
-                 -> (P.Path b1 -> P.Path P.Abs -> IO b)
-                 -> (P.Path b1 -> P.Path P.Abs -> IO a)
+                 -> (P.Path b1 -> P.Path P.Abs -> CopyMode -> IO b)
                  -> IO ()
                  -> IO ()
-_doFileOperation [] _ _ _ _ = return ()
-_doFileOperation (f:fs) to mcOverwrite mc rest = do
+_doFileOperation [] _ _ _ = return ()
+_doFileOperation (f:fs) to mc rest = do
   toname <- P.basename f
   let topath = to P.</> toname
-  reactOnError (mc f topath >> rest)
+  reactOnError (mc f topath Strict >> rest)
     [(AlreadyExists  , collisionAction fileCollisionDialog topath)]
     [(FileDoesExist{}, collisionAction fileCollisionDialog topath)
     ,(DirDoesExist{} , collisionAction fileCollisionDialog topath)
@@ -92,12 +91,12 @@ _doFileOperation (f:fs) to mcOverwrite mc rest = do
     collisionAction diag topath = do
       mcm <- diag . P.fromAbs $ topath
       forM_ mcm $ \cm -> case cm of
-        Overwrite    -> mcOverwrite f topath >> rest
-        OverwriteAll -> forM_ (f:fs) $ \x -> do
+        UT.Overwrite -> mc f topath Overwrite >> rest
+        UT.OverwriteAll -> forM_ (f:fs) $ \x -> do
                           toname' <- P.basename x
-                          mcOverwrite x (to P.</> toname')
-        Skip         -> rest
-        Rename newn  -> mc f (to P.</> newn) >> rest
+                          mc x (to P.</> toname') Overwrite
+        UT.Skip         -> rest
+        UT.Rename newn  -> mc f (to P.</> newn) Strict >> rest
         _            -> return ()
 
 

@@ -485,7 +485,7 @@ newFile _ myview = withErrorDialog $ do
   let pmfn = P.parseFn =<< fromString <$> mfn
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
-    createRegularFile (path cdir P.</> fn)
+    createRegularFile newFilePerms (path cdir P.</> fn)
 
 
 -- |Create a new directory.
@@ -495,7 +495,7 @@ newDir _ myview = withErrorDialog $ do
   let pmfn = P.parseFn =<< fromString <$> mfn
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
-    createDir (path cdir P.</> fn)
+    createDir newDirPerms (path cdir P.</> fn)
 
 
 renameF :: [Item] -> MyGUI -> MyView -> IO ()
