@@ -27,6 +27,7 @@ library
                        HSFM.FileSystem.FileType
                        HSFM.FileSystem.UtilTypes
                        HSFM.History
+                       HSFM.Settings
                        HSFM.Utils.IO
                        HSFM.Utils.MyPrelude
 
@@ -63,6 +64,7 @@ executable hsfm-gtk
                        HSFM.GUI.Gtk.Icons
                        HSFM.GUI.Gtk.MyGUI
                        HSFM.GUI.Gtk.MyView
+                       HSFM.GUI.Gtk.Settings
                        HSFM.GUI.Gtk.Utils
                        HSFM.Utils.MyPrelude
 

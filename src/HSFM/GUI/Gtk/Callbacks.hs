@@ -76,17 +76,15 @@ import HSFM.GUI.Gtk.Callbacks.Utils
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Dialogs
 import HSFM.GUI.Gtk.MyView
+import HSFM.GUI.Gtk.Settings
 import HSFM.GUI.Gtk.Utils
 import HSFM.History
+import HSFM.Settings
 import HSFM.Utils.IO
 import Prelude hiding(readFile)
 import System.Glib.UTFString
   (
     glibToString
-  )
-import System.Posix.Env.ByteString
-  (
-    getEnv
   )
 import qualified System.Posix.Process.ByteString as SPP
 import System.Posix.Types
@@ -133,8 +131,8 @@ setGUICallbacks mygui = do
 
   -- key events
   _ <- rootWin mygui `on` keyPressEvent $ tryEvent $ do
-    [Control] <- eventModifier
-    "q"       <- fmap glibToString eventKeyName
+    QuitModifier <- eventModifier
+    QuitKey      <- fmap glibToString eventKeyName
     liftIO mainQuit
 
   return ()
@@ -229,53 +227,55 @@ setViewCallbacks mygui myview = do
 
       -- key events
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
-        [Control] <- eventModifier
-        "h"       <- fmap glibToString eventKeyName
+        ShowHiddenModifier <- eventModifier
+        ShowHiddenKey      <- fmap glibToString eventKeyName
         cdir <- liftIO $ getCurrentDir myview
         liftIO $ modifyTVarIO (settings mygui)
                               (\x -> x { showHidden = not . showHidden $ x})
                  >> refreshView mygui myview cdir
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
-        [Alt] <- eventModifier
-        "Up"  <- fmap glibToString eventKeyName
+        UpDirModifier <- eventModifier
+        UpDirKey      <- fmap glibToString eventKeyName
         liftIO $ upDir mygui myview
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
-        [Alt] <- eventModifier
-        "Left"  <- fmap glibToString eventKeyName
+        HistoryBackModifier <- eventModifier
+        HistoryBackKey      <- fmap glibToString eventKeyName
         liftIO $ void $ goHistoryBack mygui myview
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
-        [Alt] <- eventModifier
-        "Right"  <- fmap glibToString eventKeyName
+        HistoryForwardModifier <- eventModifier
+        HistoryForwardKey      <- fmap glibToString eventKeyName
         liftIO $ void $ goHistoryForward mygui myview
       _ <- view `on` keyPressEvent $ tryEvent $ do
-        "Delete"  <- fmap glibToString eventKeyName
+        DeleteModifier <- eventModifier
+        DeleteKey      <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview del
       _ <- view `on` keyPressEvent $ tryEvent $ do
-        []            <- eventModifier
-        "Return"      <- fmap glibToString eventKeyName
+        OpenModifier <- eventModifier
+        OpenKey      <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview open
       _ <- view `on` keyPressEvent $ tryEvent $ do
-        [Control] <- eventModifier
-        "c"       <- fmap glibToString eventKeyName
+        CopyModifier <- eventModifier
+        CopyKey      <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview copyInit
       _ <- view `on` keyPressEvent $ tryEvent $ do
-        [Control] <- eventModifier
-        "x"       <- fmap glibToString eventKeyName
+        MoveModifier <- eventModifier
+        MoveKey      <- fmap glibToString eventKeyName
         liftIO $ withItems mygui myview moveInit
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
-        [Control] <- eventModifier
-        "v"       <- fmap glibToString eventKeyName
+        PasteModifier <- eventModifier
+        PasteKey      <- fmap glibToString eventKeyName
         liftIO $ operationFinal mygui myview Nothing
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
-        [Control] <- eventModifier
-        "t"       <- fmap glibToString eventKeyName
+        NewTabModifier <- eventModifier
+        NewTabKey      <- fmap glibToString eventKeyName
         liftIO $ void $ newTab' mygui myview
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
-        [Control] <- eventModifier
-        "w"       <- fmap glibToString eventKeyName
+        CloseTabModifier <- eventModifier
+        CloseTabKey      <- fmap glibToString eventKeyName
         liftIO $ void $ closeTab mygui myview
       _ <- viewBox myview `on` keyPressEvent $ tryEvent $ do
-        "F4"       <- fmap glibToString eventKeyName
+        OpenTerminalModifier <- eventModifier
+        OpenTerminalKey      <- fmap glibToString eventKeyName
         liftIO $ void $ openTerminalHere myview
 
       -- mouse button click
@@ -374,8 +374,7 @@ setViewCallbacks mygui myview = do
 openTerminalHere :: MyView -> IO ProcessID
 openTerminalHere myview = do
   cwd <- (P.fromAbs . path) <$> getCurrentDir myview
-  -- TODO: make terminal configurable
-  SPP.forkProcess $ SPP.executeFile "sakura" True ["-d", cwd] Nothing
+  SPP.forkProcess $ terminalCommand cwd
 
 
 
@@ -535,8 +534,8 @@ urlGoTo mygui myview = withErrorDialog $ do
 
 goHome :: MyGUI -> MyView -> IO ()
 goHome mygui myview =  withErrorDialog $ do
-  mhomedir <- getEnv "HOME"
-  forM_ (P.parseAbs =<< mhomedir :: Maybe (Path Abs)) $ \fp' ->
+  homedir <- home
+  forM_ (P.parseAbs homedir :: Maybe (Path Abs)) $ \fp' ->
       whenM (canOpenDirectory fp')
             (goDir True mygui myview =<< (readFile getFileInfo $ fp'))
 
