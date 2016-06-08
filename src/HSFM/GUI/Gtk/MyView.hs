@@ -208,8 +208,6 @@ createMyView mygui iofmv = do
   let rcmenu = MkRightClickMenu {..}
   let myview = MkMyView {..}
 
-  addPlugins mygui myview
-
   -- set the bindings
   setViewCallbacks mygui myview
 

@@ -17,6 +17,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 module HSFM.GUI.Gtk.Callbacks where
@@ -76,6 +77,7 @@ import HSFM.GUI.Gtk.Callbacks.Utils
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Dialogs
 import HSFM.GUI.Gtk.MyView
+import HSFM.GUI.Gtk.Plugins
 import HSFM.GUI.Gtk.Settings
 import HSFM.GUI.Gtk.Utils
 import HSFM.History
@@ -97,7 +99,10 @@ import Control.Concurrent.MVar
   , readMVar
   , takeMVar
   )
-
+import Paths_hsfm
+  (
+    getDataFileName
+  )
 
 
 
@@ -284,8 +289,7 @@ setViewCallbacks mygui myview = do
         t  <- eventTime
         case eb of
           RightButton -> do
-              _ <- liftIO $ menuPopup (rcMenu . rcmenu $ myview)
-                          $ Just (RightButton, t)
+              _ <- liftIO $ showPopup mygui myview t
               -- this is just to not screw with current selection
               -- on right-click
               -- TODO: this misbehaves under IconView
@@ -325,37 +329,7 @@ setViewCallbacks mygui myview = do
           -- not right-click, so pass on the signal
           _ -> return False
 
-      -- right click menu
-      _ <- (rcFileOpen . rcmenu) myview `on` menuItemActivated $
-        liftIO $ withItems mygui myview open
-      _ <- (rcFileExecute . rcmenu) myview `on` menuItemActivated $
-        liftIO $ withItems mygui myview execute
-      _ <- (rcFileNewRegFile . rcmenu) myview `on` menuItemActivated $
-        liftIO $ newFile mygui myview
-      _ <- (rcFileNewDir . rcmenu) myview `on` menuItemActivated $
-        liftIO $ newDir mygui myview
-      _ <- (rcFileNewTab . rcmenu) myview `on` menuItemActivated $
-        liftIO $ newTab' mygui myview
-      _ <- (rcFileNewTerm . rcmenu) myview `on` menuItemActivated $
-        liftIO $ void $ openTerminalHere myview
-      _ <- (rcFileCopy . rcmenu) myview `on` menuItemActivated $
-        liftIO $ withItems mygui myview copyInit
-      _ <- (rcFileRename . rcmenu) myview `on` menuItemActivated $
-        liftIO $ withItems mygui myview renameF
-      _ <- (rcFilePaste . rcmenu) myview `on` menuItemActivated $
-        liftIO $ operationFinal mygui myview Nothing
-      _ <- (rcFileDelete . rcmenu) myview `on` menuItemActivated $
-        liftIO $ withItems mygui myview del
-      _ <- (rcFileProperty . rcmenu) myview `on` menuItemActivated $
-        liftIO $ withItems mygui myview showFilePropertyDialog
-      _ <- (rcFileCut . rcmenu) myview `on` menuItemActivated $
-        liftIO $ withItems mygui myview moveInit
-      _ <- (rcFileIconView . rcmenu) myview `on` menuItemActivated $
-        liftIO $ switchView mygui myview createIconView
-      _ <- (rcFileTreeView . rcmenu) myview `on` menuItemActivated $
-        liftIO $ switchView mygui myview createTreeView
       return ()
-
     getPathAtPos fmv (x, y) =
       case fmv of
         FMTreeView treeView -> do
@@ -626,4 +600,106 @@ mkHistoryMenuF mygui myview hs = do
   forM_ menuitems $ \item -> menuShellAppend menu item
   widgetShowAll menu
   return menu
+
+
+
+
+---- RIGHTCLICK CALLBACKS ----
+
+
+-- |TODO: hopefully this does not leak
+showPopup :: MyGUI -> MyView -> TimeStamp -> IO ()
+showPopup mygui myview t
+  | null myplugins = return ()
+  | otherwise = do
+
+    rcmenu <- doRcMenu
+
+    -- add common callbacks
+    _ <- (\_ -> rcFileOpen rcmenu) myview `on` menuItemActivated $
+      liftIO $ withItems mygui myview open
+    _ <- (rcFileExecute rcmenu) `on` menuItemActivated $
+      liftIO $ withItems mygui myview execute
+    _ <- (rcFileNewRegFile rcmenu) `on` menuItemActivated $
+      liftIO $ newFile mygui myview
+    _ <- (rcFileNewDir rcmenu) `on` menuItemActivated $
+      liftIO $ newDir mygui myview
+    _ <- (rcFileNewTab rcmenu) `on` menuItemActivated $
+      liftIO $ newTab' mygui myview
+    _ <- (rcFileNewTerm rcmenu) `on` menuItemActivated $
+      liftIO $ void $ openTerminalHere myview
+    _ <- (rcFileCopy rcmenu) `on` menuItemActivated $
+      liftIO $ withItems mygui myview copyInit
+    _ <- (rcFileRename rcmenu) `on` menuItemActivated $
+      liftIO $ withItems mygui myview renameF
+    _ <- (rcFilePaste rcmenu) `on` menuItemActivated $
+      liftIO $ operationFinal mygui myview Nothing
+    _ <- (rcFileDelete rcmenu) `on` menuItemActivated $
+      liftIO $ withItems mygui myview del
+    _ <- (rcFileProperty rcmenu) `on` menuItemActivated $
+      liftIO $ withItems mygui myview showFilePropertyDialog
+    _ <- (rcFileCut rcmenu) `on` menuItemActivated $
+      liftIO $ withItems mygui myview moveInit
+    _ <- (rcFileIconView rcmenu) `on` menuItemActivated $
+      liftIO $ switchView mygui myview createIconView
+    _ <- (rcFileTreeView rcmenu) `on` menuItemActivated $
+      liftIO $ switchView mygui myview createTreeView
+
+
+    -- add another plugin separator after the existing one
+    -- where we want to place our plugins
+    sep2 <- separatorMenuItemNew
+    widgetShow sep2
+
+    menuShellInsert (rcMenu rcmenu) sep2 insertPos
+
+    plugins <- forM myplugins $ \(ma, mb, mc) -> fmap (, mb, mc) ma
+    -- need to reverse plugins list so the order is right
+    forM_ (reverse plugins) $ \(plugin, filter', cb) -> do
+      showItem <- withItems mygui myview filter'
+
+      menuShellInsert (rcMenu rcmenu) plugin insertPos
+      when showItem $ widgetShow plugin
+      -- init callback
+      plugin `on` menuItemActivated $ withItems mygui myview cb
+
+    menuPopup (rcMenu rcmenu) $ Just (RightButton, t)
+  where
+    doRcMenu = do
+      builder <- builderNew
+      builderAddFromFile builder =<< getDataFileName "data/Gtk/builder.xml"
+
+      -- create static right-click menu
+      rcMenu            <- builderGetObject builder castToMenu
+                           (fromString "rcMenu")
+      rcFileOpen        <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileOpen")
+      rcFileExecute     <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileExecute")
+      rcFileNewRegFile  <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileNewRegFile")
+      rcFileNewDir      <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileNewDir")
+      rcFileNewTab      <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileNewTab")
+      rcFileNewTerm     <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileNewTerm")
+      rcFileCut         <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileCut")
+      rcFileCopy        <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileCopy")
+      rcFileRename      <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileRename")
+      rcFilePaste       <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFilePaste")
+      rcFileDelete      <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileDelete")
+      rcFileProperty    <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileProperty")
+      rcFileIconView    <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileIconView")
+      rcFileTreeView    <- builderGetObject builder castToImageMenuItem
+                           (fromString "rcFileTreeView")
+
+      return $ MkRightClickMenu {..}
 

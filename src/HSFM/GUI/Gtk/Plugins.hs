@@ -17,7 +17,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
 
-{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 
@@ -51,39 +50,10 @@ import qualified Data.ByteString as BS
 
 
 
+
     ---------------
     --[ Plugins ]--
     ---------------
-
-
-
----- Init functions ----
-
-
--- |Usually, you don't want to overwrite this method. It
--- adds plugins from `myplugins` and initializes the callbacks
--- automatically.
-addPlugins :: MyGUI -> MyView -> IO ()
-addPlugins mygui myview
-  | null myplugins = return ()
-  | otherwise = do
-    -- add another plugin separator after the existing one
-    -- where we want to place our plugins
-    sep2 <- separatorMenuItemNew
-    widgetShow sep2
-
-    menuShellInsert (rcMenu . rcmenu $ myview) sep2 insertPos
-
-    plugins <- forM myplugins $ \(ma,mb) -> fmap (,mb) ma
-    -- need to reverse plugins list so the order is right
-    forM_ (reverse plugins) $ \(plugin, cb) -> do
-      menuShellInsert (rcMenu . rcmenu $ myview) plugin insertPos
-      widgetShow plugin
-      -- init callback
-      plugin `on` menuItemActivated $ withItems mygui myview cb
-
-    return ()
-
 
 
 
@@ -98,11 +68,19 @@ insertPos = 4
 
 
 -- |A list of plugins to add to the right-click menu at position
--- `insertPos`. The left part of the tuple is the menuitem, the right
--- part the callback.
+-- `insertPos`.
+--
+-- The left part of the triple is the menuitem.
+-- The middle part of the triple is a filter function that
+-- decides whether the item is shown.
+-- The right part of the triple is the callback, which is invoked
+-- when the menu item is clicked.
+--
 -- Plugins are added in order of this list.
-myplugins :: [(IO MenuItem, [Item] -> MyGUI -> MyView -> IO ())]
-myplugins = [(diffItem, diffCallback)
+myplugins :: [(IO MenuItem
+              ,[Item] -> MyGUI -> MyView -> IO Bool
+              ,[Item] -> MyGUI -> MyView -> IO ())]
+myplugins = [(diffItem, diffFilter, diffCallback)
             ]
 
 
@@ -115,6 +93,11 @@ myplugins = [(diffItem, diffCallback)
 
 diffItem :: IO MenuItem
 diffItem = menuItemNewWithLabel "diff"
+
+diffFilter :: [Item] -> MyGUI -> MyView -> IO Bool
+diffFilter items _ _
+  | length items > 1 = return $ and $ fmap isFileC items
+  | otherwise        = return False
 
 diffCallback :: [Item] -> MyGUI -> MyView -> IO ()
 diffCallback items _ _ = void $

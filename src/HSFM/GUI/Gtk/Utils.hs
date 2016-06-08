@@ -78,8 +78,8 @@ withItems :: MyGUI
           -> (   [Item]
               -> MyGUI
               -> MyView
-              -> IO ()) -- ^ action to carry out
-          -> IO ()
+              -> IO a) -- ^ action to carry out
+          -> IO a
 withItems mygui myview io = do
   items <- getSelectedItems mygui myview
   io items mygui myview

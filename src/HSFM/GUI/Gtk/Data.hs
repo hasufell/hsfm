@@ -84,7 +84,6 @@ data MyView = MkMyView {
   -- sub-widgets
   , scroll       :: !ScrolledWindow
   , viewBox      :: !Box
-  , rcmenu       :: !RightClickMenu
   , backViewB    :: !Button
   , upViewB      :: !Button
   , forwardViewB :: !Button
