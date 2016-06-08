@@ -70,7 +70,7 @@ insertPos = 4
 -- |A list of plugins to add to the right-click menu at position
 -- `insertPos`.
 --
--- The left part of the triple is the menuitem.
+-- The left part of the triple is a function that returns the menuitem.
 -- The middle part of the triple is a filter function that
 -- decides whether the item is shown.
 -- The right part of the triple is the callback, which is invoked
@@ -79,7 +79,8 @@ insertPos = 4
 -- Plugins are added in order of this list.
 myplugins :: [(IO MenuItem
               ,[Item] -> MyGUI -> MyView -> IO Bool
-              ,[Item] -> MyGUI -> MyView -> IO ())]
+              ,[Item] -> MyGUI -> MyView -> IO ())
+             ]
 myplugins = [(diffItem, diffFilter, diffCallback)
             ]
 
