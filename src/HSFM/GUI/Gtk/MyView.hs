@@ -63,6 +63,7 @@ import HSFM.FileSystem.FileType
 import HSFM.GUI.Glib.GlibString()
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Icons
+import HSFM.GUI.Gtk.Plugins
 import HSFM.GUI.Gtk.Utils
 import HSFM.History
 import HSFM.Utils.IO
@@ -206,6 +207,8 @@ createMyView mygui iofmv = do
 
   let rcmenu = MkRightClickMenu {..}
   let myview = MkMyView {..}
+
+  addPlugins mygui myview
 
   -- set the bindings
   setViewCallbacks mygui myview

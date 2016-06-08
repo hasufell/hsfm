@@ -64,6 +64,7 @@ executable hsfm-gtk
                        HSFM.GUI.Gtk.Icons
                        HSFM.GUI.Gtk.MyGUI
                        HSFM.GUI.Gtk.MyView
+                       HSFM.GUI.Gtk.Plugins
                        HSFM.GUI.Gtk.Settings
                        HSFM.GUI.Gtk.Utils
                        HSFM.Utils.MyPrelude
