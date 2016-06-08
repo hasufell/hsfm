@@ -102,7 +102,7 @@ insertPos = 4
 -- part the callback.
 -- Plugins are added in order of this list.
 myplugins :: [(IO MenuItem, [Item] -> MyGUI -> MyView -> IO ())]
-myplugins = [(diffPlugin, diffCallback)
+myplugins = [(diffItem, diffCallback)
             ]
 
 
@@ -113,8 +113,8 @@ myplugins = [(diffPlugin, diffCallback)
 
 
 
-diffPlugin :: IO MenuItem
-diffPlugin = menuItemNewWithLabel "diff"
+diffItem :: IO MenuItem
+diffItem = menuItemNewWithLabel "diff"
 
 diffCallback :: [Item] -> MyGUI -> MyView -> IO ()
 diffCallback items _ _ = void $
