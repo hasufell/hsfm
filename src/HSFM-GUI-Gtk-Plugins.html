@@ -79,7 +79,7 @@
 <a name="line-70"></a><a name="myplugins"></a><span class='hs-comment'>-- |A list of plugins to add to the right-click menu at position</span>
 <a name="line-71"></a><span class='hs-comment'>-- `insertPos`.</span>
 <a name="line-72"></a><span class='hs-comment'>--</span>
-<a name="line-73"></a><span class='hs-comment'>-- The left part of the triple is the menuitem.</span>
+<a name="line-73"></a><span class='hs-comment'>-- The left part of the triple is a function that returns the menuitem.</span>
 <a name="line-74"></a><span class='hs-comment'>-- The middle part of the triple is a filter function that</span>
 <a name="line-75"></a><span class='hs-comment'>-- decides whether the item is shown.</span>
 <a name="line-76"></a><span class='hs-comment'>-- The right part of the triple is the callback, which is invoked</span>
@@ -88,34 +88,35 @@
 <a name="line-79"></a><span class='hs-comment'>-- Plugins are added in order of this list.</span>
 <a name="line-80"></a><span class='hs-definition'>myplugins</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-layout'>(</span><span class='hs-conid'>IO</span> <span class='hs-conid'>MenuItem</span>
 <a name="line-81"></a>              <span class='hs-layout'>,</span><span class='hs-keyglyph'>[</span><span class='hs-conid'>Item</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyGUI</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>Bool</span>
-<a name="line-82"></a>              <span class='hs-layout'>,</span><span class='hs-keyglyph'>[</span><span class='hs-conid'>Item</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyGUI</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span><span class='hs-keyglyph'>]</span>
-<a name="line-83"></a><span class='hs-definition'>myplugins</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyglyph'>[</span><span class='hs-layout'>(</span><span class='hs-varid'>diffItem</span><span class='hs-layout'>,</span> <span class='hs-varid'>diffFilter</span><span class='hs-layout'>,</span> <span class='hs-varid'>diffCallback</span><span class='hs-layout'>)</span>
-<a name="line-84"></a>            <span class='hs-keyglyph'>]</span>
-<a name="line-85"></a>
+<a name="line-82"></a>              <span class='hs-layout'>,</span><span class='hs-keyglyph'>[</span><span class='hs-conid'>Item</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyGUI</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span>
+<a name="line-83"></a>             <span class='hs-keyglyph'>]</span>
+<a name="line-84"></a><span class='hs-definition'>myplugins</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyglyph'>[</span><span class='hs-layout'>(</span><span class='hs-varid'>diffItem</span><span class='hs-layout'>,</span> <span class='hs-varid'>diffFilter</span><span class='hs-layout'>,</span> <span class='hs-varid'>diffCallback</span><span class='hs-layout'>)</span>
+<a name="line-85"></a>            <span class='hs-keyglyph'>]</span>
 <a name="line-86"></a>
 <a name="line-87"></a>
 <a name="line-88"></a>
 <a name="line-89"></a>
-<a name="line-90"></a><span class='hs-comment'>---- The plugins ----</span>
-<a name="line-91"></a>
+<a name="line-90"></a>
+<a name="line-91"></a><span class='hs-comment'>---- The plugins ----</span>
 <a name="line-92"></a>
 <a name="line-93"></a>
-<a name="line-94"></a><a name="diffItem"></a><span class='hs-definition'>diffItem</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>MenuItem</span>
-<a name="line-95"></a><span class='hs-definition'>diffItem</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>menuItemNewWithLabel</span> <span class='hs-str'>"diff"</span>
-<a name="line-96"></a>
-<a name="line-97"></a><a name="diffFilter"></a><span class='hs-definition'>diffFilter</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Item</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyGUI</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>Bool</span>
-<a name="line-98"></a><span class='hs-definition'>diffFilter</span> <span class='hs-varid'>items</span> <span class='hs-keyword'>_</span> <span class='hs-keyword'>_</span>
-<a name="line-99"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-varid'>length</span> <span class='hs-varid'>items</span> <span class='hs-varop'>&gt;</span> <span class='hs-num'>1</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>return</span> <span class='hs-varop'>$</span> <span class='hs-varid'>and</span> <span class='hs-varop'>$</span> <span class='hs-varid'>fmap</span> <span class='hs-varid'>isFileC</span> <span class='hs-varid'>items</span>
-<a name="line-100"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-varid'>otherwise</span>        <span class='hs-keyglyph'>=</span> <span class='hs-varid'>return</span> <span class='hs-conid'>False</span>
-<a name="line-101"></a>
-<a name="line-102"></a><a name="diffCallback"></a><span class='hs-definition'>diffCallback</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Item</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyGUI</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
-<a name="line-103"></a><span class='hs-definition'>diffCallback</span> <span class='hs-varid'>items</span> <span class='hs-keyword'>_</span> <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>void</span> <span class='hs-varop'>$</span>
-<a name="line-104"></a>  <span class='hs-varid'>forkProcess</span> <span class='hs-varop'>$</span>
-<a name="line-105"></a>    <span class='hs-varid'>executeFile</span>
-<a name="line-106"></a>      <span class='hs-layout'>(</span><span class='hs-varid'>fromString</span> <span class='hs-str'>"meld"</span><span class='hs-layout'>)</span>
-<a name="line-107"></a>      <span class='hs-conid'>True</span>
-<a name="line-108"></a>      <span class='hs-layout'>(</span><span class='hs-keyglyph'>[</span><span class='hs-varid'>fromString</span> <span class='hs-str'>"--diff"</span><span class='hs-keyglyph'>]</span> <span class='hs-varop'>++</span> <span class='hs-varid'>fmap</span> <span class='hs-layout'>(</span><span class='hs-varid'>fromAbs</span> <span class='hs-varop'>.</span> <span class='hs-varid'>path</span><span class='hs-layout'>)</span> <span class='hs-varid'>items</span><span class='hs-layout'>)</span>
-<a name="line-109"></a>      <span class='hs-conid'>Nothing</span>
-<a name="line-110"></a>
+<a name="line-94"></a>
+<a name="line-95"></a><a name="diffItem"></a><span class='hs-definition'>diffItem</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>MenuItem</span>
+<a name="line-96"></a><span class='hs-definition'>diffItem</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>menuItemNewWithLabel</span> <span class='hs-str'>"diff"</span>
+<a name="line-97"></a>
+<a name="line-98"></a><a name="diffFilter"></a><span class='hs-definition'>diffFilter</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Item</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyGUI</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>Bool</span>
+<a name="line-99"></a><span class='hs-definition'>diffFilter</span> <span class='hs-varid'>items</span> <span class='hs-keyword'>_</span> <span class='hs-keyword'>_</span>
+<a name="line-100"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-varid'>length</span> <span class='hs-varid'>items</span> <span class='hs-varop'>&gt;</span> <span class='hs-num'>1</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>return</span> <span class='hs-varop'>$</span> <span class='hs-varid'>and</span> <span class='hs-varop'>$</span> <span class='hs-varid'>fmap</span> <span class='hs-varid'>isFileC</span> <span class='hs-varid'>items</span>
+<a name="line-101"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-varid'>otherwise</span>        <span class='hs-keyglyph'>=</span> <span class='hs-varid'>return</span> <span class='hs-conid'>False</span>
+<a name="line-102"></a>
+<a name="line-103"></a><a name="diffCallback"></a><span class='hs-definition'>diffCallback</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Item</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyGUI</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MyView</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+<a name="line-104"></a><span class='hs-definition'>diffCallback</span> <span class='hs-varid'>items</span> <span class='hs-keyword'>_</span> <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>void</span> <span class='hs-varop'>$</span>
+<a name="line-105"></a>  <span class='hs-varid'>forkProcess</span> <span class='hs-varop'>$</span>
+<a name="line-106"></a>    <span class='hs-varid'>executeFile</span>
+<a name="line-107"></a>      <span class='hs-layout'>(</span><span class='hs-varid'>fromString</span> <span class='hs-str'>"meld"</span><span class='hs-layout'>)</span>
+<a name="line-108"></a>      <span class='hs-conid'>True</span>
+<a name="line-109"></a>      <span class='hs-layout'>(</span><span class='hs-keyglyph'>[</span><span class='hs-varid'>fromString</span> <span class='hs-str'>"--diff"</span><span class='hs-keyglyph'>]</span> <span class='hs-varop'>++</span> <span class='hs-varid'>fmap</span> <span class='hs-layout'>(</span><span class='hs-varid'>fromAbs</span> <span class='hs-varop'>.</span> <span class='hs-varid'>path</span><span class='hs-layout'>)</span> <span class='hs-varid'>items</span><span class='hs-layout'>)</span>
+<a name="line-110"></a>      <span class='hs-conid'>Nothing</span>
+<a name="line-111"></a>
 </pre></body>
 </html>
