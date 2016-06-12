@@ -42,7 +42,6 @@ import Data.ByteString.UTF8
   (
     toString
   )
-import Data.Default
 import Data.Time.Clock.POSIX
   (
     POSIXTime
@@ -57,7 +56,6 @@ import HPath
 import qualified HPath as P
 import HPath.IO hiding (FileType(..))
 import HPath.IO.Errors
-import HSFM.Utils.MyPrelude
 import Prelude hiding(readFile)
 import System.Posix.FilePath
   (
@@ -437,8 +435,6 @@ isSocketC _        = False
 
 
 
-
-
 -- |Gets all file information.
 getFileInfo :: Path Abs -> IO FileInfo
 getFileInfo fp = do
@@ -483,13 +479,13 @@ isBrokenSymlink _ = False
 -- |Pack the modification time into a string.
 packModTime :: File FileInfo
             -> String
-packModTime = fromFreeVar $ epochToString . modificationTime
+packModTime = epochToString . modificationTime . fvar
 
 
 -- |Pack the modification time into a string.
 packAccessTime :: File FileInfo
                -> String
-packAccessTime = fromFreeVar $ epochToString . accessTime
+packAccessTime = epochToString . accessTime . fvar
 
 
 epochToString :: EpochTime -> String
@@ -499,12 +495,12 @@ epochToString =  show . posixSecondsToUTCTime . realToFrac
 -- |Pack the permissions into a string, similar to what "ls -l" does.
 packPermissions :: File FileInfo
                 -> String
-packPermissions dt = fromFreeVar (pStr . fileMode) dt
+packPermissions file = (pStr . fileMode) . fvar $ file
   where
     pStr :: FileMode -> String
     pStr ffm = typeModeStr ++ ownerModeStr ++ groupModeStr ++ otherModeStr
       where
-        typeModeStr = case dt of
+        typeModeStr = case file of
           Dir {}       -> "d"
           RegFile {}   -> "-"
           SymLink {}   -> "l"
@@ -549,23 +545,6 @@ packLinkDestination file = case file of
 ---- OTHER: ----
 
 
--- |Apply a function on the free variable. If there is no free variable
--- for the given constructor the value from the `Default` class is used.
-fromFreeVar :: (Default d) => (a -> d) -> File a -> d
-fromFreeVar f df = maybeD f $ getFreeVar df
-
-
 getFPasStr :: File a -> String
 getFPasStr = toString . P.fromAbs . path
-
-
--- |Gets the free variable. Returns Nothing if the constructor is of `Failed`.
-getFreeVar :: File a -> Maybe a
-getFreeVar (Dir _  d)         = Just d
-getFreeVar (RegFile _  d)     = Just d
-getFreeVar (SymLink _  d _ _) = Just d
-getFreeVar (BlockDev _  d)    = Just d
-getFreeVar (CharDev _  d)     = Just d
-getFreeVar (NamedPipe _  d)   = Just d
-getFreeVar (Socket _  d)      = Just d
 

@@ -19,7 +19,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 module HSFM.Utils.MyPrelude where
 
 
-import Data.Default
 import Data.List
 
 
@@ -31,6 +30,3 @@ listIndices :: [a] -> [Int]
 listIndices = findIndices (const True)
 
 
--- |A `maybe` flavor using the `Default` class.
-maybeD :: (Default b) => (a -> b) -> Maybe a -> b
-maybeD = maybe def

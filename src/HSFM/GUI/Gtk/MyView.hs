@@ -63,7 +63,6 @@ import HSFM.FileSystem.FileType
 import HSFM.GUI.Glib.GlibString()
 import HSFM.GUI.Gtk.Data
 import HSFM.GUI.Gtk.Icons
-import HSFM.GUI.Gtk.Plugins
 import HSFM.GUI.Gtk.Utils
 import HSFM.History
 import HSFM.Utils.IO
@@ -160,36 +159,7 @@ createMyView mygui iofmv = do
 
   urlBar            <- builderGetObject builder castToEntry
                        "urlBar"
-  rcMenu            <- builderGetObject builder castToMenu
-                       "rcMenu"
-  rcFileOpen        <- builderGetObject builder castToImageMenuItem
-                       "rcFileOpen"
-  rcFileExecute     <- builderGetObject builder castToImageMenuItem
-                       "rcFileExecute"
-  rcFileNewRegFile  <- builderGetObject builder castToImageMenuItem
-                       "rcFileNewRegFile"
-  rcFileNewDir      <- builderGetObject builder castToImageMenuItem
-                       "rcFileNewDir"
-  rcFileNewTab      <- builderGetObject builder castToImageMenuItem
-                       "rcFileNewTab"
-  rcFileNewTerm     <- builderGetObject builder castToImageMenuItem
-                       "rcFileNewTerm"
-  rcFileCut         <- builderGetObject builder castToImageMenuItem
-                       "rcFileCut"
-  rcFileCopy        <- builderGetObject builder castToImageMenuItem
-                       "rcFileCopy"
-  rcFileRename      <- builderGetObject builder castToImageMenuItem
-                       "rcFileRename"
-  rcFilePaste       <- builderGetObject builder castToImageMenuItem
-                       "rcFilePaste"
-  rcFileDelete      <- builderGetObject builder castToImageMenuItem
-                       "rcFileDelete"
-  rcFileProperty    <- builderGetObject builder castToImageMenuItem
-                       "rcFileProperty"
-  rcFileIconView    <- builderGetObject builder castToImageMenuItem
-                       "rcFileIconView"
-  rcFileTreeView    <- builderGetObject builder castToImageMenuItem
-                       "rcFileTreeView"
+
   backViewB         <- builderGetObject builder castToButton
                        "backViewB"
   upViewB           <- builderGetObject builder castToButton
@@ -205,7 +175,6 @@ createMyView mygui iofmv = do
   viewBox           <- builderGetObject builder castToBox
                          "viewBox"
 
-  let rcmenu = MkRightClickMenu {..}
   let myview = MkMyView {..}
 
   -- set the bindings

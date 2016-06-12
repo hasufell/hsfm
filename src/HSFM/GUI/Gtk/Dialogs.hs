@@ -275,7 +275,7 @@ showFilePropertyDialog [item] mygui _ = do
   entrySetText (fpropFnEntry fprop')  (maybe BS.empty P.fromRel
                                         $ P.basename . path $ item)
   entrySetText (fpropLocEntry fprop') (P.fromAbs . P.dirname . path $ item)
-  entrySetText (fpropTsEntry fprop')  (fromFreeVar (show . fileSize) item)
+  entrySetText (fpropTsEntry fprop')  (show . fileSize $ fvar item)
   entrySetText (fpropModEntry fprop') (packModTime item)
   entrySetText (fpropAcEntry fprop')  (packAccessTime item)
   entrySetText (fpropFTEntry fprop')  (packFileType item)
