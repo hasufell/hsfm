@@ -92,8 +92,8 @@ import System.Posix.FilePath
 
 
 -- |Creates a new tab with its own view and refreshes the view.
-newTab :: MyGUI -> IO FMView -> Item -> Int -> IO MyView
-newTab mygui iofmv item pos = do
+newTab :: MyGUI -> Notebook -> IO FMView -> Item -> Int -> IO MyView
+newTab mygui nb iofmv item pos = do
 
 
   -- create eventbox with label
@@ -104,8 +104,8 @@ newTab mygui iofmv item pos = do
   containerAdd ebox label
   widgetShowAll label
 
-  myview <- createMyView mygui iofmv
-  _ <- notebookInsertPageMenu (notebook mygui) (viewBox myview)
+  myview <- createMyView mygui nb iofmv
+  _ <- notebookInsertPageMenu (notebook myview) (viewBox myview)
     ebox ebox pos
 
   -- set initial history
@@ -113,7 +113,7 @@ newTab mygui iofmv item pos = do
   putMVar (history myview)
           (BrowsingHistory [] (path item) [] historySize)
 
-  notebookSetTabReorderable (notebook mygui) (viewBox myview) True
+  notebookSetTabReorderable (notebook myview) (viewBox myview) True
 
   catchIOError (refreshView mygui myview item) $ \e -> do
     file <- readFile getFileInfo . fromJust . P.parseAbs . fromString
@@ -127,8 +127,8 @@ newTab mygui iofmv item pos = do
     eb <- eventButton
     case eb of
       MiddleButton -> liftIO $ do
-        n <- notebookGetNPages (notebook mygui)
-        when (n > 1) $ void $ destroyView mygui myview
+        n <- notebookGetNPages (notebook myview)
+        when (n > 1) $ void $ destroyView myview
         return True
       _ -> return False
 
@@ -138,9 +138,10 @@ newTab mygui iofmv item pos = do
 -- |Constructs the initial MyView object with a few dummy models.
 -- It also initializes the callbacks.
 createMyView :: MyGUI
+             -> Notebook
              -> IO FMView
              -> IO MyView
-createMyView mygui iofmv = do
+createMyView mygui nb iofmv = do
   inotify <- newEmptyMVar
   history <- newEmptyMVar
 
@@ -175,6 +176,7 @@ createMyView mygui iofmv = do
   viewBox           <- builderGetObject builder castToBox
                          "viewBox"
 
+  let notebook = nb
   let myview = MkMyView {..}
 
   -- set the bindings
@@ -195,13 +197,15 @@ switchView :: MyGUI -> MyView -> IO FMView -> IO ()
 switchView mygui myview iofmv = do
   cwd <- getCurrentDir myview
 
-  oldpage <- destroyView mygui myview
+  let nb = notebook myview
+
+  oldpage <- destroyView myview
 
   -- create new view and tab page where the previous one was
-  nview <- newTab mygui iofmv cwd oldpage
+  nview <- newTab mygui nb iofmv cwd oldpage
 
-  page <- fromJust <$> notebookPageNum (notebook mygui) (viewBox nview)
-  notebookSetCurrentPage (notebook mygui) page
+  page <- fromJust <$> notebookPageNum nb (viewBox nview)
+  notebookSetCurrentPage nb page
 
   refreshView mygui nview cwd
 
@@ -213,18 +217,18 @@ switchView mygui myview iofmv = do
 -- view needs to be done here.
 --
 -- Returns the page in the tab list this view corresponds to.
-destroyView :: MyGUI -> MyView -> IO Int
-destroyView mygui myview = do
+destroyView :: MyView -> IO Int
+destroyView myview = do
   -- disconnect watcher
   mi <- tryTakeMVar (inotify myview)
   for_ mi $ \i -> killINotify i
 
-  page <- fromJust <$> notebookPageNum (notebook mygui) (viewBox myview)
+  page <- fromJust <$> notebookPageNum (notebook myview) (viewBox myview)
 
   -- destroy old view and tab page
   view' <- readTVarIO $ view myview
   widgetDestroy (fmViewToContainer view')
-  notebookRemovePage (notebook mygui) page
+  notebookRemovePage (notebook myview) page
 
   return page
 

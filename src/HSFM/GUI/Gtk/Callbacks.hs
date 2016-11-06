@@ -121,6 +121,18 @@ import Paths_hsfm
 setGUICallbacks :: MyGUI -> IO ()
 setGUICallbacks mygui = do
 
+  -- notebook toggle buttons
+  _ <- leftNbBtn mygui `on` toggled $ do
+    isPressed <- toggleButtonGetActive $ leftNbBtn mygui
+    if isPressed then widgetShow $ notebook1 mygui
+                 else widgetHide $ notebook1 mygui
+
+  _ <- rightNbBtn mygui `on` toggled $ do
+    isPressed <- toggleButtonGetActive $ rightNbBtn mygui
+    if isPressed then widgetShow $ notebook2 mygui
+                 else widgetHide $ notebook2 mygui
+
+  -- statusbar
   _ <- clearStatusBar mygui `on` buttonActivated $ do
        popStatusbar mygui
        writeTVarIO (operationBuffer mygui) None
@@ -191,6 +203,16 @@ setViewCallbacks mygui myview = do
   where
     commonGuiEvents fmv = do
       let view = fmViewToContainer fmv
+
+      -- focus events
+      _ <- notebook1 mygui `on` setFocusChild $ \w ->
+        case w of
+             Nothing -> widgetSetSensitive (leftNbIcon mygui) False
+             _       -> widgetSetSensitive (leftNbIcon mygui) True
+      _ <- notebook2 mygui `on` setFocusChild $ \w ->
+        case w of
+             Nothing -> widgetSetSensitive (rightNbIcon mygui) False
+             _       -> widgetSetSensitive (rightNbIcon mygui) True
 
       -- GUI events
       _ <- backViewB myview `on` buttonPressEvent $ do
@@ -315,7 +337,7 @@ setViewCallbacks mygui myview = do
               -- if the item under the cursor is not within the current
               -- selection
               (Just item) -> do
-                liftIO $ opeInNewTab mygui item
+                liftIO $ opeInNewTab mygui myview item
                 return True
               -- no item under the cursor, pass on the signal
               Nothing -> return False
@@ -358,21 +380,23 @@ openTerminalHere myview = do
 
 -- |Closes the current tab, but only if there is more than one tab.
 closeTab :: MyGUI -> MyView -> IO ()
-closeTab mygui myview = do
-  n <- notebookGetNPages (notebook mygui)
-  when (n > 1) $ void $ destroyView mygui myview
+closeTab _ myview = do
+  n <- notebookGetNPages (notebook myview)
+  when (n > 1) $ void $ destroyView myview
 
 
 newTab' :: MyGUI -> MyView -> IO ()
 newTab' mygui myview = do
   cwd <- getCurrentDir myview
-  void $ withErrorDialog $ newTab mygui createTreeView cwd (-1)
+  void $ withErrorDialog
+       $ newTab mygui (notebook myview) createTreeView cwd (-1)
 
 
-opeInNewTab :: MyGUI -> Item -> IO ()
-opeInNewTab mygui item@(DirOrSym _) =
-  void $ withErrorDialog $ newTab mygui createTreeView item (-1)
-opeInNewTab _ _ = return ()
+opeInNewTab :: MyGUI -> MyView -> Item -> IO ()
+opeInNewTab mygui myview item@(DirOrSym _) =
+  void $ withErrorDialog
+       $ newTab mygui (notebook myview) createTreeView item (-1)
+opeInNewTab _ _ _ = return ()
 
 
 
@@ -532,10 +556,10 @@ open [item] mygui myview = withErrorDialog $
       goDir True mygui myview nv
     r ->
       void $ openFile . path $ r
-open items mygui _ = do
+open items mygui myview = do
   let dirs  = filter (fst . sdir) items
       files = filter (fst . sfileLike) items
-  forM_ dirs (withErrorDialog . opeInNewTab mygui)
+  forM_ dirs (withErrorDialog . opeInNewTab mygui myview)
   forM_ files (withErrorDialog . openFile . path)
 
 

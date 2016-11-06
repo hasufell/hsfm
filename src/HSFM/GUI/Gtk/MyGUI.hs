@@ -81,12 +81,32 @@ createMyGUI = do
                        "fpropPermEntry"
   fpropLDEntry      <- builderGetObject builder castToEntry
                        "fpropLDEntry"
-  notebook          <- builderGetObject builder castToNotebook
-                       "notebook"
+  notebook1         <- builderGetObject builder castToNotebook
+                       "notebook1"
+  notebook2         <- builderGetObject builder castToNotebook
+                       "notebook2"
+  leftNbIcon        <- builderGetObject builder castToImage
+                       "leftNbIcon"
+  rightNbIcon       <- builderGetObject builder castToImage
+                       "rightNbIcon"
+  leftNbBtn         <- builderGetObject builder castToToggleButton
+                       "leftNbBtn"
+  rightNbBtn        <- builderGetObject builder castToToggleButton
+                       "rightNbBtn"
+
 
   -- this is required so that hotkeys work as expected, because
   -- we then can connect to signals from `viewBox` more reliably
-  widgetSetCanFocus notebook False
+  widgetSetCanFocus notebook1 False
+  widgetSetCanFocus notebook2 False
+
+  -- notebook toggle buttons
+  buttonSetImage leftNbBtn leftNbIcon
+  buttonSetImage rightNbBtn rightNbIcon
+  widgetSetSensitive leftNbIcon False
+  widgetSetSensitive rightNbIcon False
+  toggleButtonSetActive leftNbBtn True
+  toggleButtonSetActive rightNbBtn True
 
   -- construct the gui object
   let menubar = MkMenuBar {..}

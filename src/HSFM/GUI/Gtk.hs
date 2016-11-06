@@ -57,7 +57,8 @@ main = do
 
   _ <- initGUI
   mygui <- createMyGUI
-  _ <- newTab mygui createTreeView file (-1)
+  _ <- newTab mygui (notebook1 mygui) createTreeView file (-1)
+  _ <- newTab mygui (notebook2 mygui) createTreeView file (-1)
 
   setGUICallbacks mygui
 

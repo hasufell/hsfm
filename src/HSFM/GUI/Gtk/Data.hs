@@ -57,7 +57,14 @@ data MyGUI = MkMyGUI {
   , menubar        :: !MenuBar
   , statusBar      :: !Statusbar
   , clearStatusBar :: !Button
-  , notebook       :: !Notebook
+
+  , notebook1      :: !Notebook
+  , leftNbBtn      :: !ToggleButton
+  , leftNbIcon     :: !Image
+
+  , notebook2      :: !Notebook
+  , rightNbBtn     :: !ToggleButton
+  , rightNbIcon    :: !Image
 
   -- other
   , fprop    :: !FilePropertyGrid
@@ -76,6 +83,7 @@ data MyView = MkMyView {
   , sortedModel     :: !(TVar (TypedTreeModelSort Item))
   , filteredModel   :: !(TVar (TypedTreeModelFilter Item))
   , inotify         :: !(MVar INotify)
+  , notebook        :: !Notebook -- current notebook
 
   -- the first part of the tuple represents the "go back"
   -- the second part the "go forth" in the history

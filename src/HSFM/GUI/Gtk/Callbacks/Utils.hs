@@ -115,12 +115,12 @@ goDir bhis mygui myview item = do
   refreshView mygui myview item
 
   -- set notebook tab label
-  page <- notebookGetCurrentPage (notebook mygui)
-  child <- fromJust <$> notebookGetNthPage (notebook mygui) page
+  page <- notebookGetCurrentPage (notebook myview)
+  child <- fromJust <$> notebookGetNthPage (notebook myview) page
 
   -- get the label
   ebox <- (castToEventBox . fromJust)
-    <$> notebookGetTabLabel (notebook mygui) child
+    <$> notebookGetTabLabel (notebook myview) child
   label <- (castToLabel . head) <$> containerGetChildren ebox
 
   -- set the label
