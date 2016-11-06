@@ -90,22 +90,42 @@
 <a name="line-81"></a>                       <span class='hs-str'>"fpropPermEntry"</span>
 <a name="line-82"></a>  <span class='hs-varid'>fpropLDEntry</span>      <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>builderGetObject</span> <span class='hs-varid'>builder</span> <span class='hs-varid'>castToEntry</span>
 <a name="line-83"></a>                       <span class='hs-str'>"fpropLDEntry"</span>
-<a name="line-84"></a>  <span class='hs-varid'>notebook</span>          <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>builderGetObject</span> <span class='hs-varid'>builder</span> <span class='hs-varid'>castToNotebook</span>
-<a name="line-85"></a>                       <span class='hs-str'>"notebook"</span>
-<a name="line-86"></a>
-<a name="line-87"></a>  <span class='hs-comment'>-- this is required so that hotkeys work as expected, because</span>
-<a name="line-88"></a>  <span class='hs-comment'>-- we then can connect to signals from `viewBox` more reliably</span>
-<a name="line-89"></a>  <span class='hs-varid'>widgetSetCanFocus</span> <span class='hs-varid'>notebook</span> <span class='hs-conid'>False</span>
-<a name="line-90"></a>
-<a name="line-91"></a>  <span class='hs-comment'>-- construct the gui object</span>
-<a name="line-92"></a>  <span class='hs-keyword'>let</span> <span class='hs-varid'>menubar</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MkMenuBar</span> <span class='hs-layout'>{</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>}</span>
-<a name="line-93"></a>  <span class='hs-keyword'>let</span> <span class='hs-varid'>fprop</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MkFilePropertyGrid</span> <span class='hs-layout'>{</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>}</span>
-<a name="line-94"></a>  <span class='hs-keyword'>let</span> <span class='hs-varid'>mygui</span>  <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MkMyGUI</span> <span class='hs-layout'>{</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>}</span>
-<a name="line-95"></a>
-<a name="line-96"></a>  <span class='hs-comment'>-- sets the default icon</span>
-<a name="line-97"></a>  <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>windowSetDefaultIconFromFile</span>
-<a name="line-98"></a>         <span class='hs-varop'>=&lt;&lt;</span> <span class='hs-varid'>getDataFileName</span> <span class='hs-str'>"data/Gtk/icons/hsfm.png"</span>
-<a name="line-99"></a>
-<a name="line-100"></a>  <span class='hs-varid'>return</span> <span class='hs-varid'>mygui</span>
+<a name="line-84"></a>  <span class='hs-varid'>notebook1</span>         <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>builderGetObject</span> <span class='hs-varid'>builder</span> <span class='hs-varid'>castToNotebook</span>
+<a name="line-85"></a>                       <span class='hs-str'>"notebook1"</span>
+<a name="line-86"></a>  <span class='hs-varid'>notebook2</span>         <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>builderGetObject</span> <span class='hs-varid'>builder</span> <span class='hs-varid'>castToNotebook</span>
+<a name="line-87"></a>                       <span class='hs-str'>"notebook2"</span>
+<a name="line-88"></a>  <span class='hs-varid'>leftNbIcon</span>        <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>builderGetObject</span> <span class='hs-varid'>builder</span> <span class='hs-varid'>castToImage</span>
+<a name="line-89"></a>                       <span class='hs-str'>"leftNbIcon"</span>
+<a name="line-90"></a>  <span class='hs-varid'>rightNbIcon</span>       <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>builderGetObject</span> <span class='hs-varid'>builder</span> <span class='hs-varid'>castToImage</span>
+<a name="line-91"></a>                       <span class='hs-str'>"rightNbIcon"</span>
+<a name="line-92"></a>  <span class='hs-varid'>leftNbBtn</span>         <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>builderGetObject</span> <span class='hs-varid'>builder</span> <span class='hs-varid'>castToToggleButton</span>
+<a name="line-93"></a>                       <span class='hs-str'>"leftNbBtn"</span>
+<a name="line-94"></a>  <span class='hs-varid'>rightNbBtn</span>        <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>builderGetObject</span> <span class='hs-varid'>builder</span> <span class='hs-varid'>castToToggleButton</span>
+<a name="line-95"></a>                       <span class='hs-str'>"rightNbBtn"</span>
+<a name="line-96"></a>
+<a name="line-97"></a>
+<a name="line-98"></a>  <span class='hs-comment'>-- this is required so that hotkeys work as expected, because</span>
+<a name="line-99"></a>  <span class='hs-comment'>-- we then can connect to signals from `viewBox` more reliably</span>
+<a name="line-100"></a>  <span class='hs-varid'>widgetSetCanFocus</span> <span class='hs-varid'>notebook1</span> <span class='hs-conid'>False</span>
+<a name="line-101"></a>  <span class='hs-varid'>widgetSetCanFocus</span> <span class='hs-varid'>notebook2</span> <span class='hs-conid'>False</span>
+<a name="line-102"></a>
+<a name="line-103"></a>  <span class='hs-comment'>-- notebook toggle buttons</span>
+<a name="line-104"></a>  <span class='hs-varid'>buttonSetImage</span> <span class='hs-varid'>leftNbBtn</span> <span class='hs-varid'>leftNbIcon</span>
+<a name="line-105"></a>  <span class='hs-varid'>buttonSetImage</span> <span class='hs-varid'>rightNbBtn</span> <span class='hs-varid'>rightNbIcon</span>
+<a name="line-106"></a>  <span class='hs-varid'>widgetSetSensitive</span> <span class='hs-varid'>leftNbIcon</span> <span class='hs-conid'>False</span>
+<a name="line-107"></a>  <span class='hs-varid'>widgetSetSensitive</span> <span class='hs-varid'>rightNbIcon</span> <span class='hs-conid'>False</span>
+<a name="line-108"></a>  <span class='hs-varid'>toggleButtonSetActive</span> <span class='hs-varid'>leftNbBtn</span> <span class='hs-conid'>True</span>
+<a name="line-109"></a>  <span class='hs-varid'>toggleButtonSetActive</span> <span class='hs-varid'>rightNbBtn</span> <span class='hs-conid'>True</span>
+<a name="line-110"></a>
+<a name="line-111"></a>  <span class='hs-comment'>-- construct the gui object</span>
+<a name="line-112"></a>  <span class='hs-keyword'>let</span> <span class='hs-varid'>menubar</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MkMenuBar</span> <span class='hs-layout'>{</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>}</span>
+<a name="line-113"></a>  <span class='hs-keyword'>let</span> <span class='hs-varid'>fprop</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MkFilePropertyGrid</span> <span class='hs-layout'>{</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>}</span>
+<a name="line-114"></a>  <span class='hs-keyword'>let</span> <span class='hs-varid'>mygui</span>  <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MkMyGUI</span> <span class='hs-layout'>{</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>}</span>
+<a name="line-115"></a>
+<a name="line-116"></a>  <span class='hs-comment'>-- sets the default icon</span>
+<a name="line-117"></a>  <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>windowSetDefaultIconFromFile</span>
+<a name="line-118"></a>         <span class='hs-varop'>=&lt;&lt;</span> <span class='hs-varid'>getDataFileName</span> <span class='hs-str'>"data/Gtk/icons/hsfm.png"</span>
+<a name="line-119"></a>
+<a name="line-120"></a>  <span class='hs-varid'>return</span> <span class='hs-varid'>mygui</span>
 </pre></body>
 </html>
