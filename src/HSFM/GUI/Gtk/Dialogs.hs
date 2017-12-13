@@ -48,14 +48,15 @@ import Data.ByteString.UTF8
   (
     fromString
   )
-import Data.Version
-  (
-    showVersion
-  )
 import Distribution.Package
   (
     PackageIdentifier(..)
-  , PackageName(..)
+  , packageVersion
+  , unPackageName
+  )
+import Distribution.Version
+  (
+    showVersion
   )
 import Distribution.PackageDescription
   (
@@ -64,7 +65,7 @@ import Distribution.PackageDescription
   )
 import Distribution.PackageDescription.Parse
   (
-    readPackageDescription
+    readGenericPackageDescription,
   )
 import Distribution.Verbosity
   (
@@ -90,7 +91,6 @@ import System.Posix.FilePath
   (
     takeFileName
   )
-
 
 
 
@@ -192,12 +192,12 @@ showAboutDialog = do
   lstr     <- Prelude.readFile =<< getDataFileName "LICENSE"
   hsfmicon <- pixbufNewFromFile =<< getDataFileName "data/Gtk/icons/hsfm.png"
   pdesc    <- fmap packageDescription
-                   (readPackageDescription silent
+                   (readGenericPackageDescription silent
                      =<< getDataFileName "hsfm.cabal")
   set ad
     [ aboutDialogProgramName  := (unPackageName . pkgName . package) pdesc
     , aboutDialogName         := (unPackageName . pkgName . package) pdesc
-    , aboutDialogVersion      := (showVersion . pkgVersion . package) pdesc
+    , aboutDialogVersion      := (showVersion . packageVersion . package) pdesc
     , aboutDialogCopyright    := copyright pdesc
     , aboutDialogComments     := description pdesc
     , aboutDialogLicense      := Just lstr

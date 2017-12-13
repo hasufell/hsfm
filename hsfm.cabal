@@ -54,6 +54,9 @@ library
 executable hsfm-gtk
   main-is:             HSFM/GUI/Gtk.hs
   other-modules:
+                       Paths_hsfm
+                       HSFM.FileSystem.FileType
+                       HSFM.FileSystem.UtilTypes
                        HSFM.GUI.Glib.GlibString
                        HSFM.GUI.Gtk.Callbacks
                        HSFM.GUI.Gtk.Callbacks.Utils
@@ -66,6 +69,9 @@ executable hsfm-gtk
                        HSFM.GUI.Gtk.Plugins
                        HSFM.GUI.Gtk.Settings
                        HSFM.GUI.Gtk.Utils
+                       HSFM.History
+                       HSFM.Settings
+                       HSFM.Utils.IO
                        HSFM.Utils.MyPrelude
 
   build-depends:
