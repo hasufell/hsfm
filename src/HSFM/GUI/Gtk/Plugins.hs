@@ -18,6 +18,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
 {-# OPTIONS_HADDOCK ignore-exports #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 
 module HSFM.GUI.Gtk.Plugins where
