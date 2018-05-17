@@ -300,10 +300,10 @@ instance Ord (File FileInfo) where
 
 -- |Reads a file or directory Path into an `AnchoredFile`, filling the free
 -- variables via the given function.
-readFile :: (Path Abs -> IO a)
-         -> Path Abs
-         -> IO (File a)
-readFile ff p = do
+pathToFile :: (Path Abs -> IO a)
+           -> Path Abs
+           -> IO (File a)
+pathToFile ff p = do
     fs   <- PF.getSymbolicLinkStatus (P.toFilePath p)
     fv   <- ff p
     constructFile fs fv p
@@ -317,7 +317,7 @@ readFile ff p = do
             -- watch out, we call </> from 'filepath' here, but it is safe
             let sfp = (P.fromAbs . P.dirname $ p') </> x
             rsfp <- realpath sfp
-            f <- readFile ff =<< P.parseAbs rsfp
+            f <- pathToFile ff =<< P.parseAbs rsfp
             return $ Just f
           return $ SymLink p' fv resolvedSyml x
       | PF.isDirectory       fs = return $ Dir       p' fv
@@ -336,7 +336,7 @@ readDirectoryContents :: (Path Abs -> IO a)  -- ^ fills free a variable
                       -> IO [File a]
 readDirectoryContents ff p = do
   files <- getDirsFiles p
-  mapM (readFile ff) files
+  mapM (pathToFile ff) files
 
 
 -- |A variant of `readDirectoryContents` where the second argument
@@ -352,12 +352,12 @@ getContents _ _ = return []
 
 -- |Go up one directory in the filesystem hierarchy.
 goUp :: File FileInfo -> IO (File FileInfo)
-goUp file = readFile getFileInfo (P.dirname . path $ file)
+goUp file = pathToFile getFileInfo (P.dirname . path $ file)
 
 
 -- |Go up one directory in the filesystem hierarchy.
 goUp' :: Path Abs -> IO (File FileInfo)
-goUp' fp = readFile getFileInfo $ P.dirname fp
+goUp' fp = pathToFile getFileInfo $ P.dirname fp
 
 
 

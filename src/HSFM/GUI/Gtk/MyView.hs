@@ -116,7 +116,7 @@ newTab mygui nb iofmv item pos = do
   notebookSetTabReorderable (notebook myview) (viewBox myview) True
 
   catchIOError (refreshView mygui myview item) $ \e -> do
-    file <- readFile getFileInfo . fromJust . P.parseAbs . fromString
+    file <- pathToFile getFileInfo . fromJust . P.parseAbs . fromString
       $ "/"
     refreshView mygui myview file
     labelSetText label (fromString "/" :: String)

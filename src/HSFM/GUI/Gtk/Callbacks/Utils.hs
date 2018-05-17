@@ -83,10 +83,9 @@ _doFileOperation (f:fs) to mc rest = do
   toname <- P.basename f
   let topath = to P.</> toname
   reactOnError (mc f topath Strict >> rest)
+    -- TODO: how safe is 'AlreadyExists' here?
     [(AlreadyExists  , collisionAction fileCollisionDialog topath)]
-    [(FileDoesExist{}, collisionAction fileCollisionDialog topath)
-    ,(DirDoesExist{} , collisionAction fileCollisionDialog topath)
-    ,(SameFile{}     , collisionAction renameDialog topath)]
+    [(SameFile{}     , collisionAction renameDialog topath)]
   where
     collisionAction diag topath = do
       mcm <- diag . P.fromAbs $ topath

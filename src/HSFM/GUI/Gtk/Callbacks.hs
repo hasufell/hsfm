@@ -39,6 +39,7 @@ import Control.Monad
   , void
   , when
   )
+import Control.Monad.IfElse
 import Control.Monad.IO.Class
   (
     liftIO
@@ -70,7 +71,6 @@ import HPath
   )
 import HPath.IO
 import HPath.IO.Errors
-import HPath.IO.Utils
 import HSFM.FileSystem.FileType
 import HSFM.FileSystem.UtilTypes
 import HSFM.GUI.Gtk.Callbacks.Utils
@@ -415,7 +415,7 @@ del items@(_:_) _ _ = withErrorDialog $ do
   withConfirmationDialog cmsg
     $ forM_ items $ \item -> easyDelete . path $ item
 del _ _ _ = withErrorDialog
-              . throwIO $ InvalidOperation
+              . ioError $ userError
                           "Operation not supported on multiple files"
 
 
@@ -430,7 +430,7 @@ moveInit items@(_:_) mygui _ = do
   popStatusbar mygui
   void $ pushStatusBar mygui sbmsg
 moveInit _ _ _ = withErrorDialog
-                   . throwIO $ InvalidOperation
+                   . ioError $ userError
                                "No file selected!"
 
 -- |Supposed to be used with 'withRows'. Initializes a file copy operation.
@@ -444,7 +444,7 @@ copyInit items@(_:_) mygui _ = do
   popStatusbar mygui
   void $ pushStatusBar mygui sbmsg
 copyInit _ _ _ = withErrorDialog
-                   . throwIO $ InvalidOperation
+                   . ioError $ userError
                                "No file selected!"
 
 
@@ -509,7 +509,7 @@ renameF [item] _ _ = withErrorDialog $ do
       HPath.IO.renameFile (path item)
                           ((P.dirname $ path item) P.</> fn)
 renameF _ _ _ = withErrorDialog
-                  . throwIO $ InvalidOperation
+                  . ioError $ userError
                               "Operation not supported on multiple files"
 
 
@@ -527,7 +527,7 @@ urlGoTo mygui myview = withErrorDialog $ do
   fp <- entryGetText (urlBar myview)
   forM_ (P.parseAbs fp :: Maybe (Path Abs)) $ \fp' ->
       whenM (canOpenDirectory fp')
-            (goDir True mygui myview =<< (readFile getFileInfo $ fp'))
+            (goDir True mygui myview =<< (pathToFile getFileInfo $ fp'))
 
 
 goHome :: MyGUI -> MyView -> IO ()
@@ -535,7 +535,7 @@ goHome mygui myview =  withErrorDialog $ do
   homedir <- home
   forM_ (P.parseAbs homedir :: Maybe (Path Abs)) $ \fp' ->
       whenM (canOpenDirectory fp')
-            (goDir True mygui myview =<< (readFile getFileInfo $ fp'))
+            (goDir True mygui myview =<< (pathToFile getFileInfo $ fp'))
 
 
 -- |Execute a given file.
@@ -543,7 +543,7 @@ execute :: [Item] -> MyGUI -> MyView -> IO ()
 execute [item] _ _ = withErrorDialog $
   void $ executeFile (path item) []
 execute _ _ _ = withErrorDialog
-                  . throwIO $ InvalidOperation
+                  . ioError $ userError
                               "Operation not supported on multiple files"
 
 
@@ -552,7 +552,7 @@ open :: [Item] -> MyGUI -> MyView -> IO ()
 open [item] mygui myview = withErrorDialog $
   case item of
     DirOrSym r -> do
-      nv <- readFile getFileInfo $ path r
+      nv <- pathToFile getFileInfo $ path r
       goDir True mygui myview nv
     r ->
       void $ openFile . path $ r
@@ -582,7 +582,7 @@ goHistoryBack mygui myview = do
   hs <- takeMVar (history myview)
   let nhs = historyBack hs
   putMVar (history myview) nhs
-  nv <- readFile getFileInfo $ currentDir nhs
+  nv <- pathToFile getFileInfo $ currentDir nhs
   goDir False mygui myview nv
   return $ currentDir nhs
 
@@ -593,7 +593,7 @@ goHistoryForward mygui myview = do
   hs <- takeMVar (history myview)
   let nhs = historyForward hs
   putMVar (history myview) nhs
-  nv <- readFile getFileInfo $ currentDir nhs
+  nv <- pathToFile getFileInfo $ currentDir nhs
   goDir False mygui myview nv
   return $ currentDir nhs
 
