@@ -16,6 +16,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 module HSFM.GUI.Gtk.Dialogs where
@@ -54,10 +55,17 @@ import Distribution.Package
   , packageVersion
   , unPackageName
   )
+#if MIN_VERSION_Cabal(2,0,0)
 import Distribution.Version
   (
     showVersion
   )
+#else
+import Data.Version
+  (
+    showVersion
+  )
+#endif
 import Distribution.PackageDescription
   (
     GenericPackageDescription(..)
@@ -65,7 +73,11 @@ import Distribution.PackageDescription
   )
 import Distribution.PackageDescription.Parse
   (
+#if MIN_VERSION_Cabal(2,0,0)
     readGenericPackageDescription,
+#else
+    readPackageDescription,
+#endif
   )
 import Distribution.Verbosity
   (
@@ -192,7 +204,11 @@ showAboutDialog = do
   lstr     <- Prelude.readFile =<< getDataFileName "LICENSE"
   hsfmicon <- pixbufNewFromFile =<< getDataFileName "data/Gtk/icons/hsfm.png"
   pdesc    <- fmap packageDescription
+#if MIN_VERSION_Cabal(2,0,0)
                    (readGenericPackageDescription silent
+#else
+                   (readPackageDescription silent
+#endif
                      =<< getDataFileName "hsfm.cabal")
   set ad
     [ aboutDialogProgramName  := (unPackageName . pkgName . package) pdesc
