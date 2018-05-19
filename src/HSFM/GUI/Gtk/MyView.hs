@@ -411,7 +411,7 @@ constructView mygui myview = do
   -- update model of view
   case view' of
     FMTreeView treeView -> do
-      treeViewSetModel treeView sortedModel'
+      treeViewSetModel treeView (Just sortedModel')
       treeViewSetRubberBanding treeView True
     FMIconView iconView -> do
       iconViewSetModel iconView (Just sortedModel')
