@@ -16,7 +16,6 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 
@@ -27,6 +26,7 @@ import Data.ByteString
   (
     ByteString
   )
+import qualified Data.ByteString.UTF8 as BU
 import Data.Maybe
 import System.Posix.Env.ByteString
 import System.Posix.Process.ByteString
@@ -49,11 +49,11 @@ import System.Posix.Process.ByteString
 terminalCommand :: ByteString  -- ^ current directory of the FM
                 -> IO a
 terminalCommand cwd =
-  executeFile   -- executes the given command
-    "sakura"    -- the terminal command
-    True        -- whether to search PATH
-    ["-d", cwd] -- arguments for the command
-    Nothing     -- optional custom environment: `Just [(String, String)]`
+  executeFile                   -- executes the given command
+    (BU.fromString "sakura")    -- the terminal command
+    True                        -- whether to search PATH
+    [BU.fromString "-d", cwd]   -- arguments for the command
+    Nothing                     -- optional custom environment: `Just [(String, String)]`
 
 
 -- |The home directory. If you want to set it explicitly, you might
@@ -63,5 +63,5 @@ terminalCommand cwd =
 -- home = return "\/home\/wurst"
 -- @
 home :: IO ByteString
-home = fromMaybe <$> return "/" <*> getEnv "HOME"
+home = fromMaybe <$> return (BU.fromString "/") <*> getEnv (BU.fromString "HOME")
 

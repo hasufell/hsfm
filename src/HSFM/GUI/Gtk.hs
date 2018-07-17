@@ -16,17 +16,18 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 module Main where
 
 
+import qualified Data.ByteString as BS
 import Data.Maybe
   (
     fromJust
   , fromMaybe
   )
+import Data.Word8
 import Graphics.UI.Gtk
 import qualified HPath as P
 import HSFM.FileSystem.FileType
@@ -45,15 +46,17 @@ import System.IO.Error
   )
 import qualified System.Posix.Env.ByteString as SPE
 
+slash :: BS.ByteString
+slash = BS.singleton _slash
 
 main :: IO ()
 main = do
   args <- SPE.getArgs
-  let mdir = fromMaybe (fromJust $ P.parseAbs "/")
-                       (P.parseAbs . headDef "/" $ args)
+  let mdir = fromMaybe (fromJust $ P.parseAbs slash)
+                       (P.parseAbs . headDef slash $ args)
 
   file <- catchIOError (pathToFile getFileInfo mdir) $
-    \_ -> pathToFile getFileInfo  . fromJust $ P.parseAbs "/"
+    \_ -> pathToFile getFileInfo  . fromJust $ P.parseAbs slash
 
   _ <- initGUI
   mygui <- createMyGUI

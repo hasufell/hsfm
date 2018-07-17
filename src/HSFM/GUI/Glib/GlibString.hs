@@ -16,7 +16,6 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --}
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_HADDOCK ignore-exports #-}
 
 
@@ -67,7 +66,7 @@ instance GlibString BS.ByteString where
     newUTFStringLen = newUTFStringLen . toString
     genUTFOfs = genUTFOfs . toString
     stringLength = BS.length
-    unPrintf s = BS.intercalate "%%" (BS.split _percent s)
+    unPrintf s = BS.intercalate (BS.pack [_percent, _percent]) (BS.split _percent s)
 
 
 foreign import ccall unsafe "string.h strlen" c_strlen

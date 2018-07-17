@@ -254,9 +254,9 @@ withErrorDialog io =
 
 -- |Asks the user which directory copy mode he wants via dialog popup
 -- and returns 'DirCopyMode'.
-textInputDialog :: GlibString string
-                => string   -- ^ window title
-                -> string   -- ^ initial text in input widget
+textInputDialog :: (GlibString s1, GlibString s2)
+                => s1   -- ^ window title
+                -> s2   -- ^ initial text in input widget
                 -> IO (Maybe String)
 textInputDialog title inittext = do
   chooserDialog <- messageDialogNew Nothing
