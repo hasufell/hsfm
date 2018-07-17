@@ -71,7 +71,11 @@ import Distribution.PackageDescription
     GenericPackageDescription(..)
   , PackageDescription(..)
   )
+#if MIN_VERSION_Cabal(2,2,0)
+import Distribution.PackageDescription.Parsec
+#else
 import Distribution.PackageDescription.Parse
+#endif
   (
 #if MIN_VERSION_Cabal(2,0,0)
     readGenericPackageDescription,
