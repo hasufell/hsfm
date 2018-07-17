@@ -7,3 +7,5 @@ cabal.sandbox.config
 *.old
 .liquid/
 3rdparty/hpath
+.stack-work/
+dist-newstyle/
