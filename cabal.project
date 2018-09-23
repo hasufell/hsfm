@@ -1,0 +1,8 @@
+with-compiler: ghc-8.4.3
+
+packages: .
+
+optimization: 2
+
+package *
+    optimization: 2
