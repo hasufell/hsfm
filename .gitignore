@@ -11,3 +11,5 @@ cabal.sandbox.config
 dist-newstyle/
 dist/
 hscope.out
+.ghcup
+/bin/

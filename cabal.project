@@ -1,4 +1,4 @@
-with-compiler: ghc-8.6.4
+with-compiler: ghc-8.6.5
 
 packages: .
 
@@ -6,3 +6,5 @@ optimization: 2
 
 package *
     optimization: 2
+
+index-state: 2020-01-24T20:23:40Z

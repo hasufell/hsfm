@@ -47,7 +47,7 @@ import HPath
   (
     Path
   , Abs
-  , Fn
+  , Rel
   )
 
 
@@ -79,5 +79,5 @@ data FCollisonMode = Strict  -- ^ fail if the target already exists
                    | Overwrite
                    | OverwriteAll
                    | Skip
-                   | Rename (Path Fn)
+                   | Rename (Path Rel)
 

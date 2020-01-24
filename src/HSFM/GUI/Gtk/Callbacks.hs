@@ -478,7 +478,7 @@ operationFinal mygui myview mitem = withErrorDialog $ do
 newFile :: MyGUI -> MyView -> IO ()
 newFile _ myview = withErrorDialog $ do
   mfn   <- textInputDialog "Enter file name" ("" :: String)
-  let pmfn = P.parseFn =<< fromString <$> mfn
+  let pmfn = P.parseRel =<< fromString <$> mfn
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
     createRegularFile newFilePerms (path cdir P.</> fn)
@@ -488,7 +488,7 @@ newFile _ myview = withErrorDialog $ do
 newDir :: MyGUI -> MyView -> IO ()
 newDir _ myview = withErrorDialog $ do
   mfn   <- textInputDialog "Enter directory name" ("" :: String)
-  let pmfn = P.parseFn =<< fromString <$> mfn
+  let pmfn = P.parseRel =<< fromString <$> mfn
   for_ pmfn $ \fn -> do
     cdir  <- getCurrentDir myview
     createDir newDirPerms (path cdir P.</> fn)
@@ -498,7 +498,7 @@ renameF :: [Item] -> MyGUI -> MyView -> IO ()
 renameF [item] _ _ = withErrorDialog $ do
   iname <- P.fromRel <$> (P.basename $ path item)
   mfn  <- textInputDialog "Enter new file name" (iname :: ByteString)
-  let pmfn = P.parseFn =<< fromString <$> mfn
+  let pmfn = P.parseRel =<< fromString <$> mfn
   for_ pmfn $ \fn -> do
     let cmsg = "Really rename \"" ++ getFPasStr item
                ++ "\"" ++ " to \""

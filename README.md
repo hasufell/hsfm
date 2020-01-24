@@ -22,11 +22,7 @@ Installation
 ------------
 
 ```
-cabal sandbox init
-cabal install alex happy
-export PATH="$(pwd)/.cabal-sandbox/bin:$PATH"
-cabal install gtk2hs-buildtools
-cabal install
+./install.sh
 ```
 
 

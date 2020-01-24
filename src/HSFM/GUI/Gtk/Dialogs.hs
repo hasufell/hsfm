@@ -171,7 +171,7 @@ fileCollisionDialog t = do
     ResponseUser 4 -> do
       mfn   <- textInputDialog (fromString "Enter new name") (takeFileName t)
       forM mfn $ \fn -> do
-        pfn <- P.parseFn (fromString fn)
+        pfn <- P.parseRel (fromString fn)
         return $ Rename pfn
     _              -> throwIO UnknownDialogButton
 
@@ -196,7 +196,7 @@ renameDialog t = do
     ResponseUser 2 -> do
       mfn   <- textInputDialog (fromString "Enter new name") (takeFileName t)
       forM mfn $ \fn -> do
-        pfn <- P.parseFn (fromString fn)
+        pfn <- P.parseRel (fromString fn)
         return $ Rename pfn
     _              -> throwIO UnknownDialogButton
 
